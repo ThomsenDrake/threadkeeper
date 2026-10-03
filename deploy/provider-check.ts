@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { installDirectProviderObserver, summarizeProviderObservations } from './direct-provider-observer.mjs';
 import {
   createProvider,
   embeddingConfigFromEnv,
@@ -11,9 +12,14 @@ import {
 // sent. This script reports measured checks; it never switches model IDs.
 const provider = createProvider();
 const checks: Array<Record<string, unknown>> = [];
+const embeddingConfig = embeddingConfigFromEnv();
+const observer = installDirectProviderObserver({ baseUrls: [provider.config.baseUrl, ...(embeddingConfig ? [embeddingConfig.baseUrl] : [])],
+  models: [provider.config.modelId, ...(embeddingConfig ? [embeddingConfig.modelId] : [])] });
+let extractionObservation: Record<string, unknown> | undefined;
 
 async function check(name: string, run: () => Promise<Record<string, unknown>>) {
   const start = performance.now();
+  const attemptStart = observer.records.length;
   try {
     checks.push({ check: name, status: 'passed', ...(await run()), elapsed_ms: Math.round(performance.now() - start) });
   } catch (error) {
@@ -21,9 +27,11 @@ async function check(name: string, run: () => Promise<Record<string, unknown>>) 
       check: name, status: 'failed',
       reason: error instanceof ProviderError ? error.code : 'check_failed',
       ...(error instanceof ProviderError && error.status ? { http_status: error.status } : {}),
+      ...(name === 'source_backed_extraction' && extractionObservation ? { extraction: extractionObservation } : {}),
       elapsed_ms: Math.round(performance.now() - start),
     });
   }
+  checks[checks.length - 1].provider_attempts = observer.records.slice(attemptStart);
 }
 
 await check('model_available', async () => {
@@ -95,13 +103,17 @@ if (process.env.PROVIDER_CHECK_SCHEMA === 'true') {
 
 await check('source_backed_extraction', async () => {
   const result = await provider.extract({ events: [syntheticEvent], project_id: 'lumen-demo', subject: 'self' });
+  extractionObservation = {
+    memories: result.memories, usage: result.usage,
+    expected_deadline: result.memories.some(memory => /October 20|2026-10-20/i.test(memory.statement)),
+    expected_preference: result.memories.some(memory => memory.kind === 'preference' && /short paragraphs/i.test(memory.statement)),
+  };
   if (!result.memories.length) throw new ProviderError('extraction_missing_expected_memories');
   if (!result.memories.some(memory => /October 20|2026-10-20/i.test(memory.statement))) throw new ProviderError('extraction_missing_deadline');
   if (!result.memories.some(memory => memory.kind === 'preference' && /short paragraphs/i.test(memory.statement))) throw new ProviderError('extraction_missing_preference');
-  return { model: result.model, memory_count: result.memories.length, validated_evidence: true, usage: result.usage };
+  return { model: result.model, memory_count: result.memories.length, validated_evidence: true, usage: result.usage, extraction: extractionObservation };
 });
 
-const embeddingConfig = embeddingConfigFromEnv();
 if (embeddingConfig) {
   await check('embeddings', async () => {
     const result = await new OpenAICompatibleEmbeddingProvider(embeddingConfig).embed(['The synthetic deadline is October 20, 2026.', 'The synthetic writing preference is short paragraphs.']);
@@ -109,5 +121,10 @@ if (embeddingConfig) {
   });
 } else checks.push({ check: 'embeddings', status: 'skipped', reason: 'EMBEDDING_MODEL_not_configured' });
 
-console.info(JSON.stringify({ schema_version: 'threadkeeper.provider-check.v1', model: provider.config.modelId, checks }, null, 2));
-if (checks.some(check => check.status === 'failed' && check.check !== 'json_schema')) process.exitCode = 1;
+observer.restore();
+console.info(JSON.stringify({ schema_version: 'threadkeeper.provider-check.v1', measured_at: new Date().toISOString(),
+  model: provider.config.modelId, transport: 'direct_operator_http_provider', reasoning_effort: provider.config.reasoningEffort ?? null,
+  checks, provider_accounting: summarizeProviderObservations(observer.records), observation_errors: observer.errors,
+  timing: 'Each attempt measures direct fetch through complete response-body observation; each check also includes validation.',
+}, null, 2));
+if (observer.errors.length || checks.some(check => check.status === 'failed' && check.check !== 'json_schema')) process.exitCode = 1;

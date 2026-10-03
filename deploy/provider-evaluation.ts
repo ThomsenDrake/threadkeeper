@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { installDirectProviderObserver, summarizeProviderObservations } from './direct-provider-observer.mjs';
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -45,6 +46,7 @@ let relay: Server | undefined;
 let databaseResource: Awaited<ReturnType<typeof createTestDatabase>> | undefined;
 let appServer: Server | undefined;
 const clients: Client[] = [];
+let observer: ReturnType<typeof installDirectProviderObserver> | undefined;
 try {
 const config = providerConfigFromEnv();
 if (mode !== '--live') {
@@ -90,6 +92,7 @@ if (mode !== '--live') {
   config.maxOutputTokens = 4096;
 }
 const provider = new OpenAICompatibleProvider(config);
+if (mode === '--live') observer = installDirectProviderObserver({ baseUrl: config.baseUrl, models: [config.modelId] });
 const database = databaseResource = await createTestDatabase();
   await bootstrap(database.db, 'provider-evaluation@example.invalid', 'synthetic-provider-password-123');
   appServer = createServer();
@@ -124,6 +127,7 @@ const database = databaseResource = await createTestDatabase();
   for (const item of evaluationCorpus) {
     currentCase = item; attempts = []; replayOffset = 0;
     const start = performance.now();
+    const attemptStart = observer?.records.length ?? 0;
     const project = `synthetic-evaluation-${item.id}`;
     const captured = await a.callTool({ name: 'context_capture', arguments: { idempotency_key: `synthetic-evaluation-${item.id}`, project_id: project, subject: 'self', events: item.events } });
     assert.equal(captured.isError, undefined);
@@ -158,6 +162,7 @@ const database = databaseResource = await createTestDatabase();
     const sourceById = new Map(sourceRows.map(source => [source.id, source]));
     const exactEvidence = canonical.every(memory => memory.evidence.length === 1 && memory.evidence.every((evidence: any) => sourceById.get(evidence.source_id)?.text.includes(evidence.quote)));
     output.push({ id: item.id, job_status: job.status, accepted: job.accepted,
+      ...(observer ? { provider_attempts: observer.records.slice(attemptStart) } : {}),
       usage: 'usage' in job ? job.usage : undefined, expectations: checks, forbidden_matches: forbidden,
       empty_expected: item.empty ?? false, exact_evidence: exactEvidence, independent_http_mcp_recall: true,
       memories: canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status, effective_at: memory.effective_at, evidence: memory.evidence.map((evidence: any) => ({ event_id: sourceById.get(evidence.source_id)?.event_id, quote: evidence.quote })) })),
@@ -184,10 +189,14 @@ const database = databaseResource = await createTestDatabase();
     schema_version: 'threadkeeper.provider-evaluation.v1', measured_at: new Date().toISOString(), model: provider.config.modelId,
     transport: mode === '--replay' ? 'recorded_learned_executor_responses_over_local_http_adapter' : 'direct_operator_http_provider',
     database: database.backend, cases: output, central_lifecycle: lifecycle,
+    reasoning_effort: provider.config.reasoningEffort ?? null,
+    ...(observer ? { provider_accounting: summarizeProviderObservations(observer.records), observation_errors: observer.errors,
+      provider_timing: 'Each attempt measures direct fetch through complete response-body observation; case times also include capture/admission/recall.' } : {}),
     limits: ['Small fixed synthetic corpus; rubric matching is not a broad semantic quality estimate.', 'Replay timing measures local admission/recall; original inference latency belongs to the recording.', 'Independent SDK transports are not installed chatbot hosts.', 'No GPU, native container, deployment, or provider credential export.'],
   }, null, 2));
-  if (mode !== '--requests' && (output.some(item => !item.rubric_passed) || lifecycle.status !== 'passed')) process.exitCode = 1;
+  if (mode !== '--requests' && (observer?.errors.length || output.some(item => !item.rubric_passed) || lifecycle.status !== 'passed')) process.exitCode = 1;
 } finally {
+  observer?.restore();
   const cleanup = await Promise.allSettled([
     ...clients.map(client => client.close()),
     ...[appServer, relay].filter((server): server is Server => Boolean(server?.listening)).map(async server => {
