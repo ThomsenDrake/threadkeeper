@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-10-03T16:02:31.608Z",
+  "recorded_at": "2026-10-03T16:17:33.656Z",
   "result": "PASS",
   "host": "codex-cli 0.159.0-alpha.3",
   "node": "24.19.0",
@@ -18,12 +18,27 @@
   ],
   "model_endpoint_requests": 0,
   "cleanup": "Both Codex app-servers, localhost HTTP services, database and temporary homes/credentials removed.",
-  "harness_sha256": "2bd99159ecd9d85b559a9e3d060e3db25f36912c35100ca5dd244025e9f2ed6a",
+  "harness_sha256": "5d8f0964c3e5fdb805b3b8c63b6d985ee76bf238213d37a7f524271a7a807f85",
+  "process_exit_code": 0,
+  "acceptance_authority": "Exit status 0 establishes completed acceptance. PASS stdout remains provisional until process exit.",
   "failure_cleanup_checks": [
     "SIGTERM-ignoring version command killed and awaited before home cleanup",
     "SIGTERM-ignoring MCP-add command killed and awaited before home cleanup",
     "30-second command timeout plus five-second SIGKILL escalation removes command and home",
     "SIGINT during finally cleanup exits nonzero, emits no PASS, preserves prior evidence and removes disposable resources",
-    "SIGTERM during finally cleanup exits nonzero, emits no PASS, preserves prior evidence and removes disposable resources"
-  ]
+    "SIGTERM during finally cleanup exits nonzero, emits no PASS, preserves prior evidence and removes disposable resources",
+    "SIGINT during synchronous atomic-rename finalization, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during synchronous atomic-rename finalization, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT during synchronous atomic-rename finalization, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during synchronous atomic-rename finalization, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT during stdout backpressure/drain, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during stdout backpressure/drain, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT during stdout backpressure/drain, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during stdout backpressure/drain, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT with a real undrained 1 MB stdout pipe, existing artifact restored: exit 1 before consumer reads, artifact rollback and journal cleanup",
+    "SIGTERM with a real undrained 1 MB stdout pipe, existing artifact restored: exit 1 before consumer reads, artifact rollback and journal cleanup",
+    "SIGINT with a real undrained 1 MB stdout pipe, new artifact removed: exit 1 before consumer reads, artifact rollback and journal cleanup",
+    "SIGTERM with a real undrained 1 MB stdout pipe, new artifact removed: exit 1 before consumer reads, artifact rollback and journal cleanup"
+  ],
+  "stdout_control_observation": "Without forced exit after publication, an interrupted real pipe write kept the process alive until the consumer read. Forced exit occurs only after all application resources have been cleaned."
 }

@@ -92,6 +92,8 @@ node --import tsx deploy/installed-codex-check.ts
 
 The check creates two isolated temporary Codex homes, separate synthetic credentials, a fresh in-memory PGlite API and ephemeral host threads. It invokes the actual Codex app-server `mcpServer/tool/call` route with explicit arguments and checks scoped capture/recall, original evidence, owner correction/forgetting, pause/resume and revocation. No model turn is submitted; any request to its configured localhost model endpoint fails the check. It removes its hosts, HTTP services, database and temporary credentials afterward. It does not install Codex or alter your existing Codex configuration. `THREADKEEPER_CODEX_BINARY` can select an existing binary, and `--output <path>` saves sanitized evidence.
 
+Only exit status **0** establishes completed acceptance. PASS on stdout remains provisional until the process exits. A handled SIGINT or SIGTERM fails the run and restores earlier `--output` evidence, or removes a newly created artifact; a private rollback journal is retained until natural exit and then removed.
+
 The recorded [installed-host evidence](measurements/codex-host-qa.json) identifies the actual version and run. This is transport and explicit host invocation validation, not a learned model choosing when or what to capture. It does not establish installed ChatGPT/Claude behavior or semantic quality.
 
 ## First authorized capture and recall

@@ -3,11 +3,12 @@
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { renameSync } from 'node:fs';
+import { copyFileSync, renameSync, rmSync, unlinkSync } from 'node:fs';
+import { once } from 'node:events';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { createTestDatabase } from '../tests/helpers.ts';
 import { createApp } from '../apps/api/src/app.ts';
@@ -23,8 +24,30 @@ const redact = (text: string) => secrets.reduce((result, secret) => result.repla
 const cancellation = new AbortController();
 const hosts: CodexHost[] = [];
 const commands = new Set<() => Promise<void>>();
+let publication: { directory: string; output: string; backup?: string; published: boolean } | undefined;
+let publishingOutput = false;
+function rollbackEvidence() {
+  if (!publication?.published) return;
+  try {
+    if (publication.backup) renameSync(publication.backup, publication.output);
+    else unlinkSync(publication.output);
+    publication.published = false;
+  } catch (error) {
+    process.exitCode = 1;
+    console.error(redact(`Evidence rollback failed; private journal retained at ${publication.directory}: ${error instanceof Error ? error.message : 'unknown error'}`));
+  }
+}
 const interrupt = () => {
+  process.exitCode = 1;
   cancellation.abort();
+  rollbackEvidence();
+  if (publishingOutput) {
+    // All application resources are already closed. A pipe write can remain
+    // pending even after destroy(), so do not wait for an absent consumer.
+    process.stdout.destroy();
+    try { process.stderr.write('FAIL: Host check interrupted\n'); } catch { /* exit status remains authoritative */ }
+    process.exit(1);
+  }
   for (const stop of commands) void stop();
   for (const host of hosts) host.process.kill('SIGTERM');
 };
@@ -33,6 +56,17 @@ const assertNotInterrupted = () => {
 };
 process.on('SIGINT', interrupt);
 process.on('SIGTERM', interrupt);
+process.stdout.on('error', interrupt);
+// Signal callbacks can be queued by synchronous publication/stdout work. Keep
+// handlers and the previous artifact until natural exit, not promise settlement.
+process.on('exit', code => {
+  if (code !== 0 || cancellation.signal.aborted) rollbackEvidence();
+  if (publication && (!publication.published || (code === 0 && !cancellation.signal.aborted))) {
+    try { rmSync(publication.directory, { recursive: true, force: true }); }
+    catch { process.exitCode = 1; rollbackEvidence(); console.error('Private evidence journal cleanup failed'); }
+  }
+});
+const nextEventLoopTurn = () => new Promise<void>(resolveTurn => setImmediate(resolveTurn));
 
 // No inherited provider credentials or user Codex configuration reach the host.
 // Preserve managed proxy/CA settings; every configured endpoint is localhost.
@@ -325,25 +359,32 @@ async function main() {
   assert(redact(json) === json, 'Sanitized evidence must contain no generated credential');
   if (outputIndex !== -1) {
     const output = resolve(process.argv[outputIndex + 1]);
-    const staged = `${output}.${randomBytes(8).toString('hex')}.tmp`;
-    let committed = false;
-    try {
-      await writeFile(staged, json, { mode: 0o600, signal: cancellation.signal });
-      assertNotInterrupted();
-      // No asynchronous gap between the final cancellation check, atomic
-      // evidence publication and PASS output. Interrupted writes retain the
-      // previous evidence and remove their incomplete staged file.
-      renameSync(staged, output);
-      committed = true;
-      console.info(json);
-    } finally {
-      if (!committed) await rm(staged, { force: true });
-    }
-  } else {
+    const directory = await mkdtemp(resolve(dirname(output), '.threadkeeper-evidence-'));
+    publication = { directory, output, published: false };
     assertNotInterrupted();
-    console.info(json);
+    const backup = resolve(directory, 'previous.json');
+    try { copyFileSync(output, backup); publication.backup = backup; }
+    catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+    }
+    const staged = resolve(directory, 'current.json');
+    await writeFile(staged, json, { mode: 0o600, signal: cancellation.signal });
+    assertNotInterrupted();
+    renameSync(staged, output);
+    publication.published = true;
   }
+  await nextEventLoopTurn();
+  assertNotInterrupted();
+  // Output may already contain PASS when a later signal is handled. Exit status
+  // is authoritative; a cancelled run rolls its output artifact back until exit.
+  publishingOutput = true;
+  if (!process.stdout.write(json)) await once(process.stdout, 'drain', { signal: cancellation.signal });
+  await nextEventLoopTurn();
+  assertNotInterrupted();
 }
 
-await main().catch(error => { console.error(redact(`FAIL: ${error instanceof Error ? error.message : 'Installed Codex host check failed'}`)); process.exitCode = 1; })
-  .finally(() => { process.off('SIGINT', interrupt); process.off('SIGTERM', interrupt); });
+await main().catch(error => {
+  process.exitCode = 1;
+  rollbackEvidence();
+  console.error(redact(`FAIL: ${error instanceof Error ? error.message : 'Installed Codex host check failed'}`));
+});
