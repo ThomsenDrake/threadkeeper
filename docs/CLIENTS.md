@@ -12,13 +12,13 @@ MCP clients decide when to invoke capture and recall. Threadkeeper stores and re
 
 Client-specific configuration varies. The tested clients are two independent official TypeScript SDK instances using Streamable HTTP and modern protocol negotiation. No installed chatbot or coding-agent host is claimed as tested yet. Some clients cannot send arbitrary headers and will require a supported authentication flow before integration.
 
-Revocation blocks future requests with the credential. It retains previously captured memory and cannot remove copies already delivered to the client's conversation. Owner-only corrections, deletion, full export/import and grant management are performed through the signed-in profile rather than default agent tools.
+Revocation blocks future requests with the credential. Authorization is checked when a request is admitted; revocation does not cancel an already running request, including an in-flight query-embedding call. It retains previously captured memory and cannot remove copies already delivered to the client's conversation. Owner-only corrections, deletion, full export/import and grant management are performed through the signed-in profile rather than default agent tools.
 
 ## Tools
 
 | Tool | Inputs and result |
 | --- | --- |
-| `context_search` | Natural-language `query`, optional `project_id`, `subject`, `source`, `status`, `limit` (1–100). Defaults to active records. Returns memories, evidence, snapshot version and retrieval coverage. Current retrieval is lexical; `semantic_search` reports `not_enabled`. |
+| `context_search` | Natural-language `query`, optional `project_id`, `subject`, `source`, `status`, `limit` (1–100). Defaults to active records. Returns memories, evidence, snapshot version and retrieval coverage. Retrieval is lexical by default, or optional hybrid lexical/vector when configured. `coverage.semantic_search` reports enabled/fallback state; see [retrieval](RETRIEVAL.md). |
 | `context_capture` | Stable `idempotency_key`, scope, source `events`, optional `explicit_memories`. Returns durable capture/source IDs, complete/pending state and a job ID when extraction is queued. |
 | `context_get_source` | `source_id`. Returns authorized original evidence, author role, capture method and dates. |
 

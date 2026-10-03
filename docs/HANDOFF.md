@@ -1,83 +1,89 @@
-# Local Codex handoff
+# Threadkeeper handoff
 
-## Current state
+## Current state — 2026-10-03 Cloud task
 
-This is a new local TypeScript starter created after the workspace contained no existing implementation. A remote repository implementation was not available through the exposed development tools. No publication, deployment, paid provisioning or DNS changes occurred. The existing domain/Cloudflare migration is separate user-reported work.
+Continued the private `ThomsenDrake/threadkeeper` repository from fetched `origin/main` commit `5ef67d5` on branch `codex/hybrid-recall`. Read AGENTS.md, README.md, MVP_BRIEF.md, DECISIONS.md, this handoff and CODEX_CLOUD.md, then inspected the provider, database, worker and API implementation before changing behavior. Threadkeeper remains a portable personal-context service for existing clients. No deployment, DNS change, paid provisioning or public release occurred.
 
-The slice contains React profile, Node HTTP/OpenAPI and MCP service, local owner authentication, scoped/revocable clients, PostgreSQL memory lifecycle and a small extraction worker. Nemotron is the dedicated memory model. Threadkeeper remains focused on personal context.
+Optional hybrid recall is now connected to the existing OpenAI-compatible provider adapter and PostgreSQL memory layer. Full-text/substring retrieval remains the default without embedding configuration. The API, worker and `pnpm reindex` accept configurable hosted or keyless self-hosted embedding endpoints and require explicit runtime dimensions. See [retrieval setup and limits](RETRIEVAL.md).
 
-Codex Cloud preparation is in `docs/CODEX_CLOUD.md`. The portable install script is `bash scripts/codex-cloud-setup.sh`, using Node.js 24 and pnpm 11.25.0. It runs the credential-free checks and synthetic demo. The private GitHub repository is `ThomsenDrake/threadkeeper`, created on 2026-10-03. No Codex Cloud environment or task has been run.
+Both rankers consume one owner/project/subject/source/status-filtered set of canonical memories. Exact cosine and lexical ranks are merged with reciprocal-rank fusion; no ANN index is created. Results retain current-revision evidence, attribution, inference/candidate labels and correction authority. Embeddings are identified by endpoint, model, dimension and preprocessing version. Database triggers invalidate them on corrections/status changes, and deletion cascades. Worker admission rechecks current state under the owner lock after the provider call, preventing stale in-flight output from restoring corrected or deleted vectors. Imports preserve canonical evidence/history and rebuild embeddings.
 
-A GitGuardian notification was reported after the initial upload. Its exact incident details have not been retrieved. A source review found synthetic demo/test credentials, an explicit replacement placeholder in `.env.example`, and hardcoded localhost PostgreSQL fallbacks in the API and migration entry points. Both fallbacks have been removed: API, worker and migration CLI require operator-provided `DATABASE_URL`. No actual provider credential was found in the committed source. Existing history still contains the original sample fallbacks; this change does not dismiss or resolve the GitGuardian incident.
+## Baseline diagnosis and verification
 
-Validation after removing both fallbacks: `pnpm check` passed typechecking, all 22 tests and the production build; `pnpm demo` passed the correction/deletion and export/import assertions. Direct startup checks confirmed the API and migration CLI exit with `DATABASE_URL is required` before connecting when the variable is absent.
+The Cloud environment ran Node.js **24.19.0** but initially resolved a fallback **pnpm 11.19.0**, despite the repository pin **11.25.0**. The first `pnpm check` and `pnpm demo` passed (22 tests, typecheck, build and original lifecycle). There were no baseline application failures.
 
-## Evidence established during this session
+`corepack enable pnpm` failed with EACCES because the system Node directory was not writable. A task-local shim resolved the mismatch without changing the repository pin:
 
-- Typechecking and the Vite production build passed.
-- Focused core/provider suites passed at the recorded revision; rerun the entire suite after changes rather than relying on a frozen test count.
-- A real HTTP/Streamable MCP transport test used two separate authenticated SDK clients. Both observed profile HTTP correction/deletion, evidence removal, stale-write rejection and credential revocation. Origin rejection was checked.
-- The central deterministic lifecycle and fresh-database export/import are reproducible with `pnpm demo` using PGlite, explicit synthetic entries and core principals.
-- `pnpm dev:demo` starts a disposable synthetic PGlite profile on `http://127.0.0.1:3000`, using `demo@example.invalid` / `threadkeeper-demo-password`. It invokes no inference and retains no data after exit.
-- Authenticated synthetic Nebius checks found the exact Lightning ID, valid JSON-object output, a no-side-effect tool call and two validated extraction records after an effective-time prompt correction. Token counts and failures are recorded in `PROVIDER_VERIFICATION.md`.
-- Qwen embeddings returned 4,096 finite dimensions. No semantic retrieval integration is complete.
-- The recorded live Nemotron extraction response passed the shared application validator and a worker/database replay accepting 2 records and skipping 0. Evidence: `docs/measurements/nebius-extraction.json`. Live inference used the developer's authenticated integration; this was not a direct worker API-key call.
-- Compose YAML parses. Docker is absent in this environment, so container build/run and native PostgreSQL/pgvector checks did not run.
-- Chromium 153 browser verification passed against a disposable PGlite-backed API: local sign-in, separate explicit captures, all four filters, evidence/revisions and capture method, correction/deletion, search, client grants and fresh HTTP recall, JSON export/import, immediate revocation, sign-out and a mobile layout without horizontal overflow. Desktop (1440 × 1000), provenance drawer and mobile (390 × 844) screenshots were visually reviewed. Evidence: `docs/measurements/ui-qa.json`, `profile.png`, `profile-evidence.png` and `profile-mobile.png`. This browser flow does not establish cloud inference, native containers or installed MCP host integrations.
+```sh
+mkdir -p /tmp/threadkeeper-bin
+corepack enable --install-directory /tmp/threadkeeper-bin pnpm
+PATH=/tmp/threadkeeper-bin:$PATH corepack install
+PATH=/tmp/threadkeeper-bin:$PATH pnpm install --frozen-lockfile
+PATH=/tmp/threadkeeper-bin:$PATH pnpm check
+PATH=/tmp/threadkeeper-bin:$PATH pnpm demo
+```
 
-These do not establish live hosting, actual installed chatbot/coding-agent integrations, robust paraphrase reconciliation, local GPU inference, offline operation or feature parity.
+All baseline commands then passed with pnpm **11.25.0**, before feature work. The reusable Cloud Install script/environment configuration was not edited or republished. The runtime network policy is restricted; no provider credentials were configured or required.
 
-## Known implementation limits
+## Actual final results
 
-- Search is PostgreSQL full-text plus substring matching; semantic retrieval and context synthesis remain unfinished.
-- Model reconciliation rejects bad evidence and stale exact statements, but conflict/dedup handling across paraphrases requires measured work.
-- Candidate/inference and assistant-proposal records are distinct. Full review-status workflows and contradiction handling remain limited.
-- Deletion removes whole connected source events and sibling memories. Span-level preservation and an affected-record preview remain future work.
-- Known deletion tombstones block exact replay; arbitrary paraphrase reinstatement is not guaranteed.
-- Existing-client automatic invocation is not tested. MCP SDK test clients are not the actual ChatGPT/Codex host applications.
-- Backup restore deletion reconciliation, a migration ledger, upgrade/recovery procedures and full self-hosted inference/embedding containers still require implementation and execution.
-- There is no client job-status polling or failed-job retry endpoint. Diagnose failed jobs through database metadata and worker logs. The worker can reclaim processing jobs after ten minutes using `started_at`; recovery/retry validation and robust attempt fencing remain unfinished.
-- OSS license is undecided; select it before publishing. Do not add feature gates or mandatory hosted accounts.
+| Check | Observed result |
+| --- | --- |
+| Frozen dependency install | Passed with pnpm 11.25.0; added pinned `@electric-sql/pglite-pgvector@0.0.9` matching PGlite 0.5.8 |
+| `pnpm check` | Passed typechecking, **44 tests**, and Vite production build; 0 failed/skipped |
+| `pnpm demo` | Passed both credential-free full-text and synthetic hybrid lifecycles, each with fresh-database export/import |
+| Synthetic hybrid tests | **13/13 passed** with PGlite pgvector; covers paraphrases, rank fusion/limit/dedup, all scopes/filters, evidence/inference distinctions, fallback, space changes, corrections/deletions, in-flight indexing races, import rebuild and 4096 dimensions |
+| Authenticated hybrid HTTP/MCP | **2/2 passed** using independent SDK clients; nonlexical recall, profile correction/deletion before/after reindex, owner/project/read/capture enforcement and revocation |
+| Provider tests | **16/16 passed**, included in the 44 total; dimensions forwarded/validated, key isolation, keyless endpoint, invalid/zero/float32 geometry and large valid batches |
+| Browser regression | Passed on Chromium **151.0.7922.173**, disposable PGlite and lexical default; sign-in, capture, all filters/search, provenance, correction/deletion, independent scoped HTTP client, export/import, revocation, mobile overflow and sign-out. No browser runtime exceptions. [Evidence](measurements/hybrid-ui-qa.json) |
+| Review/whitespace | Independent correctness review found no remaining actionable code defect; stale current-state documentation was corrected. `git diff --check` passed |
 
-## Next build order
+The central demonstration remains: Client A captures separate deadline/preference source events; Client B recalls both; the owner corrects the deadline and deletes the preference; fresh recall from both clients returns only the corrected deadline. Hybrid tests also assert that stale/deleted vectors disappear immediately, lexical recall exposes the correction before reindexing, and semantic recall exposes it after reindexing. Shared-source inference records are deleted with their supporting preference.
 
-1. Inspect all source and docs, install the locked dependencies and run `pnpm check` and `pnpm demo`. Rerun browser QA after UI/API changes; the recorded synthetic browser flow covers sign-in, capture, all four filters, search, provenance, edit/delete, connection revocation and export/import.
-2. Build/run Compose with private operator secrets, validate native PostgreSQL and optional pgvector setup, and run the central MCP/profile demonstration against that stack.
-3. Rerun the actual extraction/provider checks through `.env`, then run capture without explicit records through the live worker. Record successes/failures and usage accurately.
-4. Test at least two independent installed MCP host integrations with concise recall/capture instructions. Prefer one chatbot and one coding agent. Do not require the original developer's private Executor.
-5. Integrate configurable semantic retrieval and rebuild tooling, verify embedding preprocessing/dimensions, and measure a small synthetic quality corpus before adding optional reranking or extra infrastructure.
-6. Run the full local inference/embedding setup on suitable hardware. Pin the tested model/runtime recipe and demonstrate identical application behavior without Nebius/Threadkeeper credentials or hosted control-plane access.
-7. Implement deletion-aware restore/reimport handling and operational tests. Complete release evaluation, license selection and an authorized public demo/deployment.
+The browser run exercised the unchanged profile UI against the updated API using lexical retrieval. It did not exercise vectors in the browser or perform a new screenshot visual review. SDK transport tests are not installed ChatGPT/Codex host integrations.
 
-## Kickoff prompt
+## Native PostgreSQL/pgvector checks
+
+These checks **ran successfully**, separately from PGlite. Docker's managed local daemon was available. A disposable localhost-only `pgvector/pgvector:pg17` container ran PostgreSQL **17.11** and pgvector **0.8.7**. Image digest:
 
 ```text
-Continue Threadkeeper from this repository. First inspect README.md, docs/HANDOFF.md,
-docs/MVP_BRIEF.md, docs/DECISIONS.md and docs/PROVIDER_VERIFICATION.md, then inspect
-the code. Follow Drake's user-confirmed product requirements from the project brief.
-Run pnpm install --frozen-lockfile, pnpm check and pnpm demo before changing behavior.
-
-Prioritize the complete deadline/preference cross-client lifecycle. Browser QA
-has passed on disposable PGlite; build and run Docker Compose against native PostgreSQL/pgvector. Use only
-synthetic demo data. Read local operator-managed secrets from an ignored .env;
-never ask for secrets in chat or commit them. Rerun actual provider checks and test
-the worker with nvidia/Nemotron-3_5-Lightning. Do not silently replace the model.
-
-SDK clients already exercise server transport, but actual chatbot/coding-agent
-integrations still require validation. Keep MCP capture and recall client-invoked.
-Integrate semantic retrieval only with verified embeddings, preprocessing and
-dimensions. Complete a pinned and measured local inference/embedding deployment
-and demonstrate feature parity without Nebius or Threadkeeper accounts.
-
-Implement deletion-aware restore and operational tooling. Keep source evidence
-separate from interpretation, scoped authorization in code, versioned user
-corrections authoritative and deletions effective in fresh recall. Deletion is
-currently conservative at whole connected source-event granularity; do not claim
-fine-grained or semantic guarantees that are not implemented and tested.
-
-Keep the product a personal-context service, not an assistant or task manager.
-No feature gates, mandatory hosted control plane or private Executor dependency.
-Update the handoff with what actually ran, passed and remains blocked. A license
-must be chosen before publication. Do not alter DNS or deploy without a concrete
-authorized deployment task.
+sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
 ```
+
+- Existing and new migrations applied successfully, including rerunning the new setup.
+- The hybrid test command passed **13/13**: 12 vector-enabled cases used native PostgreSQL; the explicit no-extension fallback intentionally remained PGlite.
+- Both new HTTP/MCP tests passed against native PostgreSQL (**2/2**).
+- `pnpm demo` with `THREADKEEPER_NATIVE_TEST_URL` passed native hybrid lifecycle/export/import; its full-text half intentionally remained the credential-free PGlite baseline.
+- The actual environment-driven `deploy/reindex.ts` CLI worked with native storage and a temporary localhost OpenAI-compatible HTTP fixture through the real adapter: first run indexed 1 synthetic memory, identical rerun indexed 0, changed model alias rebuilt 1, and hybrid recall returned the expected source-backed preference. Requests supplied the configured model/dimension and omitted Authorization for the keyless endpoint. This was synthetic HTTP validation, not learned-model inference.
+- Exact vector storage/cosine succeeded at **3, 2000, 2001, 4096 and 16000** dimensions. Both HNSW and IVFFlat `vector_cosine_ops` indexes succeeded through 2000 and rejected 2001/4096/16000 with SQLSTATE `54000`. `vector(16001)` rejected with `22023`.
+- Native inspection found finite float32 vectors could still produce NaN cosine scores through norm overflow/underflow. Stable unit normalization and a finite similarity gate fixed this; extreme-vector and legacy-invalid-score regressions passed.
+
+Native tests use explicit `THREADKEEPER_NATIVE_TEST_URL`, require pgvector installed in `public`, and create/drop isolated synthetic schemas. Never use an operator/production database. The disposable database container, temporary HTTP fixture, synthetic rows, browser and profile service were stopped/removed after checks. No persistent test service remains.
+
+**Native checks not run:** full Threadkeeper application image build/Compose API+worker startup, production upgrade/rollback/backup-restore, sustained load/ANN benchmarks and non-container/native-host packaging. These were not blocked by a missing database; they remain separate validation scope. No learned local/GPU embedding or inference server, real external-provider hybrid retrieval, or installed MCP host was tested in this task.
+
+## Remaining limits and next work
+
+- Exact vector ranking scans eligible rows; no large-archive latency/throughput measurement or ANN index selection is claimed. The cosine threshold 0.3 and RRF parameters are initial heuristics.
+- Synthetic geometry proves integration and lifecycle behavior, not semantic quality. Measure the chosen provider's dimensions, preprocessing/instruction prefixes, recall quality, token usage and latency before selecting it for real data. The implementation sends raw statement/query text and stores unit vectors.
+- Indexing is eventual. Corrected content is immediately searchable lexically and semantically searchable after reindex. Coverage says whether the query path ran, not whether all eligible records have been indexed.
+- One configured vector space is stored per memory. Keep API/worker/reindex settings aligned and stop workers with old settings before switching. Use versioned model aliases when changing server weights; a changed model behind an identical alias is undetectable. Restart after extension/schema changes because capability checks are cached.
+- Embedding workers have no durable per-record retry ledger or attempt leases. Multiple workers can duplicate provider work; a malformed batch can block later indexing until corrected. Transactional admission still prevents stale/deleted writes. Provider failure leaves full-text recall available.
+- Revocation blocks subsequent requests; an already-authorized request waiting for its embedding provider retains its permission snapshot. Previously delivered client context and provider-retained copies are outside active-store deletion.
+- Model reconciliation rejects invalid evidence and exact obsolete statements; paraphrase conflict/dedup/reinstatement remains incomplete. Inference/proposal review and contradiction workflows remain limited.
+- Deletion intentionally removes whole connected source events and sibling memories. Span-level preservation and an affected-record preview remain future work. No summaries/retrieval cache are generated in this slice.
+- Backup restore deletion reconciliation, a migration ledger, rollback/recovery procedures, extraction attempt fencing and job retry/status endpoints remain unfinished. See [portability](PORTABILITY.md).
+- Full self-hosted GPU inference/embedding feature parity and installed chatbot/coding-agent integrations remain release gates. No hosted account, feature gate, license check or telemetry requirement was added.
+- OSS license remains undecided; choose one before public release. A previously reported GitGuardian notification has not been resolved by this work; original hardcoded localhost DB fallbacks were removed on main, but their historical incident details were not retrieved.
+
+Next increment should measure real embedding preprocessing/quality with synthetic data, validate the full application containers and actual installed MCP hosts, then address operational retry/restore gaps. Preserve explicit client-invoked capture/recall, authoritative profile corrections and deletion behavior. Rerun the checks/demo and relevant native/browser tests after behavioral changes; record results instead of treating configuration as proof.
+
+## Review follow-up — 2026-10-03
+
+The requested GitHub `@codex review` of `88ac4d4` completed with no findings. A parallel local review found that the embedding adapter discarded an explicit response model identity and always reported the configured model. Same-dimensional vectors from a detectably different model could therefore enter the configured space.
+
+The adapter now rejects an explicit different model (`embedding_model_mismatch`) and malformed identities before accepting vectors. Matching identities and endpoints that omit the optional field remain supported. Two regressions exercise substitution, recovery, omission and malformed values. `pnpm check` passed all **44 tests**, typechecking and build, and `pnpm demo` passed both full-text and hybrid lifecycle/export-import paths after this fix. These updates are submitted for another GitHub Codex review. Native database and browser checks above belong to the original hybrid commit; they were not rerun for this provider-response validation change.
+
+## Earlier evidence retained
+
+Prior live synthetic Nemotron/embedding observations are recorded in [PROVIDER_VERIFICATION.md](PROVIDER_VERIFICATION.md) and [nebius-extraction.json](measurements/nebius-extraction.json). They established the exact Nemotron ID, JSON-object output, a no-side-effect tool call, two source-backed extraction records and a 4096-dimensional Qwen response through the developer's authenticated integration. They are historical evidence, not new API-key worker or hybrid-quality checks from this Cloud task. Earlier Chromium 153 visual screenshots remain in [ui-qa.json](measurements/ui-qa.json); the new browser regression evidence is separate.

@@ -59,7 +59,9 @@ function positiveInteger(value: string | undefined, fallback: number, maximum: n
 }
 
 function baseUrl(value: string): string {
-  const parsed = new URL(value);
+  let parsed: URL;
+  try { parsed = new URL(value); }
+  catch { throw new Error('Provider base URL must be a valid HTTP(S) URL'); }
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) {
     throw new Error('Provider base URL must be HTTP(S) without embedded credentials, query, or fragment');
   }
@@ -82,8 +84,8 @@ export function providerConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Pro
   };
 }
 
-// No embedding model is silently selected. Enable semantic retrieval only after
-// measuring the configured endpoint's vector length and preprocessing behavior.
+// No embedding model is silently selected. The probe can measure dimensions;
+// application startup additionally requires an explicit dimension below.
 export function embeddingConfigFromEnv(env: NodeJS.ProcessEnv = process.env): EmbeddingConfig | null {
   if (!env.EMBEDDING_MODEL) return null;
   const modelConfig = providerConfigFromEnv(env);
@@ -94,7 +96,7 @@ export function embeddingConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Em
     apiKey: env.EMBEDDING_API_KEY || (sameEndpoint ? modelConfig.apiKey : undefined),
     modelId: env.EMBEDDING_MODEL,
     timeoutMs: positiveInteger(env.EMBEDDING_TIMEOUT_MS, 60_000, 300_000),
-    ...(env.EMBEDDING_DIMENSIONS ? { dimensions: positiveInteger(env.EMBEDDING_DIMENSIONS, 1, 65_536) } : {}),
+    ...(env.EMBEDDING_DIMENSIONS ? { dimensions: positiveInteger(env.EMBEDDING_DIMENSIONS, 1, 16_000) } : {}),
   };
 }
 
@@ -180,7 +182,7 @@ function addUsage(left?: TokenUsage, right?: TokenUsage): TokenUsage | undefined
   return result;
 }
 
-async function requestJson(config: { baseUrl: string; apiKey?: string; timeoutMs: number }, path: string, body?: unknown): Promise<unknown> {
+async function requestJson(config: { baseUrl: string; apiKey?: string; timeoutMs: number }, path: string, body?: unknown, maximumResponseCharacters = 2_000_000): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(new URL(path, config.baseUrl), {
@@ -204,7 +206,7 @@ async function requestJson(config: { baseUrl: string; apiKey?: string; timeoutMs
   }
   let text: string;
   try { text = await response.text(); } catch { throw new ProviderError('provider_response_interrupted'); }
-  if (text.length > 2_000_000) throw new ProviderError('provider_response_too_large');
+  if (text.length > maximumResponseCharacters) throw new ProviderError('provider_response_too_large');
   try { return JSON.parse(text); } catch { throw new ProviderError('provider_invalid_json_response'); }
 }
 
@@ -336,26 +338,53 @@ export function createProvider(env: NodeJS.ProcessEnv = process.env): OpenAIComp
 export class OpenAICompatibleEmbeddingProvider {
   private measuredDimensions: number | undefined;
   constructor(public readonly config: EmbeddingConfig) {
+    if (config.dimensions !== undefined && (!Number.isSafeInteger(config.dimensions) || config.dimensions < 1 || config.dimensions > 16_000)) {
+      throw new ProviderError('embedding_invalid_dimensions');
+    }
     this.measuredDimensions = config.dimensions;
   }
 
   async embed(texts: string[]): Promise<{ vectors: number[][]; dimensions: number; model: string; usage?: TokenUsage }> {
     if (!texts.length || texts.length > 64 || texts.some(text => !text || text.length > 16_000)) throw new ProviderError('embedding_input_outside_bounds');
     const result = z.object({
-      data: z.array(z.object({ index: z.number().int().nonnegative(), embedding: z.array(z.number().finite()).min(1) })),
+      model: z.string().min(1).refine(model => model.trim() === model && !/[\u0000-\u001f\u007f]/.test(model)).optional(),
+      data: z.array(z.object({ index: z.number().int().nonnegative(), embedding: z.array(z.number().finite()).min(1).max(16_000) })),
       usage: UsageSchema.optional(),
-    }).safeParse(await requestJson(this.config, 'embeddings', { model: this.config.modelId, input: texts, encoding_format: 'float' }));
+    }).safeParse(await requestJson(this.config, 'embeddings', {
+      model: this.config.modelId, input: texts, encoding_format: 'float',
+      ...(this.config.dimensions !== undefined ? { dimensions: this.config.dimensions } : {}),
+    // Bounded by 64 inputs and 16000 dimensions. Large valid batches can exceed
+    // the chat-response cap even when every component is an ordinary float.
+    }, Math.max(2_000_000, texts.length * (this.measuredDimensions ?? 16_000) * 32 + 65_536)));
     if (!result.success || result.data.data.length !== texts.length) throw new ProviderError('embedding_invalid_response');
+    // Some compatible endpoints omit the model identity. An explicit identity
+    // must match exactly; aliases never authorize a different embedding space.
+    if (result.data.model !== undefined && result.data.model !== this.config.modelId) throw new ProviderError('embedding_model_mismatch');
     const ordered = result.data.data.slice().sort((a, b) => a.index - b.index);
     if (ordered.some((row, index) => row.index !== index)) throw new ProviderError('embedding_invalid_indices');
     const dimensions = ordered[0]!.embedding.length;
     if (ordered.some(row => row.embedding.length !== dimensions) || (this.measuredDimensions !== undefined && this.measuredDimensions !== dimensions)) {
       throw new ProviderError('embedding_dimension_mismatch');
     }
+    // pgvector stores float32 components. Validate after conversion as well as
+    // JSON parsing: a finite JS number can overflow or underflow that format.
+    const vectors = ordered.map(row => row.embedding.map(value => {
+      const component = Math.fround(value);
+      if (!Number.isFinite(component) || (value !== 0 && component === 0)) throw new ProviderError('embedding_invalid_component');
+      return component;
+    }));
+    if (vectors.some(vector => vector.every(value => value === 0))) throw new ProviderError('embedding_zero_vector');
     this.measuredDimensions = dimensions;
     return {
-      vectors: ordered.map(row => row.embedding), dimensions, model: this.config.modelId,
+      vectors, dimensions, model: this.config.modelId,
       ...(result.data.usage ? { usage: result.data.usage } : {}),
     };
   }
+}
+
+export function createEmbeddingProvider(env: NodeJS.ProcessEnv = process.env): OpenAICompatibleEmbeddingProvider | undefined {
+  const config = embeddingConfigFromEnv(env);
+  if (!config) return undefined;
+  if (config.dimensions === undefined) throw new Error('EMBEDDING_DIMENSIONS is required when EMBEDDING_MODEL is configured');
+  return new OpenAICompatibleEmbeddingProvider(config);
 }

@@ -13,13 +13,13 @@ This repository is an early MVP hosted privately at [ThomsenDrake/threadkeeper](
 - PostgreSQL source records, evidence links, memories, revisions, jobs and non-content deletion tombstones.
 - Explicit captures and a bounded worker extraction adapter. The Nebius default is `nvidia/Nemotron-3_5-Lightning`.
 - Profile browsing/search, subject/project/source/status filters, provenance, revision-checked correction, deletion, client access and import/export.
-- PostgreSQL full-text search with a substring fallback. **Semantic retrieval is not wired yet.** An embedding adapter and optional vector table are preparation for that work.
+- Credential-free PostgreSQL full-text search with a substring fallback, plus optional hybrid recall through configurable OpenAI-compatible embedding endpoints, including self-hosted servers. See [retrieval setup and limits](docs/RETRIEVAL.md).
 
 The central lifecycle has passed through two independent authenticated MCP SDK clients and profile HTTP operations: capture a deadline and preference, recall from the other client, correct the deadline, delete the preference, then recall the new state from both. This establishes server and transport behavior; installed ChatGPT/Codex or other host integrations still need validation.
 
 The real profile UI also passed a synthetic Chromium 153 browser walkthrough against a disposable PGlite-backed API: sign-in, capture, all four filters, provenance, revision-aware correction/deletion, search, scoped client creation and revocation, export/import and sign-out. Desktop, provenance and mobile screenshots were visually reviewed; see [browser evidence](docs/measurements/ui-qa.json). This browser test did not use inference or a deployed service.
 
-Separate live synthetic calls verified the exact Nemotron model, JSON-object output, a no-side-effect tool call and source-backed extraction. An available Qwen embedding model returned 4,096 finite dimensions. See [provider evidence](docs/PROVIDER_VERIFICATION.md) for failures, token usage and limits. Full local GPU inference, native PostgreSQL/pgvector containers, managed hosting, robust semantic reconciliation and release-quality evaluation remain unverified.
+Separate live synthetic calls verified the exact Nemotron model, JSON-object output, a no-side-effect tool call and source-backed extraction. An available Qwen embedding model returned 4,096 finite dimensions. See [provider evidence](docs/PROVIDER_VERIFICATION.md) for failures, token usage and limits. A disposable native PostgreSQL 17.11/pgvector 0.8.7 database also validated vector dimensions and exact-ranking compatibility during hybrid-recall development. Full application containers, local GPU inference, managed hosting, robust semantic reconciliation and release-quality evaluation remain unverified.
 
 ## Run local checks
 
@@ -31,7 +31,7 @@ pnpm check
 pnpm demo
 ```
 
-`pnpm check` runs typechecking, focused tests and the profile build. The test database is PostgreSQL via PGlite in WebAssembly, not a native PostgreSQL deployment. `pnpm demo` is a deterministic synthetic core walkthrough with explicit captures and a fresh-database export/import. It invokes neither a model nor a browser.
+`pnpm check` runs typechecking, focused tests and the profile build. The test database is PostgreSQL via PGlite in WebAssembly, not a native PostgreSQL deployment. `pnpm demo` runs deterministic full-text and pgvector hybrid walkthroughs with synthetic embeddings, explicit captures and fresh-database export/import. It invokes neither a learned model nor a browser.
 
 For an immediately runnable, disposable profile demonstration:
 
@@ -44,7 +44,7 @@ Open `http://127.0.0.1:3000`. Synthetic demo credentials are `demo@example.inval
 
 ## Run the application with containers
 
-Docker and Compose are required. This environment had no Docker executable, so the following configuration still needs an actual build/run check.
+Docker and Compose are required. The full application Compose configuration still needs an actual build/run check; the separate disposable native database test does not establish that result.
 
 ```sh
 cp .env.example .env

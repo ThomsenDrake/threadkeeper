@@ -13,7 +13,7 @@ The owner profile downloads JSON with `schema_version:"threadkeeper.export.v1"` 
 | `revisions` | Remaining memory correction history and editor-client identifiers |
 | `tombstones` | Non-content deletion identities/hashes and deletion dates |
 
-The export excludes credentials, sessions, passwords, client grants, jobs and embedding indexes. A client ID in provenance is historical metadata, not an active access grant. Embeddings are rebuildable and semantic indexing is not enabled in the current slice.
+The export excludes credentials, sessions, passwords, client grants, jobs and embedding indexes. A client ID in provenance is historical metadata, not an active access grant. Embeddings are rebuildable. The optional worker or `pnpm reindex` regenerates current embeddings after import using the destination embedding configuration. Full-text retrieval is immediately available.
 
 ## Import behavior
 
@@ -21,7 +21,7 @@ Import through the signed-in owner's Portability screen or `POST /api/import`. T
 
 Tombstones are applied before content admission. Sources or memories matching known deletions are skipped. Incoming new deletion history requires a fresh destination if existing source content could conflict; the service returns `fresh_import_required` rather than silently assuming it has scrubbed old data. Identical existing deletion history can be replayed. Conflicting stable IDs/content return explicit import conflicts.
 
-Fresh-database synthetic round-trip assertions preserve remaining sources, evidence and revisions. Native PostgreSQL/container portability remains to be exercised. This format is an initial versioned contract, not a completed broad chatbot-export importer.
+Fresh-database synthetic round-trip assertions preserve remaining sources, evidence and revisions. A disposable native PostgreSQL/pgvector hybrid round-trip also passed; full application-container portability and backup restore remain to be exercised. This format is an initial versioned contract, not a completed broad chatbot-export importer.
 
 ## Correction and deletion limits
 
@@ -51,7 +51,7 @@ Until that utility is implemented, a supported application-level migration is to
 
 ## Self-hosted inference and embeddings
 
-All application services and authentication are locally configurable. Replace `MODEL_BASE_URL`/`MODEL_ID` with a compatible operator-run inference server and remove Nebius credentials. Configure a local embedding endpoint when semantic retrieval is implemented. A different embedding model or preprocessing requires a complete reindex, not mixed comparison with old vectors.
+All application services and authentication are locally configurable. Replace `MODEL_BASE_URL`/`MODEL_ID` with a compatible operator-run inference server and remove Nebius credentials. Configure `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS` for an OpenAI-compatible local embedding endpoint; no hosted account is required. See [retrieval setup](RETRIEVAL.md). A different embedding model or preprocessing requires a complete reindex, not mixed comparison with old vectors.
 
 NVIDIA's published Lightning recipes provide a starting point; no local GPU recipe has been validated by this project. Pin the runtime image digest, model revision and embedding preprocessing after the hardware run. Test that the same profile/MCP flow runs without Threadkeeper/Nebius accounts and with external control-plane access disabled after setup downloads. This is a mandatory feature-parity gate, not a paid upgrade.
 

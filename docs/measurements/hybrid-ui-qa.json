@@ -1,0 +1,27 @@
+{
+  "recorded_at": "2026-10-03T08:50:06.570Z",
+  "browser": "151.0.7922.173",
+  "database": "disposable PGlite",
+  "retrieval": "credential-free full-text default; no embedding provider configured",
+  "viewport": {
+    "desktop": "1440x1000",
+    "mobile": "390x844"
+  },
+  "checks": [
+    "local owner sign-in",
+    "two separate direct-statement captures with source evidence",
+    "search and subject/project/source/status filters",
+    "provenance displays preserved quote, capture method and revision",
+    "UI-created read-only scoped client independently recalls both memories; forbidden project and owner-only export denied",
+    "UI correction and deletion leave only corrected deadline in fresh UI search and independent client recall",
+    "UI JSON export excludes deleted preference and idempotent UI import succeeds",
+    "UI client revocation immediately blocks independent client recall",
+    "390x844 mobile profile has no horizontal overflow and sign-out remains visible",
+    "sign-out",
+    "no browser runtime exceptions"
+  ],
+  "limitations": [
+    "This rerun validates profile UI and fresh independent HTTP client recall after hybrid backend changes; it does not exercise vectors in the browser.",
+    "No external provider, model inference, native database, deployed environment, screenshot visual review or installed MCP host was used in this browser run."
+  ]
+}
