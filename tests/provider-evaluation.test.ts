@@ -61,3 +61,23 @@ test('distinct matching handles overlapping slots and rejects reuse or fabricate
   values[1].evidence[0].quote = 'Fabricated quotation';
   assert(!evaluateMemoryRubric(entry, values).rubric_passed);
 });
+
+
+test('calendar-date controls reject wrong or omitted years in the derived statement', () => {
+  for (const id of ['direct', 'compound', 'proposal', 'conflict', 'effective-date-only']) {
+    const original = memories(id);
+    for (const [index, memory] of original.entries()) {
+      if (!/202[67]/.test(memory.statement)) continue;
+      for (const replacement of ['2039', '']) {
+        const values = structuredClone(original);
+        values[index].statement = memory.statement.replace(/202[67]/g, replacement);
+        assert(!evaluateMemoryRubric(item(id), values).rubric_passed, `${id}: ${replacement || 'omitted'} year`);
+      }
+    }
+  }
+  for (const date of ['February 4, 2027', '4 February 2027', '2027-02-04']) {
+    const values = memories('effective-date-only');
+    values[0].statement = `Starting on ${date}, I prefer afternoon meetings.`;
+    assert(evaluateMemoryRubric(item('effective-date-only'), values).rubric_passed, date);
+  }
+});
