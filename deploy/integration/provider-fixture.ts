@@ -8,12 +8,13 @@ import { DEFAULT_MODEL_ID } from '../../packages/providers/src/index.ts';
 // for an operator's configured provider. Controls are internal to the disposable
 // integration network and deliberately contain no captured text or credentials.
 export const FIXTURE_EMBEDDING_MODEL = 'threadkeeper-fixture-embedding-v1';
+export const FIXTURE_REJECTED_EMBEDDING_MARKER = 'threadkeeper-fixture-rejected-input-v1';
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_HELD_REQUESTS = 128;
 const ModelSchema = z.string().min(1).max(200);
 const ConfigureSchema = z.object({
   chatMode: z.enum(['ok', 'http-error', 'wrong-model']).optional(),
-  embeddingMode: z.enum(['ok', 'http-error', 'wrong-model', 'wrong-dimensions']).optional(),
+  embeddingMode: z.enum(['ok', 'http-error', 'wrong-model', 'wrong-dimensions', 'reject-synthetic-marker']).optional(),
   holdChat: z.boolean().optional(),
   holdEmbeddings: z.boolean().optional(),
 }).strict();
@@ -71,6 +72,8 @@ export function createFixture(options: { memoryModel?: string; embeddingModel?: 
   let embeddingRequests = 0;
   let completedChat = 0;
   let completedEmbeddings = 0;
+  let rejectedEmbeddingRequests = 0;
+  let lastEmbeddingInputCount = 0;
   let authorizationSeen = false;
   const models = new Set<string>();
   const dimensions = new Set<number>();
@@ -109,7 +112,7 @@ export function createFixture(options: { memoryModel?: string; embeddingModel?: 
         send(response, snapshot(200, {
           chatRequests, embeddingRequests,
           heldChat: heldChat.size, heldEmbeddings: heldEmbeddings.size,
-          completedChat, completedEmbeddings,
+          completedChat, completedEmbeddings, rejectedEmbeddingRequests, lastEmbeddingInputCount,
           models: [...models].sort(), dimensions: [...dimensions].sort((a, b) => a - b), authorizationSeen,
         }));
         return;
@@ -129,6 +132,7 @@ export function createFixture(options: { memoryModel?: string; embeddingModel?: 
         release(heldEmbeddings, true);
         configuration = { chatMode: 'ok', embeddingMode: 'ok', holdChat: false, holdEmbeddings: false };
         chatRequests = embeddingRequests = completedChat = completedEmbeddings = 0;
+        rejectedEmbeddingRequests = lastEmbeddingInputCount = 0;
         authorizationSeen = false;
         models.clear();
         dimensions.clear();
@@ -197,6 +201,13 @@ export function createFixture(options: { memoryModel?: string; embeddingModel?: 
         if (parsed.data.model !== embeddingModel) { deliver('embeddings', response, snapshot(400, { error: 'fixture_unconfigured_embedding_model' })); return; }
         if (configuration.embeddingMode === 'http-error') { deliver('embeddings', response, snapshot(503, { error: 'fixture_embedding_failure' })); return; }
         const texts = typeof parsed.data.input === 'string' ? [parsed.data.input] : parsed.data.input;
+        lastEmbeddingInputCount = texts.length;
+        if (configuration.embeddingMode === 'reject-synthetic-marker'
+          && texts.some(text => text.includes(FIXTURE_REJECTED_EMBEDDING_MARKER))) {
+          rejectedEmbeddingRequests += 1;
+          deliver('embeddings', response, snapshot(422, { error: 'fixture_rejected_synthetic_input' }));
+          return;
+        }
         deliver('embeddings', response, snapshot(200, {
           object: 'list', model: configuration.embeddingMode === 'wrong-model' ? 'synthetic-substituted-embedding-model' : embeddingModel,
           data: texts.map((text, index) => ({ object: 'embedding', index, embedding: configuration.embeddingMode === 'wrong-dimensions' ? [...embedding(text), 0] : embedding(text) })),

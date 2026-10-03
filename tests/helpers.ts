@@ -5,7 +5,7 @@ import { vector } from '@electric-sql/pglite-pgvector';
 import type { Database } from '../packages/core/src/index.ts';
 import { connectDatabase } from '../packages/core/src/db.ts';
 
-const migrations = ['001_init.sql', '002_auth.sql', '003_embeddings.sql', '004_capture_status.sql', '005_candidate_review.sql', '006_client_control.sql'];
+const migrations = ['001_init.sql', '002_auth.sql', '003_embeddings.sql', '004_capture_status.sql', '005_candidate_review.sql', '006_client_control.sql', '007_embedding_attempts.sql'];
 
 // Explicit synthetic-only native opt-in. Every fixture owns a fresh schema;
 // normal checks and no-vector fallback tests still run without native services.
