@@ -1,0 +1,90 @@
+{
+  "prerequisite": "1bad375",
+  "recorded_at": "2026-10-03T13:50:10.036Z",
+  "browser": "151.0.7922.173",
+  "database": "disposable PGlite",
+  "application": "production React build served by actual Express API",
+  "production_asset": "/assets/index-CTbAXMN-.js",
+  "initial_records": {
+    "active": 132,
+    "candidate": 124
+  },
+  "checks": [
+    "Production owner profile reports 50 loaded of 132 active matches rather than treating the first page as the collection",
+    "Keyboard and pointer pagination reach all 132 active records across three pages without duplicates",
+    "An older-page record exposes provenance, keyboard focus returns on Escape, correction preserves history, and deletion removes current/history/source/export content",
+    "Project, subject, source and text filters reset pages and return correct global counts, including an empty intersection",
+    "Changed filters clear obsolete records immediately during a held request and distinguish loading from an empty result",
+    "Initial search failure shows a retry action without stale records or a misleading empty state; retry recovers",
+    "Later-page failure keeps the 50 prior records, labels the prior successful request and retries the same page without duplicates",
+    "Concurrent canonical capture rejects continuation with a recoverable refresh action, preventing skipped or mixed pages",
+    "Candidates beyond the first 100 records can be confirmed with separate user evidence or explicitly dismissed, with corrected queue counts",
+    "Older export import reports existing records and exact source/evidence/tombstone exclusions without resurrecting forgotten content",
+    "A conflicting import rolls back newly inserted earlier rows and explains that no import records were committed",
+    "Invalid JSON and oversize file selection fail clearly; a subsequent valid file imports one new source/memory and restores no credentials",
+    "Identical reimport reports already-present records separately from newly imported records",
+    "Desktop and 390 px mobile pagination, imports and older-record provenance have no horizontal overflow and remain keyboard usable",
+    "No browser runtime exceptions occurred",
+    "Final-page keyboard load moves focus to the first appended record; held page completion preserves later filter focus and never steals focus out of an open provenance dialog"
+  ],
+  "observations": [
+    {
+      "name": "desktop initial archive",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "name": "desktop import outcomes",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "name": "mobile import outcomes",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile paginated archive",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile older record evidence",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    }
+  ],
+  "runtime_exceptions": [],
+  "screenshots": [
+    "profile-combined-archive-desktop.png",
+    "profile-combined-import-desktop.png",
+    "profile-combined-import-mobile.png",
+    "profile-combined-archive-mobile.png",
+    "profile-combined-detail-mobile.png"
+  ],
+  "limitations": [
+    "Synthetic records and PGlite validate application lifecycle and transport; no real provider, native PostgreSQL, installed MCP host or sustained archive load was exercised.",
+    "Request failures and held filter responses use deliberate Chromium interception.",
+    "The combined client-control/forgetting/profile build uses the required current impact preview/hash before older-page forgetting."
+  ],
+  "followup": {
+    "recorded_at": "2026-10-03T13:50:45.761Z",
+    "production_asset": "/assets/index-CTbAXMN-.js",
+    "runtime_exceptions": []
+  }
+}
