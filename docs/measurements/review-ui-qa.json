@@ -1,0 +1,343 @@
+{
+  "recorded_at": "2026-10-03T13:23:42.134Z",
+  "browser": "151.0.7922.173",
+  "database": "disposable PGlite",
+  "application": "production React build served by actual Express API",
+  "production_asset": "/assets/index-DuI-pB5M.js",
+  "provider": "synthetic MemoryProvider with inferred and assistant_proposed candidates and controlled in-flight extraction",
+  "viewport": {
+    "desktop": "1440x1000",
+    "mobile": "390x844"
+  },
+  "checks": [
+    "Fresh independent scoped HTTP default recall excludes all seven unconfirmed model candidates",
+    "Needs review keyboard shortcut selects the candidate filter and exposes model inference and assistant proposal labels",
+    "Memory review dialog takes focus, traps keyboard traversal, and restores the selected row on Escape",
+    "Keyboard confirmation creates separate user evidence, retains original source/model history, and enters fresh default recall exactly once",
+    "An already in-flight synthetic extraction is cancelled by owner confirmation and cannot recreate the old interpretation",
+    "Edit and confirm admits the owner’s edited statement while preserving the original assistant proposal, source, and extractor history",
+    "Dismiss requires an explicit choice, removes the candidate from review/default recall, and remains inspectable under Dismissed with original model evidence/history",
+    "A real concurrent owner dismissal causes stale confirmation 409, refreshes current revision, and never automatically replays acceptance",
+    "Review request failure keeps the candidate unaccepted; owner refresh and explicit retry succeed without duplicate confirmation evidence",
+    "Successful confirmation followed by detail-load failure clearly reports the saved review; refresh reloads evidence without resubmitting acceptance",
+    "Desktop and 390x844 mobile review queue, candidate detail, and edit-confirm form have no horizontal overflow",
+    "Held review response released after Escape, logout, and new login cannot reopen details or restore an old-session success notice",
+    "Fresh independent default recall and active profile show five confirmed records and exclude both dismissed records",
+    "Mobile sign-out works and no browser runtime exceptions occurred",
+    "Confirmed revision history visibly retains the original superseded Model inference and extractor beside the new User confirmed revision"
+  ],
+  "observations": [
+    {
+      "name": "desktop review queue",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "name": "desktop confirmed detail",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "name": "mobile review queue",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile candidate review detail",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile edit and confirm",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile confirmed records",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    }
+  ],
+  "review_requests": [
+    {
+      "memory_id": "131de00a-97d7-4cf2-94d3-52698ccd7196",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    },
+    {
+      "memory_id": "7663bccf-4079-418d-bc2d-a4372f0e965c",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1,
+        "statement": "I want synthetic Atlas check-ins every two weeks."
+      }
+    },
+    {
+      "memory_id": "101f1174-c263-4495-bea0-a7066ac15c62",
+      "body": {
+        "action": "dismiss",
+        "expected_revision": 1
+      }
+    },
+    {
+      "memory_id": "1c9ea1dd-3ad7-4bbd-8b03-c5bee910b07e",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    },
+    {
+      "memory_id": "7099b805-795b-44e3-b743-42b2498f9527",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    },
+    {
+      "memory_id": "7099b805-795b-44e3-b743-42b2498f9527",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    },
+    {
+      "memory_id": "4363b6f9-4395-47dc-aaae-1ab95abb8474",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    },
+    {
+      "memory_id": "b98d69d3-7ea0-4153-b69a-25a702bb4a46",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    }
+  ],
+  "worker_report": {
+    "controls": [
+      {
+        "job_id": "f2c9f707-701e-4f83-85ef-e244c14fa307",
+        "status": "cancelled",
+        "accepted": 0,
+        "skipped": 1
+      },
+      {
+        "concurrent_owner_action": "dismiss",
+        "memory_id": "1c9ea1dd-3ad7-4bbd-8b03-c5bee910b07e",
+        "revision": 2
+      }
+    ],
+    "memories": [
+      {
+        "id": "131de00a-97d7-4cf2-94d3-52698ccd7196",
+        "statement": "The synthetic Atlas team may prefer calm colors.",
+        "status": "active",
+        "origin": "user_confirmed",
+        "revision": 2,
+        "extractor": null
+      },
+      {
+        "id": "7663bccf-4079-418d-bc2d-a4372f0e965c",
+        "statement": "I want synthetic Atlas check-ins every two weeks.",
+        "status": "active",
+        "origin": "user_confirmed",
+        "revision": 2,
+        "extractor": null
+      },
+      {
+        "id": "101f1174-c263-4495-bea0-a7066ac15c62",
+        "statement": "I suggest synthetic Atlas status meetings every day.",
+        "status": "dismissed",
+        "origin": "assistant_proposed",
+        "revision": 2,
+        "extractor": "synthetic-review-provider-v1"
+      },
+      {
+        "id": "1c9ea1dd-3ad7-4bbd-8b03-c5bee910b07e",
+        "statement": "Synthetic Atlas likely prefers short overviews.",
+        "status": "dismissed",
+        "origin": "inferred",
+        "revision": 2,
+        "extractor": "synthetic-review-provider-v1"
+      },
+      {
+        "id": "7099b805-795b-44e3-b743-42b2498f9527",
+        "statement": "Synthetic Atlas may prefer summaries.",
+        "status": "active",
+        "origin": "user_confirmed",
+        "revision": 2,
+        "extractor": null
+      },
+      {
+        "id": "4363b6f9-4395-47dc-aaae-1ab95abb8474",
+        "statement": "Synthetic Atlas may prefer readable timelines.",
+        "status": "active",
+        "origin": "user_confirmed",
+        "revision": 2,
+        "extractor": null
+      },
+      {
+        "id": "b98d69d3-7ea0-4153-b69a-25a702bb4a46",
+        "statement": "Synthetic Atlas may prefer early reviews.",
+        "status": "active",
+        "origin": "user_confirmed",
+        "revision": 2,
+        "extractor": null
+      }
+    ],
+    "jobs": [
+      {
+        "id": "c4fa1fbe-86b9-4de8-b4b0-9dd40c0d4431",
+        "status": "complete",
+        "attempts": 1
+      },
+      {
+        "id": "b28cf041-b4d2-418d-a84b-b5283092efdc",
+        "status": "complete",
+        "attempts": 1
+      },
+      {
+        "id": "e2a8b0f8-2991-4bee-85dd-b283cb9e29f3",
+        "status": "complete",
+        "attempts": 1
+      },
+      {
+        "id": "e160332e-d070-4223-801a-9f79914d3626",
+        "status": "complete",
+        "attempts": 1
+      },
+      {
+        "id": "ed97d9a8-d904-4907-b8e2-45c491ad8d61",
+        "status": "complete",
+        "attempts": 1
+      },
+      {
+        "id": "05b3251b-3a90-459f-a6f6-f234c0c7bda3",
+        "status": "complete",
+        "attempts": 1
+      },
+      {
+        "id": "9df324f8-c72c-4a3f-bff1-5eb0031f4f55",
+        "status": "complete",
+        "attempts": 1
+      },
+      {
+        "id": "f2c9f707-701e-4f83-85ef-e244c14fa307",
+        "status": "cancelled",
+        "attempts": 1
+      }
+    ],
+    "sources": [
+      {
+        "capture_method": "explicit_capture",
+        "origin": "user_explicit",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "explicit_capture",
+        "origin": "assistant_proposed",
+        "author_role": "assistant",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "explicit_capture",
+        "origin": "assistant_proposed",
+        "author_role": "assistant",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "explicit_capture",
+        "origin": "user_explicit",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "explicit_capture",
+        "origin": "user_explicit",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "explicit_capture",
+        "origin": "user_explicit",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "explicit_capture",
+        "origin": "user_explicit",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "profile_confirmation",
+        "origin": "user_confirmed",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "profile_confirmation",
+        "origin": "user_confirmed",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "profile_confirmation",
+        "origin": "user_confirmed",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "profile_confirmation",
+        "origin": "user_confirmed",
+        "author_role": "user",
+        "extraction_blocked": true
+      },
+      {
+        "capture_method": "profile_confirmation",
+        "origin": "user_confirmed",
+        "author_role": "user",
+        "extraction_blocked": true
+      }
+    ]
+  },
+  "runtime_exceptions": [],
+  "screenshots": [
+    "review-queue-desktop.png",
+    "review-confirmed-desktop.png",
+    "review-dismissed-desktop.png",
+    "review-queue-mobile.png",
+    "review-candidate-mobile.png",
+    "review-edit-mobile.png",
+    "review-history-desktop.png"
+  ],
+  "visual_review": "All seven recorded screenshots inspected with view_image. Candidate actions, confirmation and dismissal labels, preserved evidence and extractor history, mobile review controls, and edit-confirm fields are visible without horizontal clipping.",
+  "limitations": [
+    "Candidates and extraction fencing use a deterministic synthetic MemoryProvider in disposable PGlite; this does not establish real-model quality or native database/container behavior.",
+    "Fresh independent scoped HTTP recall is observed; installed MCP host behavior is not exercised.",
+    "Network failure and old-session completion states are tested with deliberate browser interception of HTTP 503 and delayed responses."
+  ]
+}

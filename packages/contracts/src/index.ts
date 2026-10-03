@@ -3,8 +3,8 @@ import { z } from 'zod';
 export const OriginSchema = z.enum(['user_explicit', 'user_confirmed', 'assistant_proposed', 'agent_reported', 'inferred']);
 export const AuthorRoleSchema = z.enum(['user', 'assistant', 'system', 'unknown']);
 export const MemoryKindSchema = z.enum(['fact', 'preference', 'decision', 'constraint', 'project_state']);
-export const MemoryStatusSchema = z.enum(['candidate', 'active', 'disputed', 'superseded']);
-export const CaptureMethodSchema = z.enum(['explicit_capture', 'client_summary', 'profile_entry', 'profile_correction', 'import']);
+export const MemoryStatusSchema = z.enum(['candidate', 'active', 'disputed', 'superseded', 'dismissed']);
+export const CaptureMethodSchema = z.enum(['explicit_capture', 'client_summary', 'profile_entry', 'profile_correction', 'profile_confirmation', 'import']);
 const Identifier = z.string().min(1).max(200);
 const Timestamp = z.string().datetime({ offset: true });
 
@@ -54,6 +54,14 @@ export const CorrectSchema = z.object({
   effective_at: Timestamp.nullable().optional(),
 }).strict();
 export const DeleteSchema = z.object({ expected_revision: z.number().int().positive() }).strict();
+export const ReviewSchema = z.object({
+  action: z.enum(['confirm', 'dismiss']), expected_revision: z.number().int().positive(),
+  statement: z.string().min(1).max(4_000).optional(), effective_at: Timestamp.nullable().optional(),
+}).strict().superRefine((input, ctx) => {
+  if (input.action === 'dismiss' && (input.statement !== undefined || input.effective_at !== undefined)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Dismissal retains the current statement and effective date.' });
+  }
+});
 export const CaptureListSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).max(100_000).default(0),
@@ -91,6 +99,7 @@ export const RevisionSchema = z.object({
   memory_id: Identifier, revision: z.number().int().positive(), statement: z.string().min(1).max(4_000),
   origin: OriginSchema, status: MemoryStatusSchema, effective_at: Timestamp.nullable(), created_at: Timestamp,
   editor_client_id: Identifier,
+  extractor: z.string().max(500).nullable().default(null),
 }).strict();
 export const ExportSchema = z.object({
   schema_version: z.literal('threadkeeper.export.v1'),

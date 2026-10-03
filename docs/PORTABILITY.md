@@ -17,7 +17,7 @@ The export excludes credentials, sessions, passwords, client grants, jobs and em
 
 ## Import behavior
 
-Import through the signed-in owner's Portability screen or `POST /api/import`. The authenticated destination owner becomes the owner; imported provenance keeps its original IDs. The server validates schema version, duplicates, checksums, quotations, attribution, scopes, revision sequences and authoritative correction evidence in a transaction.
+Import through the signed-in owner's Portability screen or `POST /api/import`. The authenticated destination owner becomes the owner; imported provenance keeps its original IDs. The server validates schema version, duplicates, checksums, quotations, attribution, scopes, revision sequences and authoritative correction/confirmation evidence in a transaction. Confirmed and dismissed candidate histories remain distinct from their original model interpretations. Revision provider identities are optional in older v1 bundles; missing identities remain unknown, rather than being reconstructed. Active inferred/proposed records cannot bypass explicit confirmation through import.
 
 Tombstones are applied before content admission. Sources or memories matching known deletions are skipped. Incoming new deletion history requires a fresh destination if existing source content could conflict; the service returns `fresh_import_required` rather than silently assuming it has scrubbed old data. Identical existing deletion history can be replayed. Conflicting stable IDs/content return explicit import conflicts.
 

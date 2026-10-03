@@ -14,6 +14,8 @@ Client-specific configuration varies. The tested clients are two independent off
 
 Revocation blocks future requests with the credential. Authorization is checked when a request is admitted; revocation does not cancel an already running request, including an in-flight query-embedding call. It retains previously captured memory and cannot remove copies already delivered to the client's conversation. Owner-only corrections, deletion, full export/import and grant management are performed through the signed-in profile rather than default agent tools.
 
+Model inferences and unaccepted assistant proposals enter **Needs review**. Default recall excludes them until the owner explicitly confirms a candidate, with or without an edit. The confirmed current revision is labeled `user_confirmed` and has separate user-authored confirmation evidence; the original inference/proposal remains in history. Dismissal retains evidence/history with status `dismissed` and removes the record from both the active recall and candidate queue. These owner actions use `POST /api/memories/{id}/review` with `action`, `expected_revision` and optional confirmation `statement`/`effective_at`; they are not client-token MCP tools. Stale revisions return HTTP 409. Generic correction of a candidate requires this explicit review flow.
+
 ## Tools
 
 | Tool | Inputs and result |

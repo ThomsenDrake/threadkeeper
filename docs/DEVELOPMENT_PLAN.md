@@ -21,9 +21,11 @@ These are implementation outcomes, not an instruction to stop after the first ro
 | 5 | **The profile works beyond a small demo dataset.** Add practical pagination and complete loading, empty, failure and recovery states. Make import outcomes understandable with counts, conflicts and tombstone exclusions. | The owner can reach records beyond the first page without scope/filter leaks, inspect provenance, and complete correction/deletion/import on realistic synthetic collections. Changes remain keyboard-usable and work on mobile. Import never reactivates credentials or forgotten content. |
 | 6 | **Personal context can survive an operational recovery safely.** Implement deletion-aware restore/reconciliation and the migration/recovery procedures needed to support it. | Restore an older synthetic backup into isolation, apply the newer deletion state before serving it, and prove forgotten data stays absent. Record supported upgrade/recovery steps, failure behavior and limits; do not test on an operator's live data. |
 
-Priority 1 is implemented on `codex/capture-recovery`: scoped live status, the profile Captures view, source-only saves and owner retry preserve canonical identities and attempt fencing. Its verification and review state are recorded in [HANDOFF.md](HANDOFF.md). Reuse that flow; confirm it is merged before treating it as main.
+Priority 1 merged in [PR #4](https://github.com/ThomsenDrake/threadkeeper/pull/4), main `26c025d`: scoped live status, the profile Captures view, source-only saves and owner retry preserve canonical identities and attempt fencing. Reuse that flow and its [verification evidence](HANDOFF.md).
 
-The next default is priority 2: complete explicit confirmation, edit-and-confirm and dismissal for model candidates. Preserve original evidence and make owner actions authoritative through separate user-authored evidence. Complete the flow, review and merge it, then proceed to the next unblocked outcome during a broad development task.
+Priority 2 is implemented on `codex/candidate-review`: explicit owner confirmation, edit-and-confirm and dismissal preserve original evidence/provider history and create separate authoritative user evidence. Its verification and review state are in [HANDOFF.md](HANDOFF.md); confirm it is merged before treating it as main.
+
+The next default is priority 3: practical connection instructions, observed credential use and server-enforced capture pause/resume. Complete the flow, review and merge it, then proceed to the next unblocked outcome during a broad development task.
 
 ## Delivery loop
 
