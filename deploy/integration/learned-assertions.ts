@@ -16,8 +16,38 @@ const LearnedMemorySchema = MemorySchema.extend({ evidence: z.array(z.object({
 const DetailSchema = z.object({ memory: MemorySchema, sources: z.array(ExportSourceSchema),
   evidence: z.array(EvidenceSchema), revisions: z.array(RevisionSchema) });
 export type LearnedDetail = z.infer<typeof DetailSchema>;
+type LearnedMemory = z.infer<typeof LearnedMemorySchema>;
 function assertSourceChecksum(source: z.infer<typeof ExportSourceSchema>) {
   assert.equal(source.checksum, createHash('sha256').update(source.text, 'utf8').digest('hex'), 'Source checksum must identify the exact original UTF-8 text');
+}
+
+const recallRecord = (memory: LearnedMemory) => ({ ...memory, evidence: memory.evidence.map(evidence => ({ ...evidence,
+  occurred_at: evidence.occurred_at === null ? null : new Date(evidence.occurred_at).toISOString(),
+  recorded_at: new Date(evidence.recorded_at).toISOString(),
+})).sort((a, b) => a.source_id.localeCompare(b.source_id) || a.quote.localeCompare(b.quote)) });
+
+/** Retrieval may omit irrelevant records; every returned record must be canonical. */
+export function assertLearnedRecall(rawMemories: unknown, rawExpected: unknown, targetId?: string) {
+  const memories = z.array(LearnedMemorySchema).parse(rawMemories), expected = z.array(LearnedMemorySchema).parse(rawExpected);
+  if (targetId !== undefined) assert.equal(memories[0]?.id, targetId, 'Learned paraphrase should rank its relevant canonical record first');
+  assert.equal(new Set(memories.map(memory => memory.id)).size, memories.length, 'Recall returned duplicate records');
+  const byId = new Map(expected.map(memory => [memory.id, recallRecord(memory)]));
+  assert.equal(byId.size, expected.length);
+  for (const memory of memories) {
+    assert(byId.has(memory.id), 'Recall returned an unexpected record');
+    assert.deepEqual(recallRecord(memory), byId.get(memory.id), 'Recall changed canonical statement, metadata or source evidence');
+  }
+}
+
+export function learnedRecallRecord(detail: LearnedDetail) {
+  return LearnedMemorySchema.parse({ ...detail.memory,
+    evidence: detail.evidence.filter(evidence => evidence.revision === detail.memory.revision).map(evidence => {
+      const source = detail.sources.find(source => source.id === evidence.source_id);
+      assert(source, 'Current evidence omitted its original source');
+      return { source_id: source.id, quote: evidence.quote, client_id: source.client_id, author_role: source.author_role,
+        origin: source.origin, capture_method: source.capture_method, occurred_at: source.occurred_at, recorded_at: source.recorded_at };
+    }),
+  });
 }
 
 /** Fixed synthetic acceptance, deliberately using the same finite semantic rubric as the corpus. */
@@ -101,6 +131,7 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(current.project_id, original.memory.project_id);
   assert.equal(current.subject, original.memory.subject);
   assert.equal(current.kind, original.memory.kind);
+  assert.equal(current.effective_at, original.memory.effective_at, 'A statement-only correction must preserve the original effective time');
   assert.equal(current.origin, 'user_explicit');
   assert.equal(current.status, 'active');
   assert.equal(current.revision, 2);
@@ -115,6 +146,7 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(correction.capture_method, 'profile_correction');
   assert.equal(correction.author_role, 'user');
   assert.equal(correction.origin, 'user_explicit');
+  assert.equal(correction.client_id, 'profile', 'Correction evidence must be authored by the owner profile');
   assert.equal(correction.project_id, current.project_id);
   assert.equal(correction.subject, current.subject);
   assert.equal(correction.extraction_blocked, true);
@@ -127,7 +159,7 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(revision.status, 'active');
   assert.equal(revision.extractor, null);
   assert.equal(revision.effective_at, current.effective_at);
-  assert.equal(revision.editor_client_id, correction.client_id);
+  assert.equal(revision.editor_client_id, 'profile', 'Correction revision must be authored by the owner profile');
   assert.deepEqual(detail.evidence, [...original.evidence, { memory_id: current.id, revision: 2, source_id: correction.id, quote: current.statement }]);
   return detail;
 }

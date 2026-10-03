@@ -4,7 +4,7 @@ import test, { type TestContext } from 'node:test';
 import { createStore, DomainError, type Auth } from '../packages/core/src/index.ts';
 import { createTestDatabase } from './helpers.ts';
 import { assertLearnedArchiveHistory, assertLearnedDeadlineHistory, assertLearnedDeletionPreview,
-  assertLearnedExtraction, directLearnedCase, learnedDetail } from '../deploy/integration/learned-assertions.ts';
+  assertLearnedExtraction, assertLearnedRecall, directLearnedCase, learnedDetail, learnedRecallRecord } from '../deploy/integration/learned-assertions.ts';
 
 const project = 'synthetic-direct-assertion-check';
 async function fixture(t: TestContext) {
@@ -46,6 +46,44 @@ test('native learned acceptance rejects wrong values, swapped relationships and 
     assert.throws(() => assertLearnedExtraction(memories, invalidChecksum, project, writer.clientId));
   }
   assert.throws(() => assertLearnedExtraction([...memories, memories[0]], sources, project, writer.clientId));
+});
+
+test('learned recalls must retain every canonical memory and evidence field', async t => {
+  const { store, writer, owner, deadline, preference } = await fixture(t);
+  const result = await store.search(writer, { project_id: project, source: deadline.evidence[0].source_id });
+  const expected = [deadline, preference];
+  assertLearnedRecall(result.memories, expected, deadline.id);
+  assertLearnedRecall([learnedRecallRecord(learnedDetail(await store.detail(owner, deadline.id)))], expected, deadline.id);
+  const corruptions: Array<(value: typeof deadline) => void> = [
+    value => { value.statement = 'The Lumen demo deadline is October 20, 2028.'; },
+    value => { value.project_id = 'another-project'; },
+    value => { value.subject = 'someone-else'; },
+    value => { value.kind = 'preference'; },
+    value => { value.origin = 'inferred'; },
+    value => { value.status = 'candidate'; },
+    value => { value.revision = 2; },
+    value => { value.authoritative = true; },
+    value => { value.effective_at = '2030-01-01T00:00:00.000Z'; },
+    value => { value.extractor = 'different-model'; },
+    value => { value.created_at = '2030-01-01T00:00:00.000Z'; },
+    value => { value.updated_at = '2030-01-01T00:00:00.000Z'; },
+    value => { value.evidence = []; },
+    value => { value.evidence[0].source_id = preference.evidence[0].source_id; },
+    value => { value.evidence[0].quote = 'An unsupported quotation.'; },
+    value => { value.evidence[0].client_id = 'wrong-client'; },
+    value => { value.evidence[0].author_role = 'assistant'; },
+    value => { value.evidence[0].origin = 'assistant_proposed'; },
+    value => { value.evidence[0].capture_method = 'profile_correction'; },
+    value => { value.evidence[0].occurred_at = null; },
+    value => { value.evidence[0].recorded_at = '2030-01-01T00:00:00.000Z'; },
+  ];
+  for (const corrupt of corruptions) {
+    const bad = structuredClone(deadline); corrupt(bad);
+    assert.throws(() => assertLearnedRecall([bad], expected, deadline.id));
+  }
+  assert.throws(() => assertLearnedRecall([], expected, deadline.id));
+  assert.throws(() => assertLearnedRecall([deadline, deadline], expected, deadline.id));
+  assert.throws(() => assertLearnedRecall([deadline, { ...preference, id: 'unexpected-memory' }], expected, deadline.id));
 });
 
 test('native preview and history assertions detect misleading impact and lost original evidence', async t => {
@@ -92,6 +130,18 @@ test('native preview and history assertions detect misleading impact and lost or
   for (const corrupt of historyCorruptions) {
     const bad = structuredClone(detail); corrupt(bad);
     assert.throws(() => assertLearnedDeadlineHistory(bad, original, changed));
+  }
+  const wrongTime = structuredClone(detail), wrongChanged = structuredClone(changed);
+  wrongChanged.effective_at = wrongTime.memory.effective_at = '2030-01-01T00:00:00.000Z';
+  wrongTime.revisions.find(revision => revision.revision === 2)!.effective_at = wrongChanged.effective_at;
+  assert.throws(() => assertLearnedDeadlineHistory(wrongTime, original, wrongChanged),
+    'Mutually consistent changed/detail timestamps must not replace the original effective time');
+  for (const changeSource of [true, false]) {
+    const wrongEditor = structuredClone(detail);
+    wrongEditor.revisions.find(revision => revision.revision === 2)!.editor_client_id = writer.clientId;
+    if (changeSource) wrongEditor.sources.find(source => source.capture_method === 'profile_correction')!.client_id = writer.clientId;
+    assert.throws(() => assertLearnedDeadlineHistory(wrongEditor, original, changed),
+      'A matching non-profile source/editor pair must not authorize owner correction provenance');
   }
   const forgotten = { memory: preference, source: preferenceSource };
   const archive = assertLearnedArchiveHistory(await store.export(owner), detail, forgotten);
