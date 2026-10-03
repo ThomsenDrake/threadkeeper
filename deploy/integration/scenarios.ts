@@ -33,6 +33,7 @@ export async function runScenarios(options: {
   const passed: string[] = [];
   const sql = options.sql;
   let cookie = '';
+  let mcpEndpoint = '';
   const requestSignal = (timeout: number, cleanup = false) => options.signal && !cleanup
     ? AbortSignal.any([options.signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout);
   const abortClients = () => {
@@ -103,14 +104,17 @@ export async function runScenarios(options: {
   async function grant(name: string, permissions: string[], projects: string[] | null, session = cookie) {
     const result = await expected('/api/clients', 201, { body: { name, permissions, projects }, session });
     ensure(typeof result.data.token === 'string' && result.data.client?.id, 'client grant response was incomplete');
-    return result.data as { token: string; client: { id: string } };
+    return result.data as { token: string; client: { id: string; created_at: string; last_used_at: string | null } };
   }
   async function connect(name: string, token: string) {
     options.signal?.throwIfAborted();
     const client = new Client({ name, version: '0.1.0' }, { versionNegotiation: { mode: 'auto' } });
     clients.push(client);
-    await client.connect(new StreamableHTTPClientTransport(new URL(options.baseUrl + '/mcp'), {
-      requestInit: { headers: { Host: new URL(origin).host, Origin: origin, Authorization: `Bearer ${token}` } },
+    // Feed the documented remote connection object directly to the SDK. The
+    // endpoint comes from owner configuration, rather than a guessed client URL.
+    const config = { url: mcpEndpoint, headers: { Authorization: `Bearer ${token}` } };
+    await client.connect(new StreamableHTTPClientTransport(new URL(config.url), {
+      requestInit: { headers: config.headers },
     }), { signal: options.signal, timeout: 20_000 });
     return client;
   }
@@ -125,11 +129,11 @@ export async function runScenarios(options: {
     tool(client, 'context_search', { query, ...filters });
   const captureStatus = (client: Client, captureId: string) =>
     tool(client, 'context_capture_status', { capture_id: captureId });
-  async function toolDenied(client: Client, name: string, args: Record<string, unknown>) {
+  async function toolDenied(client: Client, name: string, args: Record<string, unknown>, code?: RegExp) {
     options.signal?.throwIfAborted();
     const [result] = await Promise.allSettled([client.callTool({ name, arguments: args }, { signal: options.signal, timeout: 20_000 })]);
-    ensure(result.status === 'fulfilled' ? result.value.isError === true
-      : /not found|unknown tool|scope_denied|permission_denied|403|401|Unauthorized/i.test(String(result.reason)),
+    ensure(result.status === 'fulfilled' ? result.value.isError === true && (!code || code.test(JSON.stringify(result.value.content)))
+      : (code ?? /not found|unknown tool|scope_denied|permission_denied|403|401|Unauthorized/i).test(String(result.reason)),
     `MCP ${name} did not return the expected access denial`);
   }
   function capture(id: string, text: string, project = 'atlas', explicit = true) {
@@ -175,13 +179,25 @@ export async function runScenarios(options: {
     await stage('profile and two independently authenticated MCP clients', async () => {
       const owner = await login(options.email);
       cookie = owner.session; ownerId = owner.user.id;
+      mcpEndpoint = (await expected('/api/settings/connection', 200)).data.mcp_endpoint;
+      ensure(mcpEndpoint === new URL('/mcp', origin).href, 'connection guidance did not use the exact configured application origin');
       grantA = await grant('Integration Client A', ['read', 'capture'], ['atlas']);
       grantB = await grant('Integration Client B', ['read'], ['atlas']);
       ensure(grantA.token !== grantB.token && grantA.client.id !== grantB.client.id, 'client grants were not independent');
+      ensure(grantA.client.created_at && grantB.client.created_at
+        && grantA.client.last_used_at === null && grantB.client.last_used_at === null,
+      'credential issuance was confused with observed authenticated use');
       a = await connect('integration-client-a', grantA.token);
       b = await connect('integration-client-b', grantB.token);
       ensure((await a.listTools(undefined, { signal: options.signal, timeout: 20_000 })).tools.some(tool => tool.name === 'context_capture'), 'Client A cannot capture');
       ensure(!(await b.listTools(undefined, { signal: options.signal, timeout: 20_000 })).tools.some(tool => tool.name === 'context_capture'), 'read-only Client B exposes capture');
+      const connectedClients = (await expected('/api/clients', 200)).data.clients;
+      for (const issued of [grantA.client, grantB.client]) {
+        const connected = connectedClients.find((client: any) => client.id === issued.id);
+        ensure(connected?.created_at === issued.created_at && connected.last_used_at
+          && Date.parse(connected.last_used_at) >= Date.parse(connected.created_at),
+        'authenticated SDK requests did not report observed client use separately from issuance');
+      }
       await expected('/health', 200);
       const profile = await fetch(options.baseUrl, { headers: { Host: new URL(origin).host }, signal: requestSignal(20_000) });
       ensure(profile.ok && (await profile.text()).includes('<div id="root">'), 'container did not serve the built profile');
@@ -368,6 +384,77 @@ export async function runScenarios(options: {
       ensure(!exported.includes(preference) && !exported.includes(inference) && !exported.includes(confirmedInference),
         'export retained deleted original, inferred or confirmed preference content');
       await expected(`/api/memories/${dl.id}`, 409, { method: 'PATCH', body: { statement: deadline, expected_revision: 1 } });
+    });
+    await stage('owner capture pause rejects new saves and replay while authorized recall and queued extraction continue', async () => {
+      const settings = (await expected('/api/settings/capture', 200)).data;
+      ensure(settings.paused === false && settings.version === 0, 'fresh owner capture settings were not enabled at version zero');
+      for (const path of ['/api/settings/capture', '/api/settings/connection']) await expected(path, 403, { token: grantA.token });
+      await expected('/api/settings/capture', 403, {
+        method: 'PATCH', token: grantA.token, body: { paused: true, expected_version: settings.version },
+      });
+      const observed = await grant('Authenticated denied request probe', ['read', 'capture'], ['atlas']);
+      ensure(observed.client.last_used_at === null, 'unused credential reported an authenticated request');
+      await control('configure', { holdChat: true });
+      const queuedText = 'The already queued capture deadline remains authorized.';
+      const queuedInput = capture('pause-existing-queue', queuedText, 'atlas', false);
+      const queued = await tool(a, 'context_capture', queuedInput);
+      ensure(queued.status === 'pending' && queued.job_id, 'pause scenario did not first admit source-only extraction');
+      const paused = (await expected('/api/settings/capture', 200, {
+        method: 'PATCH', body: { paused: true, expected_version: settings.version },
+      })).data;
+      ensure(paused.paused === true && paused.version === settings.version + 1, 'owner pause did not advance its settings revision');
+      const rejected = [
+        { token: grantA.token, body: capture('paused-new-source', 'The paused source deadline must not be saved.', 'atlas', false) },
+        { token: observed.token, body: capture('paused-new-explicit', 'The paused explicit deadline must not be saved.') },
+        { body: capture('paused-profile-explicit', 'The paused profile deadline must not be saved.') },
+        { token: grantA.token, body: queuedInput },
+      ];
+      for (const input of rejected) {
+        const denied = await expected('/api/capture', 403, input);
+        ensure(denied.data.error === 'capture_paused', 'paused HTTP capture did not report the canonical pause reason');
+      }
+      await toolDenied(a, 'context_capture', capture('paused-mcp-explicit', 'The paused MCP deadline must not be saved.'), /capture_paused/);
+      await toolDenied(a, 'context_capture', queuedInput, /capture_paused/);
+      const admitted = (await expected('/api/clients', 200)).data.clients.find((client: any) => client.id === observed.client.id);
+      ensure(admitted?.created_at === observed.client.created_at && admitted.last_used_at,
+        'valid credential on a denied operation did not count as an authenticated request');
+      const absent = (await sql(`SELECT count(*) AS n FROM tk_sources WHERE owner_id=${literal(ownerId)}
+        AND event_id IN ('paused-new-source','paused-new-explicit','paused-profile-explicit','paused-mcp-explicit')`))[0];
+      ensure(Number(absent.n) === 0, 'paused capture persisted new source or explicit memory evidence');
+      sameStatements(await recall(b), [correctedDeadline], 'pause blocked authorized independent MCP recall');
+      sameStatements((await expected('/api/context/search?query=deadline', 200, { token: grantB.token })).data,
+        [correctedDeadline], 'pause blocked authorized independent HTTP recall');
+      await poll('already admitted extraction while paused', async () => (await control('status')).heldChat > 0, 20_000);
+      const processing = await captureStatus(b, queued.capture_id);
+      ensure(processing.status === 'processing' && processing.job?.id === queued.job_id,
+        'pause cancelled an already admitted extraction job');
+      await control('release', {});
+      const processed = await job(queued.job_id, 'complete');
+      ensure(processed.result.accepted === 1 && processed.result.model === DEFAULT_MODEL_ID,
+        'paused owner prevented the configured worker from completing an existing job');
+      await indexed();
+      const queuedRecall = await recall(b, 'deadline', { source: queued.source_ids[0] });
+      sameStatements(queuedRecall, [queuedText], 'independent reader could not recall context processed during pause');
+      await remove(queuedRecall.memories[0]);
+      const unchanged = (await expected('/api/settings/capture', 200, {
+        method: 'PATCH', body: { paused: true, expected_version: paused.version },
+      })).data;
+      ensure(unchanged.paused === true && unchanged.version === paused.version,
+        'memory activity or a current no-op changed the independent capture settings revision');
+      const stale = await expected('/api/settings/capture', 409, {
+        method: 'PATCH', body: { paused: false, expected_version: settings.version },
+      });
+      ensure(stale.data.error === 'capture_settings_conflict', 'stale capture settings action silently resumed saves');
+      const resumed = (await expected('/api/settings/capture', 200, {
+        method: 'PATCH', body: { paused: false, expected_version: paused.version },
+      })).data;
+      ensure(resumed.paused === false && resumed.version === paused.version + 1, 'owner resume did not restore capture admission');
+      const resumedText = 'The resumed capture deadline is synthetic.';
+      const saved = await tool(a, 'context_capture', capture('pause-resumed-explicit', resumedText));
+      ensure(saved.status === 'complete' && saved.memory_ids.length === 1, 'new authorized capture failed after resume');
+      const resumedRecall = await recall(b, 'deadline', { source: saved.source_ids[0] });
+      sameStatements(resumedRecall, [resumedText], 'independent reader did not recall the post-resume capture');
+      await remove(resumedRecall.memories[0]);
     });
     await stage('owner, project, source and client permission isolation', async () => {
       const hidden = await expected('/api/capture', 201, { body: capture('vault-deadline', 'The Vault deadline is 21 October 2026.', 'vault') });
@@ -603,11 +690,16 @@ export async function runScenarios(options: {
         'keyless fixture adapter was not exercised or unexpectedly received credentials');
       ensure(JSON.stringify(stats.models) === JSON.stringify([DEFAULT_MODEL_ID, FIXTURE_EMBEDDING_MODEL].sort())
         && JSON.stringify(stats.dimensions) === '[3]', 'adapter silently selected another model or embedding dimension');
+      const lastReaderRequest = (await expected('/api/clients', 200)).data.clients.find((client: any) => client.id === grantB.client.id).last_used_at;
+      ensure(lastReaderRequest, 'independent reader had no observed authenticated request before revocation');
       await expected(`/api/clients/${grantB.client.id}`, 200, { method: 'DELETE' });
       const before = (await control('status')).embeddingRequests;
       await expected('/api/context/search?query=deadline', 401, { token: grantB.token });
       await toolDenied(b, 'context_search', { query: semanticQuery });
       ensure((await control('status')).embeddingRequests === before, 'revoked client reached the embedding provider');
+      const revoked = (await expected('/api/clients', 200)).data.clients.find((client: any) => client.id === grantB.client.id);
+      ensure(revoked.revoked_at && revoked.last_used_at === lastReaderRequest,
+        'rejected revoked credential updated the last authenticated request timestamp');
     });
     return passed;
   } finally {

@@ -41,6 +41,16 @@ are rejected, receipts remain immutable, and cancelled work cannot restore conte
 Owner candidate confirmation/dismissal also runs through HTTP, preserving the original worker inference/source/provider history and proving fresh independent recall uses the separate confirmation evidence. Native SQL inspects jobs and derived vectors; capture, retrieval and profile writes
 use application transports. Rerunning migrations is also checked.
 
+Client connection/control checks derive the MCP endpoint from owner settings and
+feed its generic endpoint/header object to the independent SDK transports. They
+distinguish issuance from observed authentication, reject new profile/client saves
+and idempotent replay during owner pause, retain permitted recall, and let an
+already admitted queued extraction complete. Stale settings writes fail before
+resume, and revoked credentials cannot update their authentication timestamp.
+The regression suite opts the existing client-control API fixtures into isolated
+native schemas when the runner supplies its disposable database URL. Test totals
+come from the actual TAP summary rather than a hardcoded count.
+
 Each stage prints a pass label. A failure exits nonzero with its stage and sanitized
 diagnostic logs. A `finally` block removes the project's containers, network,
 database volume, generated application image and private credentials, including

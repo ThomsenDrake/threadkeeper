@@ -8,7 +8,7 @@ import { bootstrap } from '../apps/api/src/auth.ts';
 import { CaptureSettingsSchema } from '../packages/contracts/src/index.ts';
 
 async function start(t: TestContext) {
-  const database = await createTestDatabase();
+  const database = await createTestDatabase({ vector: true });
   await bootstrap(database.db, 'controls@example.invalid', 'synthetic-password-123');
   const origin = 'http://127.0.0.1:3194';
   const { app, store, auth } = createApp(database.db, { origin });
