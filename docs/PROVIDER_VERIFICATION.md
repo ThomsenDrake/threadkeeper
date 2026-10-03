@@ -30,6 +30,14 @@ NODE_USE_ENV_PROXY=1 EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B EMBEDDING_DIMENSION
 
 Preserve inherited proxy and CA configuration. A local installation without a proxy need not set `NODE_USE_ENV_PROXY`. Keep credentials in operator-managed runtime bindings or ignored environment files.
 
+## Native direct lifecycle and installed-host protocol boundary
+
+The [native learned-provider acceptance](DIRECT_PROVIDER_LIFECYCLE.md) passed the central capture/semantic-recall/correction/forgetting flow through actual API/worker containers and PostgreSQL/pgvector, with eight direct Nebius requests and complete reported usage. This closes the previous direct native transport gap for this synthetic lifecycle. GPU parity and autonomous installed-host selection remain separate gates.
+
+A bounded protocol investigation found that Nebius Responses can complete a minimal exact-Nemotron request, but it rejects standard nested `reasoning` and excludes fields emitted by installed Codex **0.159.0-alpha.3** (`include`, `prompt_cache_key`, `client_metadata`). The actual host no longer supports a chat-completions wire mode. Its local reject-only sentinel request with reasoning `none` still includes the rejected nested field and no output-token cap. [Protocol evidence](measurements/codex-nebius-protocol-check.json) separates four direct route/capability requests from two actual-host serialization checks with zero external inference. The one successful minimal Responses diagnostic omitted reasoning to isolate that rejected option and reported **149 tokens**, including **121 reasoning tokens**; it is not a change to Threadkeeper's `MODEL_REASONING_EFFORT=none` chat-completions validation configuration. No learned host model turn or runtime relay was introduced.
+
+Next executable host check requires a compatible installed host/provider protocol that preserves the authorized model and bounded reasoning control. Another intended installed host with native chat-completions support is also unavailable here. GPU validation still needs an NVIDIA device/operator inference endpoint and compatible embedding server. No paid resources were provisioned to close those gates.
+
 ## Earlier tuned extraction — 2026-10-03
 
 The current extraction policy and explicit `MODEL_REASONING_EFFORT=none` passed **8/8 fixed synthetic case rubrics** through nine freshly measured requests to exact `nvidia/Nemotron-3_5-Lightning`. The token limit remains **4096**. Generic compatible endpoints receive no reasoning control by default; this setting is an explicit operator opt-in. Accepted configuration values are `none`, `minimal`, `low`, `medium`, `high` and `xhigh`. The adapter sends the selected value as top-level `reasoning_effort` on both initial and repair requests. Invalid values fail configuration validation. No local-server-only `chat_template_kwargs` or other undocumented control is sent.

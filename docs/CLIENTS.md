@@ -153,3 +153,7 @@ These two independent events permit deleting the preference without deleting the
 ```
 
 Client B then calls `context_search` with `{"query":"","project_id":"launch"}`. The profile owner changes the deadline and deletes the preference. Fresh search calls from both clients must see only the corrected deadline. Reusing a capture ID with changed content returns a conflict. Raw source identities and content tombstones prevent known deleted events from being replayed; semantic paraphrase prevention is not established.
+
+### Direct Nebius model turns in the installed Codex host
+
+The installed Codex **0.159.0-alpha.3** explicit MCP invocation check remains valid. Autonomous model tool selection is still unverified: this build accepts only the Responses wire protocol, and its actual serialized request includes fields the measured Nebius Responses schema rejects, even with reasoning effort `none`. Minimal standalone Responses inference succeeded, which does not establish host compatibility. See [protocol evidence](measurements/codex-nebius-protocol-check.json) and [provider verification](PROVIDER_VERIFICATION.md). A compatible host/provider protocol must be available before running a bounded autonomous selection check; no runtime relay or model substitution is used to bypass this gate.
