@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
 import {
-  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, SearchSchema,
+  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
 } from '@threadkeeper/contracts';
 
@@ -46,6 +46,7 @@ const sourceRow = (row: any) => ({
 const revisionRow = (row: any) => ({
   memory_id: row.memory_id, revision: Number(row.revision), statement: row.statement, origin: row.origin,
   status: row.status, effective_at: date(row.effective_at), created_at: date(row.created_at), editor_client_id: row.editor_client_id,
+  extractor: row.extractor ?? null,
 });
 function parsed<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
@@ -116,8 +117,8 @@ async function insertMemory(tx: Database, auth: Auth, candidate: ExplicitMemory,
   const status = ['inferred', 'assistant_proposed'].includes(candidate.origin) ? 'candidate' : 'active';
   await tx.query(`INSERT INTO tk_memories(id,owner_id,project_id,subject,statement,kind,origin,status,effective_at,extractor,content_key)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [id, auth.ownerId, source.project_id, subject, candidate.statement, candidate.kind, candidate.origin, status, candidate.effective_at ?? null, extractor, contentKey]);
-  await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id)
-    VALUES ($1,1,$2,$3,$4,$5,$6)`, [id, candidate.statement, candidate.origin, status, candidate.effective_at ?? null, auth.clientId]);
+  await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor)
+    VALUES ($1,1,$2,$3,$4,$5,$6,$7)`, [id, candidate.statement, candidate.origin, status, candidate.effective_at ?? null, auth.clientId, extractor]);
   await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,1,$2,$3)', [id, source.id, candidate.quote]);
   return { id, skipped: null };
 }
@@ -139,7 +140,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       }
       const sources = new Map<string, any>();
       for (const event of input.events) {
-        if (event.capture_method === 'profile_correction' || (event.capture_method === 'profile_entry' && auth.clientId !== 'profile')) throw new DomainError(400, 'invalid_capture_method');
+        if (['profile_correction', 'profile_confirmation'].includes(event.capture_method ?? '') || (event.capture_method === 'profile_entry' && auth.clientId !== 'profile')) throw new DomainError(400, 'invalid_capture_method');
         const captureMethod = auth.clientId === 'profile' ? 'profile_entry' : event.origin === 'agent_reported' ? 'client_summary' : event.capture_method ?? 'explicit_capture';
         if (await tombstoned(tx, auth.ownerId, 'source_identity', sourceIdentity(auth.clientId, event.id))
           || await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(event.text))) throw new DomainError(410, 'deleted_source', 'This source was deleted and cannot be replayed.');
@@ -343,6 +344,61 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     if (!result.rows[0]) throw new DomainError(404, 'source_not_found');
     return sourceRow(result.rows[0]);
   }
+  async function blockExtraction(tx: Database, ownerId: string, memoryId: string) {
+    await tx.query('UPDATE tk_sources SET extraction_blocked=true WHERE id IN (SELECT source_id FROM tk_evidence WHERE memory_id=$1)', [memoryId]);
+    await tx.query(`UPDATE tk_jobs j SET status='cancelled',completed_at=now(),error_code=NULL,result=NULL
+      WHERE j.owner_id=$1 AND j.status IN ('pending','processing','failed') AND NOT EXISTS (
+        SELECT 1 FROM tk_sources s WHERE s.owner_id=j.owner_id AND s.id=ANY(j.source_ids) AND s.extraction_blocked=false
+      )`, [ownerId]);
+  }
+  async function supersedeSiblings(tx: Database, memory: any) {
+    const siblings = (await tx.query(`SELECT id,statement,revision FROM tk_memories
+      WHERE owner_id=$1 AND project_id IS NOT DISTINCT FROM $2 AND subject=$3 AND id<>$4
+        AND status IN ('active','candidate','disputed')`, [memory.owner_id, memory.project_id, memory.subject, memory.id])).rows
+      .filter(row => normalize(row.statement) === normalize(memory.statement));
+    for (const sibling of siblings) {
+      await tx.query("UPDATE tk_memories SET status='superseded',authoritative=false,updated_at=now() WHERE id=$1", [sibling.id]);
+      await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision=$2", [sibling.id, sibling.revision]);
+      await tx.query('UPDATE tk_sources SET extraction_blocked=true WHERE id IN (SELECT source_id FROM tk_evidence WHERE memory_id=$1)', [sibling.id]);
+    }
+    return siblings;
+  }
+  async function review(auth: Auth, id: string, raw: unknown) {
+    permission(auth, 'review');
+    const input = parsed(ReviewSchema, raw);
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      const memory = await findMemory(tx, auth, id, true);
+      if (Number(memory.revision) !== input.expected_revision) throw new DomainError(409, 'revision_conflict');
+      if (memory.status !== 'candidate') throw new DomainError(409, 'review_unavailable');
+      const revision = Number(memory.revision) + 1;
+      // A model interpretation remains intact in its original source/revision.
+      // Owner confirmation supplies independent evidence for the accepted text.
+      await tx.query('UPDATE tk_revisions SET extractor=COALESCE(extractor,$2) WHERE memory_id=$1 AND revision=$3', [id, memory.extractor, memory.revision]);
+      if (input.action === 'confirm') {
+        const statement = input.statement ?? memory.statement;
+        const effectiveAt = input.effective_at === undefined ? memory.effective_at : input.effective_at;
+        if (await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(statement, memory.project_id, memory.subject))) throw new DomainError(410, 'deleted_content');
+        if (await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(statement))) throw new DomainError(410, 'deleted_source');
+        const siblings = await supersedeSiblings(tx, memory);
+        await blockExtraction(tx, auth.ownerId, id);
+        const sourceId = uuid();
+        await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,extraction_blocked,capture_method)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_confirmed',now(),$8,true,'profile_confirmation')`, [sourceId, auth.ownerId, auth.clientId, `confirmation:${id}:${revision}`, memory.project_id, memory.subject, statement, hash(statement)]);
+        const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,origin='user_confirmed',status='active',authoritative=true,revision=$3,effective_at=$4,updated_at=now(),extractor=NULL WHERE id=$1 RETURNING *`, [id, statement, revision, effectiveAt])).rows[0];
+        await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor) VALUES ($1,$2,$3,'user_confirmed','active',$4,$5,NULL)`, [id, revision, statement, effectiveAt, auth.clientId]);
+        await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,$2,$3,$4)', [id, revision, sourceId, statement]);
+        await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, revision]);
+        return { memory: memoryRow(updated), superseded_memory_ids: siblings.map(row => row.id), snapshot_version: await bump(tx, auth.ownerId) };
+      }
+      await blockExtraction(tx, auth.ownerId, id);
+      const updated = (await tx.query("UPDATE tk_memories SET status='dismissed',authoritative=false,revision=$2,updated_at=now() WHERE id=$1 RETURNING *", [id, revision])).rows[0];
+      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor) VALUES ($1,$2,$3,$4,'dismissed',$5,$6,$7)`, [id, revision, memory.statement, memory.origin, memory.effective_at, auth.clientId, memory.extractor]);
+      await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) SELECT memory_id,$2,source_id,quote FROM tk_evidence WHERE memory_id=$1 AND revision=$3', [id, revision, memory.revision]);
+      await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, revision]);
+      return { memory: memoryRow(updated), snapshot_version: await bump(tx, auth.ownerId) };
+    });
+  }
   async function correct(auth: Auth, id: string, raw: unknown) {
     permission(auth, 'correct');
     const input = parsed(CorrectSchema, raw);
@@ -350,20 +406,12 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       await lockOwner(tx, auth.ownerId);
       const memory = await findMemory(tx, auth, id, true);
       if (Number(memory.revision) !== input.expected_revision) throw new DomainError(409, 'revision_conflict');
+      if (memory.status === 'candidate' || memory.status === 'dismissed') throw new DomainError(409, 'review_required');
       if (await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(input.statement, memory.project_id, memory.subject))) throw new DomainError(410, 'deleted_content');
-      const siblings = (await tx.query('SELECT id,statement,revision FROM tk_memories WHERE owner_id=$1 AND project_id IS NOT DISTINCT FROM $2 AND subject=$3 AND id<>$4', [auth.ownerId, memory.project_id, memory.subject, id])).rows
-        .filter(row => normalize(row.statement) === normalize(memory.statement));
-      for (const sibling of siblings) {
-        await tx.query("UPDATE tk_memories SET status='superseded',updated_at=now() WHERE id=$1", [sibling.id]);
-        await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision=$2", [sibling.id, sibling.revision]);
-        await tx.query('UPDATE tk_sources SET extraction_blocked=true WHERE id IN (SELECT source_id FROM tk_evidence WHERE memory_id=$1)', [sibling.id]);
-      }
+      const siblings = await supersedeSiblings(tx, memory);
       // Old source events remain available as history, but no pending extractor can admit them again.
-      await tx.query('UPDATE tk_sources SET extraction_blocked=true WHERE id IN (SELECT source_id FROM tk_evidence WHERE memory_id=$1)', [id]);
-      await tx.query(`UPDATE tk_jobs j SET status='cancelled',completed_at=now(),error_code=NULL,result=NULL
-        WHERE j.owner_id=$1 AND j.status IN ('pending','processing','failed') AND NOT EXISTS (
-          SELECT 1 FROM tk_sources s WHERE s.owner_id=j.owner_id AND s.id=ANY(j.source_ids) AND s.extraction_blocked=false
-        )`, [auth.ownerId]);
+      await tx.query('UPDATE tk_revisions SET extractor=COALESCE(extractor,$2) WHERE memory_id=$1 AND revision=$3', [id, memory.extractor, memory.revision]);
+      await blockExtraction(tx, auth.ownerId, id);
       const sourceId = uuid();
       await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,extraction_blocked,capture_method)
         VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_explicit',now(),$8,true,'profile_correction')`, [sourceId, auth.ownerId, auth.clientId, `correction:${id}:${input.expected_revision + 1}`, memory.project_id, memory.subject, input.statement, hash(input.statement)]);
@@ -449,16 +497,22 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         || (revision.revision < memory.revision && revision.status !== 'superseded'))) throw new DomainError(400, 'invalid_revision_history');
       const current = revisions.get(`${memory.id}:${memory.revision}`);
       if (!current || current.statement !== memory.statement || current.origin !== memory.origin || current.status !== memory.status || current.effective_at !== memory.effective_at) throw new DomainError(400, 'revision_mismatch');
-      if (memory.authoritative && (memory.origin !== 'user_explicit' || memory.revision < 2)) throw new DomainError(400, 'invalid_authority');
+      if (memory.status === 'active' && ['inferred', 'assistant_proposed'].includes(memory.origin)
+        || history.some(revision => revision.status === 'active' && ['inferred', 'assistant_proposed'].includes(revision.origin))) throw new DomainError(400, 'unconfirmed_memory');
+      if (current.extractor !== null && current.extractor !== memory.extractor) throw new DomainError(400, 'revision_mismatch');
+      if (memory.authoritative && (!['user_explicit', 'user_confirmed'].includes(memory.origin) || memory.status !== 'active' || memory.revision < 2 || memory.extractor !== null)) throw new DomainError(400, 'invalid_authority');
       if (memory.authoritative && !bundle.evidence.some(evidence => {
         if (evidence.memory_id !== memory.id || evidence.revision !== memory.revision) return false;
         const source = sources.get(evidence.source_id);
-        return source?.author_role === 'user' && source.origin === 'user_explicit' && source.extraction_blocked && source.capture_method === 'profile_correction'
+        const confirmation = memory.origin === 'user_confirmed';
+        return source?.author_role === 'user' && source.origin === memory.origin && source.extraction_blocked && source.capture_method === (confirmation ? 'profile_confirmation' : 'profile_correction')
           && source.text === memory.statement && evidence.quote === memory.statement
-          && source.event_id === `correction:${memory.id}:${memory.revision}` && source.client_id === current.editor_client_id;
-      })) throw new DomainError(400, 'invalid_authority', 'Authoritative corrections must have a user-authored correction source matching the current revision.');
+          && source.event_id === `${confirmation ? 'confirmation' : 'correction'}:${memory.id}:${memory.revision}` && source.client_id === current.editor_client_id;
+      })) throw new DomainError(400, 'invalid_authority', 'Authoritative records require matching owner-authored correction or confirmation evidence.');
       if (memory.authoritative && bundle.evidence.some(evidence => evidence.memory_id === memory.id
         && evidence.revision < memory.revision && !sources.get(evidence.source_id)?.extraction_blocked)) throw new DomainError(400, 'invalid_correction_history', 'Superseded evidence cannot be eligible for extraction after a correction.');
+      if (memory.status === 'dismissed' && bundle.evidence.some(evidence => evidence.memory_id === memory.id
+        && !sources.get(evidence.source_id)?.extraction_blocked)) throw new DomainError(400, 'invalid_review_history', 'Dismissed evidence cannot be eligible for extraction.');
     }
     for (const evidence of bundle.evidence) {
       const source = sources.get(evidence.source_id);
@@ -508,9 +562,13 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       }
       for (const revision of bundle.revisions) if (allowedMemories.has(revision.memory_id)) {
         const old = (await tx.query('SELECT * FROM tk_revisions WHERE memory_id=$1 AND revision=$2', [revision.memory_id, revision.revision])).rows[0];
-        if (old && canonical(revisionRow(old)) !== canonical(revision)) throw new DomainError(409, 'import_revision_conflict');
-        if (!old) await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,created_at,editor_client_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [revision.memory_id, revision.revision, revision.statement, revision.origin, revision.status, revision.effective_at, revision.created_at, revision.editor_client_id]);
+        // Legacy v1 bundles omitted revision extractors. Null means unknown and
+        // must neither erase known provenance nor conflict with its backfill.
+        if (old && (old.extractor !== null && revision.extractor !== null && old.extractor !== revision.extractor
+          || canonical({ ...revisionRow(old), extractor: null }) !== canonical({ ...revision, extractor: null }))) throw new DomainError(409, 'import_revision_conflict');
+        if (old && old.extractor === null && revision.extractor !== null) await tx.query('UPDATE tk_revisions SET extractor=$3 WHERE memory_id=$1 AND revision=$2', [revision.memory_id, revision.revision, revision.extractor]);
+        if (!old) await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,created_at,editor_client_id,extractor)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [revision.memory_id, revision.revision, revision.statement, revision.origin, revision.status, revision.effective_at, revision.created_at, revision.editor_client_id, revision.extractor]);
       }
       for (const evidence of bundle.evidence) if (allowedMemories.has(evidence.memory_id)) {
         const old = (await tx.query('SELECT * FROM tk_evidence WHERE memory_id=$1 AND revision=$2 AND source_id=$3', [evidence.memory_id, evidence.revision, evidence.source_id])).rows[0];
@@ -576,5 +634,5 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const result = await db.query(`SELECT j.id,j.project_id,j.subject,j.status,j.attempts,j.created_at,j.started_at,j.completed_at,j.error_code,j.result FROM tk_jobs j WHERE ${scope(auth, params, 'j')} ORDER BY j.created_at DESC LIMIT 100`, params);
     return { jobs: result.rows };
   }
-  return { capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
+  return { capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
 }

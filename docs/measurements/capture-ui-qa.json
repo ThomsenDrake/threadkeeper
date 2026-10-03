@@ -135,6 +135,7 @@
     "capture-profile-mobile.png",
     "capture-source-mobile.png"
   ],
+  "visual_review": "All four recorded screenshots inspected with view_image. Failed/retry controls, completed evidence links, mobile navigation, and source dialog are visible without clipping.",
   "limitations": [
     "Browser processing/retry uses a deterministic synthetic MemoryProvider and disposable PGlite; it does not establish real-provider semantic quality or native database/container behavior.",
     "Fresh independent HTTP recall is observed here; installed MCP host behavior is not exercised.",

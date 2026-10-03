@@ -90,7 +90,7 @@ Create one credential per client in the profile. Connect it to `/mcp` with a bea
 
 ## Corrections, deletion and portability
 
-Profile edits create user-authored correction evidence and make the current revision authoritative. Fresh default retrieval uses active current records. Model output remains bounded and locally validated; source instructions cannot control owner IDs or permissions.
+Profile edits create user-authored correction evidence and make the current revision authoritative. Owners explicitly confirm, edit-and-confirm or dismiss model candidates in Needs review. Confirmation creates separate user-confirmed evidence; original inference/proposal sources and provider history stay inspectable. Dismissed records remain in history and stay out of default recall. Fresh default retrieval uses active current records. Model output remains bounded and locally validated; source instructions cannot control owner IDs or permissions.
 
 Deletion currently removes **whole connected source events and all memories supported by them**, including revision history and pending jobs. This is deliberately conservative and can remove sibling memories. Capture independent facts in separate source events for precise deletion. The central demonstration uses separate deadline and preference events.
 

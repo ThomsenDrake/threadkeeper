@@ -38,7 +38,7 @@ Capture-status checks observe processing, failure and completion through HTTP/MC
 The owner retries failed extraction on the same capture, source and job; an
 independent client recalls the resulting memory. Stale retries and token retries
 are rejected, receipts remain immutable, and cancelled work cannot restore content.
-Native SQL inspects jobs and derived vectors; capture, retrieval and profile writes
+Owner candidate confirmation/dismissal also runs through HTTP, preserving the original worker inference/source/provider history and proving fresh independent recall uses the separate confirmation evidence. Native SQL inspects jobs and derived vectors; capture, retrieval and profile writes
 use application transports. Rerunning migrations is also checked.
 
 Each stage prints a pass label. A failure exits nonzero with its stage and sanitized
