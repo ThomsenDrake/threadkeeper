@@ -1,0 +1,27 @@
+{
+  "recorded_at": "2026-10-03T15:52:06.763Z",
+  "result": "PASS",
+  "host": "codex-cli 0.159.0-alpha.3",
+  "node": "24.19.0",
+  "database": "fresh in-memory PGlite",
+  "checks": [
+    "Two independent installed Codex hosts authenticate with separate scoped credentials and discover their permitted tools.",
+    "Client A captures the documented synthetic deadline/preference; Client B recalls current records and their original source evidence/status.",
+    "Restricted hosts include global context, exclude private projects, reject forbidden scopes and cannot invoke an unadvertised capture tool.",
+    "Owner correction and preview-confirmed forgetting are immediately reflected in fresh recall from both installed hosts.",
+    "Pause rejects new and replayed captures while recall works; resume accepts a new explicit capture.",
+    "Revocation denies the writer without changing its last authenticated timestamp; the independent reader retains authorized recall."
+  ],
+  "invocation": "Actual Codex app-server mcpServer/tool/call, with explicitly supplied arguments; no model turn submitted.",
+  "limits": [
+    "Does not establish autonomous model tool selection, installed ChatGPT/Claude integration, learned-provider quality, GPU operation or native database behavior."
+  ],
+  "model_endpoint_requests": 0,
+  "cleanup": "Both Codex app-servers, localhost HTTP services, database and temporary homes/credentials removed.",
+  "harness_sha256": "3155fecb40520a48cdd04f1ec65a23abfdd5dfb81bec0c7b48a11e578e449b33",
+  "failure_cleanup_checks": [
+    "SIGTERM-ignoring version command killed and awaited before home cleanup",
+    "SIGTERM-ignoring MCP-add command killed and awaited before home cleanup",
+    "30-second command timeout plus five-second SIGKILL escalation removes command and home"
+  ]
+}
