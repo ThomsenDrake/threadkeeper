@@ -166,6 +166,17 @@ export async function runLearnedScenarios(options: {
     assert.deepEqual(removed.deleted_source_ids, [preferenceSource.id]);
     assert.deepEqual(removed.deleted_job_ids, [receipt.job_id]);
     assert.equal(removed.deleted_count, 1);
+    // Fresh receipt keys exercise tombstones rather than immutable receipt replay.
+    // Explicitly empty memories ensure these negative checks cannot enqueue
+    // inference even if a deletion fence regresses and admission unexpectedly succeeds.
+    for (const [name, event] of [
+      ['identity', { ...events[1], text: 'A replacement for an already forgotten source identity.' }],
+      ['content', { ...events[1], id: 'forgotten-content-replay', text: `  ${preferenceSource.text.toUpperCase()}\n` }],
+    ] as const) {
+      const replay = await http('/api/capture', 410, { idempotency_key: `forgotten-${name}-replay`, project_id: project,
+        events: [event], explicit_memories: [] }, 'POST', grants[0].token);
+      assert.equal(replay.data.error, 'deleted_source');
+    }
     await http(`/api/sources/${preference.evidence[0].source_id}`, 404, undefined, undefined, grants[1].token);
     await http(`/api/memories/${preference.id}`, 404);
     const forbidden = await b.callTool({ name: 'context_get_source', arguments: { source_id: preference.evidence[0].source_id } }, { signal: options.signal, timeout: 20_000 });
@@ -186,7 +197,7 @@ export async function runLearnedScenarios(options: {
     assert.deepEqual(await tool(b, 'context_get_source', { source_id: deadlineSource.id }), { ...deadlineSource, extraction_blocked: true });
     assert.deepEqual((await http(`/api/sources/${deadlineSource.id}`, 200, undefined, undefined, grants[1].token)).data,
       { ...deadlineSource, extraction_blocked: true });
-    const archive = assertLearnedArchiveHistory((await http('/api/export')).data, retained);
+    const archive = assertLearnedArchiveHistory((await http('/api/export')).data, retained, { memory: preference, source: preferenceSource });
     assert(!JSON.stringify(archive).includes('short paragraphs'));
     const remainingVectors = await options.sql('SELECT memory_id,revision,provider_model,dimensions FROM tk_embeddings');
     assert.equal(remainingVectors.length, 1);

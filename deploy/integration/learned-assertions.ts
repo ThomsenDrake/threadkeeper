@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { DeletionPreviewSchema, EvidenceSchema, ExportSchema, ExportSourceSchema, MemorySchema, RevisionSchema } from '../../packages/contracts/src/index.ts';
+import { memoryContent, sourceContent, sourceIdentity } from '../../packages/core/src/hashing.ts';
 import { evaluationCorpus } from '../provider-evaluation-corpus.ts';
 import { evaluateMemoryRubric } from '../provider-evaluation-rubric.ts';
 
@@ -14,6 +16,9 @@ const LearnedMemorySchema = MemorySchema.extend({ evidence: z.array(z.object({
 const DetailSchema = z.object({ memory: MemorySchema, sources: z.array(ExportSourceSchema),
   evidence: z.array(EvidenceSchema), revisions: z.array(RevisionSchema) });
 export type LearnedDetail = z.infer<typeof DetailSchema>;
+function assertSourceChecksum(source: z.infer<typeof ExportSourceSchema>) {
+  assert.equal(source.checksum, createHash('sha256').update(source.text, 'utf8').digest('hex'), 'Source checksum must identify the exact original UTF-8 text');
+}
 
 /** Fixed synthetic acceptance, deliberately using the same finite semantic rubric as the corpus. */
 export function assertLearnedExtraction(rawMemories: unknown, rawSources: unknown, project: string, clientId: string) {
@@ -24,6 +29,7 @@ export function assertLearnedExtraction(rawMemories: unknown, rawSources: unknow
   assert.equal(new Set(sources.map(source => source.id)).size, 2);
   assert.deepEqual(sources.map(source => source.event_id).sort(), directLearnedCase.events.map(event => event.id).sort());
   for (const source of sources) {
+    assertSourceChecksum(source);
     const event = directLearnedCase.events.find(event => event.id === source.event_id)!;
     assert.equal(source.text, event.text, 'Original source text changed');
     assert.equal(source.client_id, clientId);
@@ -66,6 +72,8 @@ export function assertLearnedExtraction(rawMemories: unknown, rawSources: unknow
 export function assertLearnedDeletionPreview(raw: unknown, preference: unknown, preferenceSource: unknown, deadlineSourceId: string, jobId: string) {
   const preview = DeletionPreviewSchema.parse(raw);
   const memory = MemorySchema.parse(preference), source = ExportSourceSchema.parse(preferenceSource);
+  assertSourceChecksum(source);
+  preview.sources.forEach(assertSourceChecksum);
   assert.deepEqual(preview.target, { kind: 'memory', id: memory.id });
   assert.equal(preview.expected_revision, memory.revision);
   assert.equal(preview.blast_radius, 'whole_connected_source_events');
@@ -86,6 +94,8 @@ export function assertLearnedDeletionPreview(raw: unknown, preference: unknown, 
 
 export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDetail, changed: unknown) {
   const detail = DetailSchema.parse(raw), current = MemorySchema.parse(changed);
+  original.sources.forEach(assertSourceChecksum);
+  detail.sources.forEach(assertSourceChecksum);
   assert.deepEqual(detail.memory, current);
   assert.equal(current.id, original.memory.id);
   assert.equal(current.project_id, original.memory.project_id);
@@ -122,14 +132,30 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   return detail;
 }
 
-export function assertLearnedArchiveHistory(raw: unknown, detail: LearnedDetail) {
+export function assertLearnedArchiveHistory(raw: unknown, detail: LearnedDetail, forgotten: { memory: unknown; source: unknown }) {
   const archive = ExportSchema.parse(raw);
+  archive.sources.forEach(assertSourceChecksum);
   assert.deepEqual(archive.memories, [detail.memory]);
   assert.deepEqual(ids(archive.sources), ids(detail.sources));
   for (const source of detail.sources) assert.deepEqual(archive.sources.find(value => value.id === source.id), source);
   assert.deepEqual(archive.revisions, detail.revisions);
   assert.deepEqual(archive.evidence, detail.evidence);
+  const memory = MemorySchema.parse(forgotten.memory), source = ExportSourceSchema.parse(forgotten.source);
+  assertSourceChecksum(source);
+  // This disposable lifecycle forgets exactly one source and one revision.
+  // Check every replay fence, including the scoped interpretation fingerprint.
+  const expected = [
+    { kind: 'source_identity', hash: sourceIdentity(source.client_id, source.event_id) },
+    { kind: 'source_content', hash: sourceContent(source.text) },
+    { kind: 'memory_content', hash: memoryContent(memory.statement, memory.project_id, memory.subject) },
+  ];
+  const fingerprints = (records: Array<{ kind: string; hash: string }>) => records.map(record => `${record.kind}:${record.hash}`).sort();
+  assert.deepEqual(fingerprints(archive.tombstones), fingerprints(expected), 'Export must retain exactly the forgotten source and memory replay fences');
   return archive;
 }
 
-export function learnedDetail(raw: unknown) { return DetailSchema.parse(raw); }
+export function learnedDetail(raw: unknown) {
+  const detail = DetailSchema.parse(raw);
+  detail.sources.forEach(assertSourceChecksum);
+  return detail;
+}

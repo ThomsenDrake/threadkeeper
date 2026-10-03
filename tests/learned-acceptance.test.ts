@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test, { type TestContext } from 'node:test';
-import { createStore, type Auth } from '../packages/core/src/index.ts';
+import { createStore, DomainError, type Auth } from '../packages/core/src/index.ts';
 import { createTestDatabase } from './helpers.ts';
 import { assertLearnedArchiveHistory, assertLearnedDeadlineHistory, assertLearnedDeletionPreview,
   assertLearnedExtraction, directLearnedCase, learnedDetail } from '../deploy/integration/learned-assertions.ts';
@@ -41,6 +41,10 @@ test('native learned acceptance rejects wrong values, swapped relationships and 
   assert.throws(() => assertLearnedExtraction(wrongSource, sources, project, writer.clientId));
   const changedSource = structuredClone(sources); changedSource[0].text += ' An unrecorded addition.';
   assert.throws(() => assertLearnedExtraction(memories, changedSource, project, writer.clientId));
+  for (const index of [0, 1]) {
+    const invalidChecksum = structuredClone(sources); invalidChecksum[index].checksum = '0'.repeat(64);
+    assert.throws(() => assertLearnedExtraction(memories, invalidChecksum, project, writer.clientId));
+  }
   assert.throws(() => assertLearnedExtraction([...memories, memories[0]], sources, project, writer.clientId));
 });
 
@@ -67,6 +71,13 @@ test('native preview and history assertions detect misleading impact and lost or
     assert.throws(() => assertLearnedDeletionPreview(bad, preference, preferenceSource, deadlineSource.id, receipt.job_id!));
   }
   await store.remove(owner, preference.id, { expected_revision: 1, preview_hash: preview.preview_hash });
+  for (const event of [
+    { ...directLearnedCase.events[1], text: 'Changed content under the forgotten identity.' },
+    { ...directLearnedCase.events[1], id: 'fresh-forgotten-content-id', text: `  ${preferenceSource.text.toUpperCase()}\n` },
+  ]) {
+    await assert.rejects(store.capture(writer, { idempotency_key: randomUUID(), project_id: project, subject: 'self', events: [event], explicit_memories: [] }),
+      error => error instanceof DomainError && error.status === 410 && error.code === 'deleted_source');
+  }
   const detail = assertLearnedDeadlineHistory(await store.detail(owner, deadline.id), original, changed);
   assert.deepEqual(await store.getSource(writer, deadlineSource.id), { ...deadlineSource, extraction_blocked: true });
   const historyCorruptions: Array<(value: typeof detail) => void> = [
@@ -76,14 +87,30 @@ test('native preview and history assertions detect misleading impact and lost or
     value => { value.revisions[0].statement = changed.statement; },
     value => { value.evidence = value.evidence.filter(evidence => evidence.revision !== 1); },
     value => { value.evidence[0].quote = changed.statement; },
+    value => { value.sources.find(source => source.capture_method === 'profile_correction')!.checksum = '0'.repeat(64); },
   ];
   for (const corrupt of historyCorruptions) {
     const bad = structuredClone(detail); corrupt(bad);
     assert.throws(() => assertLearnedDeadlineHistory(bad, original, changed));
   }
-  const archive = assertLearnedArchiveHistory(await store.export(owner), detail);
+  const forgotten = { memory: preference, source: preferenceSource };
+  const archive = assertLearnedArchiveHistory(await store.export(owner), detail, forgotten);
   for (const collection of ['sources', 'revisions', 'evidence'] as const) {
     const bad = structuredClone(archive); bad[collection] = [];
-    assert.throws(() => assertLearnedArchiveHistory(bad, detail), `Export must retain ${collection}`);
+    assert.throws(() => assertLearnedArchiveHistory(bad, detail, forgotten), `Export must retain ${collection}`);
+  }
+  for (const kind of ['source_identity', 'source_content', 'memory_content']) {
+    const missing = structuredClone(archive); missing.tombstones = missing.tombstones.filter(tombstone => tombstone.kind !== kind);
+    assert.throws(() => assertLearnedArchiveHistory(missing, detail, forgotten), `Missing ${kind} must fail`);
+    const wrong = structuredClone(archive); wrong.tombstones.find(tombstone => tombstone.kind === kind)!.hash = '0'.repeat(64);
+    assert.throws(() => assertLearnedArchiveHistory(wrong, detail, forgotten), `Wrong ${kind} hash must fail`);
+  }
+  const extra = structuredClone(archive); extra.tombstones.push({ ...extra.tombstones[0], hash: '1'.repeat(64) });
+  assert.throws(() => assertLearnedArchiveHistory(extra, detail, forgotten), 'Unexpected deletion fingerprints must fail');
+  for (const index of [0, 1]) {
+    const wrongArchive = structuredClone(archive), wrongDetail = structuredClone(detail);
+    wrongArchive.sources[index].checksum = '0'.repeat(64);
+    wrongDetail.sources.find(source => source.id === wrongArchive.sources[index].id)!.checksum = '0'.repeat(64);
+    assert.throws(() => assertLearnedArchiveHistory(wrongArchive, wrongDetail, forgotten), 'Matching corrupt export/detail checksums must still fail SHA-256 validation');
   }
 });
