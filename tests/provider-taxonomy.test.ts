@@ -105,7 +105,7 @@ test('taxonomy observation budget permits fourteen chats, forbids embeddings, an
 });
 
 test('taxonomy setup failures and conflicting selections preserve safe seven-case failure evidence', () => {
-  for (const args of [[], ['--holdout']]) {
+  for (const args of [[], ['--holdout'], ['--holdout-v1']]) {
     let result: any;
     try {
       execFileSync(process.execPath, ['--import', 'tsx', 'deploy/provider-evaluation.ts', '--live', '--taxonomy', ...args], {

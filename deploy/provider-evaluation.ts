@@ -11,22 +11,24 @@ import { OpenAICompatibleProvider, providerConfigFromEnv, DEFAULT_MODEL_ID } fro
 import { evaluationCorpus, type EvaluationCase } from './provider-evaluation-corpus.ts';
 import { evaluateMemoryRubric } from './provider-evaluation-rubric.ts';
 import { extractionHoldout, extractionHoldoutManifest, extractionHoldoutSha256, assertHoldoutConfig } from './provider-extraction-holdout.ts';
+import { extractionHoldoutV2, extractionHoldoutV2Manifest, extractionHoldoutV2Sha256 } from './provider-extraction-holdout-v2.ts';
 import { taxonomyProbe, taxonomyProbeManifest, taxonomyProbeSha256, type TaxonomyCase } from './provider-taxonomy-probe.ts';
 import { evaluateTaxonomyOutcome } from './provider-taxonomy-checks.ts';
 import { assertHoldoutRecords, evaluateHoldoutOutcome, holdoutRequestLimits, assessHoldoutObservations } from './provider-holdout-checks.ts';
 
 type RecordedAttempt = { request: any; response?: any; error?: { code: string; status?: number }; elapsed_ms?: number };
 type Recording = { schema_version: string; cases: Array<{ id: string; attempts: RecordedAttempt[] }> };
-const holdout = process.argv.includes('--holdout');
+const legacyHoldout = process.argv.includes('--holdout-v1');
+const holdout = process.argv.includes('--holdout') || legacyHoldout;
 const taxonomy = process.argv.includes('--taxonomy');
 const boundedProbe = holdout || taxonomy;
-const manifest = taxonomy ? taxonomyProbeManifest : extractionHoldoutManifest;
-const manifestSha256 = taxonomy ? taxonomyProbeSha256 : extractionHoldoutSha256;
+const manifest = taxonomy ? taxonomyProbeManifest : legacyHoldout ? extractionHoldoutManifest : extractionHoldoutV2Manifest;
+const manifestSha256 = taxonomy ? taxonomyProbeSha256 : legacyHoldout ? extractionHoldoutSha256 : extractionHoldoutV2Sha256;
 const metadataKey = taxonomy ? 'taxonomy_probe' : 'holdout';
 const lifecycleReason = taxonomy ? 'assertion_kind_probe_only' : 'extraction_holdout_only';
-const args = process.argv.slice(2).filter(value => value !== '--holdout' && value !== '--taxonomy');
+const args = process.argv.slice(2).filter(value => !['--holdout', '--holdout-v1', '--taxonomy'].includes(value));
 const mode = args[0] ?? '--live';
-const corpus = taxonomy ? taxonomyProbe : holdout ? extractionHoldout : evaluationCorpus;
+const corpus = taxonomy ? taxonomyProbe : holdout ? legacyHoldout ? extractionHoldout : extractionHoldoutV2 : evaluationCorpus;
 let recording: Recording | undefined;
 const output: Array<Record<string, any>> = [];
 const requests: Recording['cases'] = [];
@@ -70,6 +72,8 @@ const clients: Client[] = [];
 let observer: ReturnType<typeof installDirectProviderObserver> | undefined;
 try {
 assert(!(holdout && taxonomy), 'Select only one frozen probe');
+assert(!(legacyHoldout && process.argv.includes('--holdout')), 'Choose one holdout version');
+assert(!legacyHoldout || ['--requests', '--replay'].includes(mode), 'Legacy holdout supports offline requests/replay only');
 assert(['--live', '--requests', '--replay'].includes(mode) && args.length === (mode === '--replay' ? 2 : args.length === 0 ? 0 : 1), 'Invalid evaluation arguments');
 recording = mode === '--replay' ? JSON.parse(await readFile(args[1], 'utf8')) : undefined;
 if (recording) {
