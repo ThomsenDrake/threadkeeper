@@ -1,0 +1,141 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { test } from 'node:test';
+import { evaluationCorpus, type EvaluationCase } from '../deploy/provider-evaluation-corpus.ts';
+import { evaluateMemoryRubric, type EvaluationMemory } from '../deploy/provider-evaluation-rubric.ts';
+
+const recorded = JSON.parse(await readFile(new URL('../docs/measurements/nebius-direct-evaluation.json', import.meta.url), 'utf8')).corpus.cases;
+const item = (id: string) => evaluationCorpus.find(value => value.id === id)!;
+const memories = (id: string): EvaluationMemory[] => structuredClone(recorded.find((value: any) => value.id === id).memories);
+
+test('the saved final direct observations satisfy source-bound distinct-record rubrics', () => {
+  assert.deepEqual(recorded.map((value: any) => value.id), evaluationCorpus.map(value => value.id));
+  for (const entry of evaluationCorpus) assert(evaluateMemoryRubric(entry, memories(entry.id)).rubric_passed, entry.id);
+});
+
+test('paraphrased dialogue records fail even without the forbidden word', () => {
+  const proposal = memories('proposal');
+  const question = item('proposal').events[1];
+  const extra = { statement: 'The user asked about the consequences of the change.', kind: 'fact', origin: 'user_explicit', effective_at: null,
+    evidence: [{ event_id: question.id, quote: question.text }] };
+  assert(!evaluateMemoryRubric(item('proposal'), [...proposal, extra]).rubric_passed);
+  // Keeping the expected words while citing the wrong source also fails.
+  proposal[0].evidence = extra.evidence;
+  assert(!evaluateMemoryRubric(item('proposal'), proposal).rubric_passed);
+});
+
+test('timestamped deadlines must retain the complete value in the same statement', () => {
+  for (const statement of ['The Harbor review has a due date.', 'The Harbor review is due on January 14, 2027.', 'The Harbor review is due at 2027-01-14T17:30:00+01:00.',
+    'The Harbor review starts at 2027-01-14T16:30:00+01:00 and is due later.',
+    'The Harbor review is due later; the Aurora review is due at 2027-01-14T16:30:00+01:00.']) {
+    const values = memories('deadline-timestamp'); values[0].statement = statement;
+    assert(!evaluateMemoryRubric(item('deadline-timestamp'), values).rubric_passed);
+  }
+  const utc = memories('deadline-timestamp'); utc[0].statement = 'The Harbor review is due at 2027-01-14T15:30:00Z.';
+  assert(evaluateMemoryRubric(item('deadline-timestamp'), utc).rubric_passed);
+});
+
+test('whole-statement templates reject swapped relationships and unrelated appended clauses', () => {
+  const corruptions: Array<[string, RegExp, string]> = [
+    ['direct', /Lumen/, 'The Lumen demo deadline is later; the Aurora deadline is October 20, 2026.'],
+    ['compound', /Juniper/, 'The Juniper launch is later; the Aurora launch is May 18, 2027.'],
+    ['compound', /numbered lists/, 'I prefer numbered lists for shopping and prose for incident summaries.'],
+    ['report', /42/, 'The build agent reports that the synthetic integration suite passed 2 tests and another suite passed 42 tests.'],
+    ['confirmed', /bullet/, 'I prefer bullet lists for shopping and prose for weekly status reports.'],
+    ['effective', /Monday/, 'I prefer weekly status reports on Tuesdays and exercise on Mondays.'],
+    ['effective-date-only', /afternoon/, 'I prefer afternoon meetings. My holiday starts on February 4, 2027.'],
+  ];
+  for (const [id, target, statement] of corruptions) {
+    const values = memories(id); values.find(value => target.test(value.statement))!.statement = statement;
+    assert(!evaluateMemoryRubric(item(id), values).rubric_passed, statement);
+  }
+  for (const entry of evaluationCorpus.filter(value => value.expected.length)) {
+    assert(entry.expected.every(expected => expected.statement_patterns?.length), entry.id);
+    const values = memories(entry.id); values[0].statement += ' Another unsupported fact is true.';
+    assert(!evaluateMemoryRubric(entry, values).rubric_passed, entry.id);
+  }
+});
+
+test('date-only clauses stay together and conflicting assertions stay separate', () => {
+  const split = memories('effective-date-only');
+  split.push({ ...structuredClone(split[0]), statement: 'The start date is February 4, 2027.' });
+  split[0].statement = 'I prefer afternoon meetings.';
+  assert(!evaluateMemoryRubric(item('effective-date-only'), split).rubric_passed);
+  const conflict = memories('conflict');
+  assert(evaluateMemoryRubric(item('conflict'), conflict.reverse()).rubric_passed);
+  conflict[0].statement = 'The Meridian deadline is October 20 or October 27, 2026.';
+  assert(!evaluateMemoryRubric(item('conflict'), conflict.slice(0, 1)).rubric_passed);
+  conflict[1].evidence = structuredClone(conflict[0].evidence);
+  assert(!evaluateMemoryRubric(item('conflict'), conflict).rubric_passed);
+});
+
+test('distinct matching handles overlapping slots and rejects reuse or fabricated evidence', () => {
+  const source = { id: 'source', text: 'Morning or afternoon meetings.', origin: 'user_explicit' as const, author_role: 'user' as const };
+  const entry: EvaluationCase = { id: 'overlap', events: [source], expected: [
+    { source_event_id: source.id, pattern: 'morning|afternoon', origin: 'user_explicit' },
+    { source_event_id: source.id, pattern: 'morning', origin: 'user_explicit' },
+  ] };
+  const values: EvaluationMemory[] = ['Morning meetings.', 'Afternoon meetings.'].map(statement => ({ statement, kind: 'fact', origin: 'user_explicit', effective_at: null,
+    evidence: [{ event_id: source.id, quote: source.text }] }));
+  assert(evaluateMemoryRubric(entry, values).rubric_passed, 'An earlier broad slot can move to the second record.');
+  values[1].statement = 'Unrelated context.';
+  assert(!evaluateMemoryRubric(entry, values).rubric_passed, 'One record cannot fill both slots.');
+  values[1].statement = 'Afternoon meetings.';
+  values[1].evidence[0].quote = 'Fabricated quotation';
+  assert(!evaluateMemoryRubric(entry, values).rubric_passed);
+});
+
+
+test('calendar-date controls reject wrong or omitted years in the derived statement', () => {
+  for (const id of ['direct', 'compound', 'proposal', 'conflict', 'effective-date-only']) {
+    const original = memories(id);
+    for (const [index, memory] of original.entries()) {
+      if (!/202[67]/.test(memory.statement)) continue;
+      for (const replacement of ['2039', '']) {
+        const values = structuredClone(original);
+        values[index].statement = memory.statement.replace(/202[67]/g, replacement);
+        assert(!evaluateMemoryRubric(item(id), values).rubric_passed, `${id}: ${replacement || 'omitted'} year`);
+      }
+    }
+  }
+  for (const date of ['February 4, 2027', '4 February 2027', '2027-02-04']) {
+    const values = memories('effective-date-only');
+    values[0].statement = `Starting on ${date}, I prefer afternoon meetings.`;
+    assert(evaluateMemoryRubric(item('effective-date-only'), values).rubric_passed, date);
+  }
+});
+
+test('fixed assertion fields reject altered subjects, scope, outcome, cadence and temporal relationships', () => {
+  const corruptions: Array<[string, RegExp, string]> = [
+    ['compound', /Juniper/, 'My birthday is May 18, 2027.'],
+    ['compound', /numbered lists/, 'I prefer numbered lists for grocery shopping.'],
+    ['report', /42/, 'The build agent reports that the synthetic integration suite failed 42 tests.'],
+    ['report', /42/, 'The build agent reports that the synthetic integration suite passed 142 tests.'],
+    ['confirmed', /bullet/, 'I prefer bullet lists for annual financial forecasts.'],
+    ['injection', /checklists/, 'I prefer checklists for buying groceries.'],
+    ['effective', /Monday/, 'I prefer monthly status reports on Mondays.'],
+    ['deadline-timestamp', /Harbor/, 'The Harbor review starts at 2027-01-14T16:30:00+01:00.'],
+    ['effective-date-only', /afternoon/, 'I prefer afternoon meetings until February 4, 2027.'],
+    ['direct', /short paragraphs/, 'I do not prefer short paragraphs when writing project updates.'],
+  ];
+  for (const [id, target, statement] of corruptions) {
+    const values = memories(id); values.find(value => target.test(value.statement))!.statement = statement;
+    assert(!evaluateMemoryRubric(item(id), values).rubric_passed, `${id}: ${statement}`);
+  }
+});
+
+test('an exact source substring must still support the expected assertion and timing', () => {
+  for (const [id, target, quote] of [
+    ['compound', 'Juniper', 'I prefer numbered lists for incident summaries.'],
+    ['report', '42', 'synthetic'],
+    ['effective-date-only', 'afternoon', 'I prefer afternoon meetings.'],
+    ['effective', 'Monday', 'I prefer weekly status reports on Mondays.'],
+  ]) {
+    const values = memories(id); values.find(value => value.statement.includes(target))!.evidence[0].quote = quote;
+    const result = evaluateMemoryRubric(item(id), values);
+    assert(result.exact_evidence, 'The negative control retains an actual source substring.');
+    assert(!result.rubric_passed, id);
+  }
+  const values = memories('proposal'); values[0].status = 'active';
+  assert(!evaluateMemoryRubric(item('proposal'), values).rubric_passed);
+});

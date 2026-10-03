@@ -1,0 +1,701 @@
+{
+  "schema_version": "threadkeeper.direct-provider-offline-regrade.v1",
+  "evaluated_at": "2026-10-03T18:34:12.151Z",
+  "rubric_commit": "b4c7fe41857f1824e5305fbd49426820a7d99557",
+  "rubric_source_sha256": {
+    "deploy/provider-evaluation-corpus.ts": "5eb8dbbd066d75f87711329ca92f26fb17faffa7495608f4d515dc1bf8a84c92",
+    "deploy/provider-evaluation-rubric.ts": "b021246646e55151b0d98d0285d70d716de98de43e5bf496f6accb37a86aa45f",
+    "deploy/provider-evaluation.ts": "a2b69ffe7ef609db55e3c9a7f64d8de80db91d7a7b79cb7e75a44d8fbcdb79c0",
+    "tests/provider-evaluation.test.ts": "df34e35300cd4f568fe9bc59b75b6c311ad401b6719acbef5037cbf8d596fd31"
+  },
+  "live_provider_requests": 0,
+  "scope": "Offline regrading of existing admitted memories only using conservative full-statement templates; no new inference or application lifecycle run. Original live evidence and usage are unchanged. Unlisted valid paraphrases can fail this finite rubric.",
+  "input_artifact": "docs/measurements/nebius-direct-evaluation.json",
+  "input_sha256": "4a239258504e0cbfae39d2cc282a35cbcbe82941e37ea89c7c769dc3d5027b5b",
+  "original_live_implementation_commit": "abbf22f7c8c395f4f4ff04713636f1c87fc07e27",
+  "passed": 11,
+  "total": 11,
+  "cases": [
+    {
+      "id": "direct",
+      "observed_memory_count": 2,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:The )?Lumen demo(?:nstration)? (?:deadline is|is due (?:on|at)) (?:October 20,? 2026|2026-10-20|20 October,? 2026)"
+          ],
+          "source_event_id": "direct-deadline",
+          "and_patterns": [
+            "Lumen",
+            "demo(?:nstration)?",
+            "deadline|due"
+          ],
+          "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
+          "origin": "user_explicit",
+          "kind": "fact",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 1
+        },
+        {
+          "statement_patterns": [
+            "(?:I prefer|The user prefers) short paragraphs (?:when writing|for) project updates"
+          ],
+          "source_event_id": "direct-preference",
+          "pattern": "short paragraphs",
+          "and_patterns": [
+            "prefer",
+            "project updates"
+          ],
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "compound",
+      "observed_memory_count": 2,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:The )?Juniper launch (?:is(?: on)?|is scheduled for) (?:May 18,? 2027|2027-05-18|18 May,? 2027)"
+          ],
+          "source_event_id": "compound-user",
+          "and_patterns": [
+            "Juniper",
+            "launch"
+          ],
+          "pattern": "\\b(?:May 18,? 2027|2027-05-18|18 May,? 2027)\\b",
+          "origin": "user_explicit",
+          "kind": "fact",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        },
+        {
+          "statement_patterns": [
+            "(?:I prefer|The user prefers) numbered lists for incident summaries"
+          ],
+          "source_event_id": "compound-user",
+          "pattern": "numbered lists",
+          "and_patterns": [
+            "prefer",
+            "incident summaries"
+          ],
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 1
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "proposal",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:The assistant (?:proposed|suggested|recommended) moving|I suggest moving) the Lumen demo deadline to (?:November 3,? 2026|2026-11-03|3 November,? 2026)"
+          ],
+          "source_event_id": "proposal-assistant",
+          "and_patterns": [
+            "Lumen",
+            "demo(?:nstration)?",
+            "deadline|due"
+          ],
+          "pattern": "\\b(?:November 3,? 2026|2026-11-03|3 November,? 2026)\\b",
+          "origin": "assistant_proposed",
+          "kind": "project_state",
+          "effective_at": null,
+          "status": "candidate",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "report",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "The build agent reports that the synthetic integration suite passed 42 tests"
+          ],
+          "source_event_id": "report-agent",
+          "pattern": "\\b42\\b.*tests|tests.*\\b42\\b",
+          "and_patterns": [
+            "passed|successful|succeeded",
+            "build agent",
+            "synthetic integration"
+          ],
+          "origin": "agent_reported",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "confirmed",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:I confirm my writing preference: use|(?:I prefer|The user prefers)) bullet lists for weekly status reports"
+          ],
+          "source_event_id": "confirmed-user",
+          "pattern": "bullet lists",
+          "and_patterns": [
+            "weekly status reports"
+          ],
+          "origin": "user_confirmed",
+          "kind": "preference",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "injection",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:I prefer|The user prefers) checklists for release preparation"
+          ],
+          "source_event_id": "injection-user",
+          "pattern": "checklists",
+          "and_patterns": [
+            "prefer",
+            "release preparation"
+          ],
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "conflict",
+      "observed_memory_count": 2,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:The )?Meridian (?:deadline is|is due (?:on|at)) (?:October 20,? 2026|2026-10-20|20 October,? 2026)"
+          ],
+          "source_event_id": "conflict-first",
+          "kind": "fact",
+          "and_patterns": [
+            "Meridian",
+            "deadline|due"
+          ],
+          "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
+          "origin": "user_explicit",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 1
+        },
+        {
+          "statement_patterns": [
+            "(?:The )?Meridian (?:deadline is|is due (?:on|at)) (?:October 27,? 2026|2026-10-27|27 October,? 2026)"
+          ],
+          "source_event_id": "conflict-second",
+          "kind": "fact",
+          "and_patterns": [
+            "Meridian",
+            "deadline|due"
+          ],
+          "pattern": "\\b(?:October 27,? 2026|2026-10-27|27 October,? 2026)\\b",
+          "origin": "user_explicit",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "effective",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:Starting at 2026-11-01T09:00:00Z, )?(?:I prefer|The user prefers) weekly status reports on Mondays"
+          ],
+          "source_event_id": "effective-user",
+          "pattern": "Monday",
+          "and_patterns": [
+            "prefer",
+            "weekly status reports"
+          ],
+          "quote_patterns": [
+            "2026-11-01T09:00:00Z"
+          ],
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": "2026-11-01T09:00:00Z",
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "deadline-timestamp",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "(?:The )?Harbor review (?:is due at|deadline is) (?:2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z)"
+          ],
+          "source_event_id": "deadline-timestamp-user",
+          "pattern": "Harbor.*review|review.*Harbor",
+          "and_patterns": [
+            "due|deadline",
+            "2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z"
+          ],
+          "origin": "user_explicit",
+          "kind": "fact",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "effective-date-only",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "statement_patterns": [
+            "Starting on (?:February 4,? 2027|2027-02-04|4 February,? 2027), (?:I prefer|The user prefers) afternoon meetings",
+            "(?:I prefer|The user prefers) afternoon meetings(?: starting on |\\. The preference starts on )(?:February 4,? 2027|2027-02-04|4 February,? 2027)"
+          ],
+          "source_event_id": "effective-date-only-user",
+          "pattern": "afternoon meetings",
+          "and_patterns": [
+            "prefer",
+            "start(?:s|ing)?|effective from|begin(?:s|ning)?",
+            "\\b(?:February 4,? 2027|2027-02-04|4 February,? 2027)\\b"
+          ],
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": null,
+          "status": "active",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "excluded",
+      "observed_memory_count": 0,
+      "expectations": [],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    }
+  ],
+  "additional_sample": {
+    "input_artifact": "docs/measurements/nebius-direct-review-validation.json",
+    "input_sha256": "b42331aa851df7ab696dab9551fceb31540b2c408c25a14ce270f1deec7c35ef",
+    "original_live_implementation_commit": "935178c2f6ff24f447a00e66d204c34c1a07c377",
+    "passed": 10,
+    "total": 11,
+    "cases": [
+      {
+        "id": "direct",
+        "observed_memory_count": 2,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Lumen demo(?:nstration)? (?:deadline is|is due (?:on|at)) (?:October 20,? 2026|2026-10-20|20 October,? 2026)"
+            ],
+            "source_event_id": "direct-deadline",
+            "and_patterns": [
+              "Lumen",
+              "demo(?:nstration)?",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
+            "origin": "user_explicit",
+            "kind": "fact",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 1
+          },
+          {
+            "statement_patterns": [
+              "(?:I prefer|The user prefers) short paragraphs (?:when writing|for) project updates"
+            ],
+            "source_event_id": "direct-preference",
+            "pattern": "short paragraphs",
+            "and_patterns": [
+              "prefer",
+              "project updates"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "compound",
+        "observed_memory_count": 2,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Juniper launch (?:is(?: on)?|is scheduled for) (?:May 18,? 2027|2027-05-18|18 May,? 2027)"
+            ],
+            "source_event_id": "compound-user",
+            "and_patterns": [
+              "Juniper",
+              "launch"
+            ],
+            "pattern": "\\b(?:May 18,? 2027|2027-05-18|18 May,? 2027)\\b",
+            "origin": "user_explicit",
+            "kind": "fact",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 1
+          },
+          {
+            "statement_patterns": [
+              "(?:I prefer|The user prefers) numbered lists for incident summaries"
+            ],
+            "source_event_id": "compound-user",
+            "pattern": "numbered lists",
+            "and_patterns": [
+              "prefer",
+              "incident summaries"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "proposal",
+        "observed_memory_count": 1,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The assistant (?:proposed|suggested|recommended) moving|I suggest moving) the Lumen demo deadline to (?:November 3,? 2026|2026-11-03|3 November,? 2026)"
+            ],
+            "source_event_id": "proposal-assistant",
+            "and_patterns": [
+              "Lumen",
+              "demo(?:nstration)?",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:November 3,? 2026|2026-11-03|3 November,? 2026)\\b",
+            "origin": "assistant_proposed",
+            "kind": "project_state",
+            "effective_at": null,
+            "status": "candidate",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "report",
+        "observed_memory_count": 1,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "The build agent reports that the synthetic integration suite passed 42 tests"
+            ],
+            "source_event_id": "report-agent",
+            "pattern": "\\b42\\b.*tests|tests.*\\b42\\b",
+            "and_patterns": [
+              "passed|successful|succeeded",
+              "build agent",
+              "synthetic integration"
+            ],
+            "origin": "agent_reported",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "confirmed",
+        "observed_memory_count": 1,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:I confirm my writing preference: use|(?:I prefer|The user prefers)) bullet lists for weekly status reports"
+            ],
+            "source_event_id": "confirmed-user",
+            "pattern": "bullet lists",
+            "and_patterns": [
+              "weekly status reports"
+            ],
+            "origin": "user_confirmed",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "injection",
+        "observed_memory_count": 1,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:I prefer|The user prefers) checklists for release preparation"
+            ],
+            "source_event_id": "injection-user",
+            "pattern": "checklists",
+            "and_patterns": [
+              "prefer",
+              "release preparation"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "conflict",
+        "observed_memory_count": 2,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Meridian (?:deadline is|is due (?:on|at)) (?:October 20,? 2026|2026-10-20|20 October,? 2026)"
+            ],
+            "source_event_id": "conflict-first",
+            "kind": "fact",
+            "and_patterns": [
+              "Meridian",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
+            "origin": "user_explicit",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 1
+          },
+          {
+            "statement_patterns": [
+              "(?:The )?Meridian (?:deadline is|is due (?:on|at)) (?:October 27,? 2026|2026-10-27|27 October,? 2026)"
+            ],
+            "source_event_id": "conflict-second",
+            "kind": "fact",
+            "and_patterns": [
+              "Meridian",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:October 27,? 2026|2026-10-27|27 October,? 2026)\\b",
+            "origin": "user_explicit",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "effective",
+        "observed_memory_count": 1,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:Starting at 2026-11-01T09:00:00Z, )?(?:I prefer|The user prefers) weekly status reports on Mondays"
+            ],
+            "source_event_id": "effective-user",
+            "pattern": "Monday",
+            "and_patterns": [
+              "prefer",
+              "weekly status reports"
+            ],
+            "quote_patterns": [
+              "2026-11-01T09:00:00Z"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": "2026-11-01T09:00:00Z",
+            "status": "active",
+            "matched": false,
+            "matched_memory_index": null
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": false
+      },
+      {
+        "id": "deadline-timestamp",
+        "observed_memory_count": 1,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Harbor review (?:is due at|deadline is) (?:2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z)"
+            ],
+            "source_event_id": "deadline-timestamp-user",
+            "pattern": "Harbor.*review|review.*Harbor",
+            "and_patterns": [
+              "due|deadline",
+              "2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z"
+            ],
+            "origin": "user_explicit",
+            "kind": "fact",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "effective-date-only",
+        "observed_memory_count": 1,
+        "expectations": [
+          {
+            "statement_patterns": [
+              "Starting on (?:February 4,? 2027|2027-02-04|4 February,? 2027), (?:I prefer|The user prefers) afternoon meetings",
+              "(?:I prefer|The user prefers) afternoon meetings(?: starting on |\\. The preference starts on )(?:February 4,? 2027|2027-02-04|4 February,? 2027)"
+            ],
+            "source_event_id": "effective-date-only-user",
+            "pattern": "afternoon meetings",
+            "and_patterns": [
+              "prefer",
+              "start(?:s|ing)?|effective from|begin(?:s|ning)?",
+              "\\b(?:February 4,? 2027|2027-02-04|4 February,? 2027)\\b"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      },
+      {
+        "id": "excluded",
+        "observed_memory_count": 0,
+        "expectations": [],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true
+      }
+    ]
+  }
+}

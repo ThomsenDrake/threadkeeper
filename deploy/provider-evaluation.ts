@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { installDirectProviderObserver, providerObservationConfigFromEnv, summarizeProviderObservations } from './direct-provider-observer.mjs';
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -7,6 +8,7 @@ import { bootstrap } from '../apps/api/src/auth.ts';
 import { createTestDatabase } from '../tests/helpers.ts';
 import { OpenAICompatibleProvider, providerConfigFromEnv, DEFAULT_MODEL_ID } from '../packages/providers/src/index.ts';
 import { evaluationCorpus, type EvaluationCase } from './provider-evaluation-corpus.ts';
+import { evaluateMemoryRubric } from './provider-evaluation-rubric.ts';
 
 type RecordedAttempt = { request: any; response?: any; error?: { code: string; status?: number }; elapsed_ms?: number };
 type Recording = { schema_version: string; cases: Array<{ id: string; attempts: RecordedAttempt[] }> };
@@ -45,6 +47,7 @@ let relay: Server | undefined;
 let databaseResource: Awaited<ReturnType<typeof createTestDatabase>> | undefined;
 let appServer: Server | undefined;
 const clients: Client[] = [];
+let observer: ReturnType<typeof installDirectProviderObserver> | undefined;
 try {
 const config = providerConfigFromEnv();
 if (mode !== '--live') {
@@ -90,6 +93,7 @@ if (mode !== '--live') {
   config.maxOutputTokens = 4096;
 }
 const provider = new OpenAICompatibleProvider(config);
+if (mode === '--live') observer = installDirectProviderObserver({ ...providerObservationConfigFromEnv(), baseUrls: [config.baseUrl], models: [config.modelId] });
 const database = databaseResource = await createTestDatabase();
   await bootstrap(database.db, 'provider-evaluation@example.invalid', 'synthetic-provider-password-123');
   appServer = createServer();
@@ -124,6 +128,7 @@ const database = databaseResource = await createTestDatabase();
   for (const item of evaluationCorpus) {
     currentCase = item; attempts = []; replayOffset = 0;
     const start = performance.now();
+    const attemptStart = observer?.records.length ?? 0;
     const project = `synthetic-evaluation-${item.id}`;
     const captured = await a.callTool({ name: 'context_capture', arguments: { idempotency_key: `synthetic-evaluation-${item.id}`, project_id: project, subject: 'self', events: item.events } });
     assert.equal(captured.isError, undefined);
@@ -143,26 +148,25 @@ const database = databaseResource = await createTestDatabase();
       ...(await http(`/api/context/search?project_id=${encodeURIComponent(project)}&limit=100&status=candidate`, { token: reader.token })).data.memories,
     ];
     assert(active.every(memory => !['assistant_proposed', 'inferred'].includes(memory.origin)), 'Unconfirmed candidates must not enter default recall');
-    const statements = (memories: any[]) => memories.map(memory => memory.statement).sort();
-    assert.deepEqual(statements(first), statements(canonical));
-    assert.deepEqual(statements(independentHttp), statements(canonical));
-    const checks = item.expected.map(expected => ({
-      pattern: expected.pattern,
-      matched: canonical.some(memory => new RegExp(expected.pattern, 'i').test(memory.statement) && memory.origin === expected.origin
-        && (!expected.kind || memory.kind === expected.kind)
-        && (expected.effective_at === undefined || (expected.effective_at === null ? memory.effective_at === null
-          : typeof memory.effective_at === 'string' && Date.parse(memory.effective_at) === Date.parse(expected.effective_at)))),
-    }));
-    const forbidden = (item.forbidden ?? []).filter(pattern => canonical.some(memory => new RegExp(pattern, 'i').test(memory.statement)));
+    const records = (memories: any[]) => memories.map(memory => ({
+      ...memory,
+      evidence: memory.evidence.map((value: any) => ({ ...value })).sort((a: any, b: any) => a.source_id.localeCompare(b.source_id)),
+    })).sort((a, b) => a.id.localeCompare(b.id));
+    assert.deepEqual(records(first), records(canonical));
+    assert.deepEqual(records(independentHttp), records(canonical));
     const sourceRows = (await database.db.query('SELECT id,event_id,text FROM tk_sources WHERE id=ANY($1::text[])', [canonical.flatMap(memory => memory.evidence.map((evidence: any) => evidence.source_id))])).rows;
     const sourceById = new Map(sourceRows.map(source => [source.id, source]));
-    const exactEvidence = canonical.every(memory => memory.evidence.length === 1 && memory.evidence.every((evidence: any) => sourceById.get(evidence.source_id)?.text.includes(evidence.quote)));
+    const memories = canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status,
+      effective_at: memory.effective_at, evidence: memory.evidence.map((evidence: any) => ({ event_id: sourceById.get(evidence.source_id)?.event_id, quote: evidence.quote })),
+    }));
+    const rubric = evaluateMemoryRubric(item, memories);
     output.push({ id: item.id, job_status: job.status, accepted: job.accepted,
-      usage: 'usage' in job ? job.usage : undefined, expectations: checks, forbidden_matches: forbidden,
-      empty_expected: item.empty ?? false, exact_evidence: exactEvidence, independent_http_mcp_recall: true,
-      memories: canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status, effective_at: memory.effective_at, evidence: memory.evidence.map((evidence: any) => ({ event_id: sourceById.get(evidence.source_id)?.event_id, quote: evidence.quote })) })),
+      ...('error_code' in job ? { error_code: job.error_code } : {}),
+      ...(observer ? { provider_attempts: observer.records.slice(attemptStart) } : {}),
+      usage: 'usage' in job ? job.usage : undefined, ...rubric,
+      empty_expected: item.empty ?? false, independent_http_mcp_recall: true, memories,
       elapsed_ms: Math.round(performance.now() - start),
-      rubric_passed: job.status === 'complete' && checks.every(check => check.matched) && !forbidden.length && (!item.empty || !canonical.length) && exactEvidence,
+      rubric_passed: job.status === 'complete' && rubric.rubric_passed,
     });
   }
   const lifecycle: Record<string, any> = { status: 'skipped', reason: 'central_records_missing' };
@@ -184,10 +188,25 @@ const database = databaseResource = await createTestDatabase();
     schema_version: 'threadkeeper.provider-evaluation.v1', measured_at: new Date().toISOString(), model: provider.config.modelId,
     transport: mode === '--replay' ? 'recorded_learned_executor_responses_over_local_http_adapter' : 'direct_operator_http_provider',
     database: database.backend, cases: output, central_lifecycle: lifecycle,
+    reasoning_effort: provider.config.reasoningEffort ?? null,
+    ...(observer ? { provider_accounting: summarizeProviderObservations(observer.records), observation_errors: observer.errors,
+      provider_timing: 'Each attempt measures direct fetch through complete response-body observation; case times also include capture/admission/recall.' } : {}),
     limits: ['Small fixed synthetic corpus; rubric matching is not a broad semantic quality estimate.', 'Replay timing measures local admission/recall; original inference latency belongs to the recording.', 'Independent SDK transports are not installed chatbot hosts.', 'No GPU, native container, deployment, or provider credential export.'],
   }, null, 2));
-  if (mode !== '--requests' && (output.some(item => !item.rubric_passed) || lifecycle.status !== 'passed')) process.exitCode = 1;
+  if (mode !== '--requests' && (observer?.errors.length || output.some(item => !item.rubric_passed) || lifecycle.status !== 'passed')) process.exitCode = 1;
+} catch (error) {
+  // Preserve usage and completed rubrics even if an application/lifecycle
+  // assertion aborts the run. Do not serialize raw errors or provider bodies.
+  if (mode === '--live') console.info(JSON.stringify({
+    schema_version: 'threadkeeper.provider-evaluation.v1', measured_at: new Date().toISOString(),
+    transport: 'direct_operator_http_provider', status: 'failed', reason: 'evaluation_aborted',
+    cases: output, central_lifecycle: { status: 'incomplete' },
+    ...(observer ? { provider_accounting: summarizeProviderObservations(observer.records),
+      provider_attempts: observer.records, observation_errors: observer.errors } : {}),
+  }, null, 2));
+  throw error;
 } finally {
+  observer?.restore();
   const cleanup = await Promise.allSettled([
     ...clients.map(client => client.close()),
     ...[appServer, relay].filter((server): server is Server => Boolean(server?.listening)).map(async server => {
