@@ -17,10 +17,10 @@ export const evaluationCorpus: EvaluationCase[] = [
     { pattern: 'short paragraphs', origin: 'user_explicit', kind: 'preference', effective_at: null },
   ] },
   { id: 'compound', events: [
-    event('compound-user', 'The Lumen demo deadline is October 20, 2026. I prefer short paragraphs when writing project updates.'),
+    event('compound-user', 'The Juniper launch is May 18, 2027. I prefer numbered lists for incident summaries.'),
   ], expected: [
-    { pattern: 'October 20|2026-10-20|20 October', origin: 'user_explicit', kind: 'fact', effective_at: null },
-    { pattern: 'short paragraphs', origin: 'user_explicit', kind: 'preference', effective_at: null },
+    { pattern: 'May 18|2027-05-18|18 May', origin: 'user_explicit', kind: 'fact', effective_at: null },
+    { pattern: 'numbered lists', origin: 'user_explicit', kind: 'preference', effective_at: null },
   ] },
   { id: 'proposal', events: [
     event('proposal-assistant', 'I suggest moving the Lumen demo deadline to November 3, 2026.', 'assistant_proposed', 'assistant'),

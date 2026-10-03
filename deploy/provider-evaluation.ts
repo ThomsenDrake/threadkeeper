@@ -195,6 +195,17 @@ const database = databaseResource = await createTestDatabase();
     limits: ['Small fixed synthetic corpus; rubric matching is not a broad semantic quality estimate.', 'Replay timing measures local admission/recall; original inference latency belongs to the recording.', 'Independent SDK transports are not installed chatbot hosts.', 'No GPU, native container, deployment, or provider credential export.'],
   }, null, 2));
   if (mode !== '--requests' && (observer?.errors.length || output.some(item => !item.rubric_passed) || lifecycle.status !== 'passed')) process.exitCode = 1;
+} catch (error) {
+  // Preserve usage and completed rubrics even if an application/lifecycle
+  // assertion aborts the run. Do not serialize raw errors or provider bodies.
+  if (mode === '--live') console.info(JSON.stringify({
+    schema_version: 'threadkeeper.provider-evaluation.v1', measured_at: new Date().toISOString(),
+    transport: 'direct_operator_http_provider', status: 'failed', reason: 'evaluation_aborted',
+    cases: output, central_lifecycle: { status: 'incomplete' },
+    ...(observer ? { provider_accounting: summarizeProviderObservations(observer.records),
+      provider_attempts: observer.records, observation_errors: observer.errors } : {}),
+  }, null, 2));
+  throw error;
 } finally {
   observer?.restore();
   const cleanup = await Promise.allSettled([
