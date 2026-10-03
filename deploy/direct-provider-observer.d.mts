@@ -11,7 +11,7 @@ export type ProviderObservation = {
 export function numericTokenUsage(value: unknown): NumericTokenUsage | undefined;
 export function summarizeProviderObservations(records: ProviderObservation[]): {
   observed_attempt_count: number; direct_request_count: number; inference_request_count: number;
-  usage_complete: boolean; inference_requests_without_usage: number; usage: NumericTokenUsage;
+  usage_complete: boolean; inference_requests_without_usage: number; inference_requests_without_complete_usage: number; usage: NumericTokenUsage;
 };
 export function installDirectProviderObserver(options?: {
   baseUrl?: string; baseUrls?: string[]; models?: string[]; limits?: Partial<Record<'models' | 'chat/completions' | 'embeddings', number>>;

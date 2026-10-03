@@ -31,7 +31,7 @@ test('direct observation accounts for both rejected extraction responses without
     assert(observer.records.every(record => record.request_sha256?.length === 64 && record.response_sha256?.length === 64 && record.elapsed_ms >= 0));
     assert.deepEqual(summarizeProviderObservations(observer.records), {
       observed_attempt_count: 2, direct_request_count: 2, inference_request_count: 2,
-      usage_complete: true, inference_requests_without_usage: 0,
+      usage_complete: true, inference_requests_without_usage: 0, inference_requests_without_complete_usage: 0,
       usage: { prompt_tokens: 20, completion_tokens: 8, total_tokens: 28, completion_tokens_details: { reasoning_tokens: 4 } },
     });
     const serialized = JSON.stringify(observer.records);
@@ -136,4 +136,26 @@ test('provider probe preserves synthetic extraction evidence and full attempt ac
     assert.equal(result.provider_accounting.usage.completion_tokens_details.reasoning_tokens, 0);
     assert(!stdout.includes('synthetic-probe-secret'));
   } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+});
+
+
+test('partial token fields remain reported while completeness requires a total or complete input/output pair', async () => {
+  const originalFetch = globalThis.fetch;
+  const usages = [
+    { completion_tokens_details: { reasoning_tokens: 0 } }, { prompt_tokens: 12 },
+    { prompt_tokens: 12, completion_tokens: 3 }, { input_tokens: 12, output_tokens: 3 }, { total_tokens: 15 },
+  ];
+  let calls = 0;
+  globalThis.fetch = async () => new Response(JSON.stringify({ usage: usages[calls++] }));
+  const observer = installDirectProviderObserver({ baseUrl });
+  try {
+    for (const _ of usages) await fetch(baseUrl + 'chat/completions');
+    assert(observer.records.every(record => record.usage_status === 'reported'));
+    assert.deepEqual(observer.records.map(record => summarizeProviderObservations([record]).usage_complete), [false, false, true, true, true]);
+    const summary = summarizeProviderObservations(observer.records);
+    assert.equal(summary.usage_complete, false);
+    assert.equal(summary.inference_requests_without_usage, 0);
+    assert.equal(summary.inference_requests_without_complete_usage, 2);
+    assert.equal(summary.usage.completion_tokens_details && (summary.usage.completion_tokens_details as any).reasoning_tokens, 0);
+  } finally { observer.restore(); globalThis.fetch = originalFetch; }
 });

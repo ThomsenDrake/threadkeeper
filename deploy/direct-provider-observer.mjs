@@ -33,12 +33,16 @@ export function summarizeProviderObservations(records) {
   }
   const sent = records.filter(record => record.sent);
   const inference = sent.filter(record => record.path !== 'models');
+  const complete = record => record.usage_status === 'reported' && (typeof record.usage?.total_tokens === 'number'
+    || (typeof record.usage?.prompt_tokens === 'number' && typeof record.usage?.completion_tokens === 'number')
+    || (typeof record.usage?.input_tokens === 'number' && typeof record.usage?.output_tokens === 'number'));
   for (const record of inference) add(usage, record.usage);
   return {
     observed_attempt_count: records.length, direct_request_count: sent.length,
     inference_request_count: inference.length,
-    usage_complete: inference.every(record => record.usage_status === 'reported'),
+    usage_complete: inference.every(complete),
     inference_requests_without_usage: inference.filter(record => record.usage_status !== 'reported').length,
+    inference_requests_without_complete_usage: inference.filter(record => !complete(record)).length,
     usage,
   };
 }
