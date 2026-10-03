@@ -59,6 +59,34 @@ test('valid exact evidence is admitted and nullable optional schema fields are o
   }, [completion(JSON.stringify({ memories: [memory] }))]);
 });
 
+test('memory extraction rejects a substituted response model and supports matching or omitted identities', async () => {
+  const response = completion(JSON.stringify({ memories: [memory] }));
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    const provider = new OpenAICompatibleProvider(config(baseUrl));
+    await assert.rejects(provider.extract({ events: [event] }), error => error instanceof ProviderError && error.code === 'provider_model_mismatch');
+    assert.equal(requests.length, 2, 'A bounded repair must still reject a substituted model.');
+    assert.deepEqual(requests.map(request => request.body.model), ['nvidia/Nemotron-3_5-Lightning', 'nvidia/Nemotron-3_5-Lightning']);
+  }, [{ ...response, model: 'synthetic-substituted-memory' }]);
+  await withFakeEndpoint(async baseUrl => {
+    const provider = new OpenAICompatibleProvider(config(baseUrl));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await provider.extract({ events: [event] });
+      assert.equal(result.model, provider.config.modelId);
+      assert.equal(result.memories[0]?.quote, event.text);
+    }
+  }, [{ ...response, model: 'nvidia/Nemotron-3_5-Lightning' }, response]);
+});
+
+test('empty or malformed supplied memory model identities fail before extraction admission', async () => {
+  const response = completion(JSON.stringify({ memories: [memory] }));
+  for (const model of ['', '   ', ' nvidia/Nemotron-3_5-Lightning', 'nvidia/Nemotron-3_5-Lightning\n', null, 42, { id: 'nvidia/Nemotron-3_5-Lightning' }]) {
+    await withFakeEndpoint(async baseUrl => {
+      const provider = new OpenAICompatibleProvider(config(baseUrl));
+      await assert.rejects(provider.extract({ events: [event] }), error => error instanceof ProviderError && error.code === 'provider_invalid_chat_response');
+    }, [{ ...response, model }]);
+  }
+});
+
 test('agent-reported summaries and assistant suggestions cannot become direct user statements', async () => {
   await withFakeEndpoint(async (baseUrl) => {
     const provider = new OpenAICompatibleProvider(config(baseUrl));

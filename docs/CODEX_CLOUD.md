@@ -63,7 +63,9 @@ pnpm demo
 
 The helper creates and drops isolated test schemas. Only vector-enabled fixtures use the native URL; the explicit no-pgvector fallback and ordinary full-text fixtures remain PGlite. Do not point this at an operator or production database. Native checks that actually ran, exact server/extension versions and remaining full-stack limitations are recorded in [HANDOFF.md](HANDOFF.md).
 
-Next work should measure the chosen embedding model's query preprocessing and retrieval quality, then validate full application containers and installed MCP hosts. Keep provider credentials optional for baseline development and keep native/GPU/provider claims separate from fixture results.
+For full application containers with native PostgreSQL/pgvector and synthetic provider HTTP, run `pnpm integration`. It generates disposable credentials/resources and cleans them up; see [integration requirements and evidence boundaries](INTEGRATION.md). In this managed environment the runner passes `CODEX_PROXY_CERT` as an optional BuildKit secret, preserving TLS verification. This does not change the reusable environment settings.
+
+Next work should measure the chosen embedding model's query preprocessing and retrieval quality and validate installed MCP hosts and local GPU inference. Keep provider credentials optional for baseline development and keep native/GPU/provider claims separate from fixture results.
 
 ## Verified documentation
 

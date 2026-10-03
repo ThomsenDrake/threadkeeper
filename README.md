@@ -19,7 +19,7 @@ The central lifecycle has passed through two independent authenticated MCP SDK c
 
 The real profile UI also passed a synthetic Chromium 153 browser walkthrough against a disposable PGlite-backed API: sign-in, capture, all four filters, provenance, revision-aware correction/deletion, search, scoped client creation and revocation, export/import and sign-out. Desktop, provenance and mobile screenshots were visually reviewed; see [browser evidence](docs/measurements/ui-qa.json). This browser test did not use inference or a deployed service.
 
-Separate live synthetic calls verified the exact Nemotron model, JSON-object output, a no-side-effect tool call and source-backed extraction. An available Qwen embedding model returned 4,096 finite dimensions. See [provider evidence](docs/PROVIDER_VERIFICATION.md) for failures, token usage and limits. A disposable native PostgreSQL 17.11/pgvector 0.8.7 database also validated vector dimensions and exact-ranking compatibility during hybrid-recall development. Full application containers, local GPU inference, managed hosting, robust semantic reconciliation and release-quality evaluation remain unverified.
+Separate live synthetic calls verified the exact Nemotron model, JSON-object output, a no-side-effect tool call and source-backed extraction. An available Qwen embedding model returned 4,096 finite dimensions. See [provider evidence](docs/PROVIDER_VERIFICATION.md) for failures, token usage and limits. Native PostgreSQL 17.11/pgvector 0.8.7 and the application containers have also been exercised locally. The credential-free [full-stack integration harness](docs/INTEGRATION.md) uses synthetic provider HTTP responses, distinct from those historical real-provider observations. Local GPU inference, managed hosting, robust semantic reconciliation and release-quality evaluation remain unverified.
 
 ## Run local checks
 
@@ -33,6 +33,14 @@ pnpm demo
 
 `pnpm check` runs typechecking, focused tests and the profile build. The test database is PostgreSQL via PGlite in WebAssembly, not a native PostgreSQL deployment. `pnpm demo` runs deterministic full-text and pgvector hybrid walkthroughs with synthetic embeddings, explicit captures and fresh-database export/import. It invokes neither a learned model nor a browser.
 
+With Docker, BuildKit and Compose 2.24.4 or newer, reproduce the full application stack and actual worker/provider HTTP lifecycle:
+
+```sh
+pnpm integration
+```
+
+This uses native PostgreSQL/pgvector, the API serving the built profile, the worker and a deterministic local HTTP fixture. It creates disposable credentials/resources, reports stage failures and cleans up. It validates synthetic integration; real inference and GPU checks remain separate. See [requirements and checks](docs/INTEGRATION.md) and [actual results](docs/HANDOFF.md).
+
 For an immediately runnable, disposable profile demonstration:
 
 ```sh
@@ -44,7 +52,7 @@ Open `http://127.0.0.1:3000`. Synthetic demo credentials are `demo@example.inval
 
 ## Run the application with containers
 
-Docker and Compose are required. The full application Compose configuration still needs an actual build/run check; the separate disposable native database test does not establish that result.
+Docker and Compose are required. The standard Compose stack has passed a disposable build/startup/profile/sign-in check; `pnpm integration` adds native lifecycle and worker HTTP fixture validation. Configure an operator-managed provider for actual inference.
 
 ```sh
 cp .env.example .env

@@ -243,6 +243,64 @@ test('deletion during inference prevents an in-flight worker from committing sta
   assert.equal(JSON.stringify(await store.export(profile)).includes('plain text status updates'), false);
 });
 
+for (const staleOutcome of ['success', 'failure'] as const) {
+  test(`a reclaimed extraction attempt survives the older attempt's ${staleOutcome}`, async () => {
+    const isolated = await createTestDatabase();
+    const isolatedStore = createStore(isolated.db);
+    const { profile, clientA } = principals();
+    const input = captureInput('Synthetic release notes use short paragraphs.');
+    let firstStarted!: () => void;
+    let firstRelease!: () => void;
+    let secondStarted!: () => void;
+    let secondRelease!: () => void;
+    const firstStart = new Promise<void>(resolve => { firstStarted = resolve; });
+    const firstHold = new Promise<void>(resolve => { firstRelease = resolve; });
+    const secondStart = new Promise<void>(resolve => { secondStarted = resolve; });
+    const secondHold = new Promise<void>(resolve => { secondRelease = resolve; });
+    let first: ReturnType<typeof isolatedStore.processJob> | undefined;
+    let second: ReturnType<typeof isolatedStore.processJob> | undefined;
+    try {
+      const capture = await isolatedStore.capture(clientA, { ...input, explicit_memories: undefined });
+      first = isolatedStore.processJob({ extract: async () => {
+        firstStarted();
+        await firstHold;
+        if (staleOutcome === 'failure') throw new Error('Synthetic stale provider failure.');
+        return { memories: input.explicit_memories! };
+      } });
+      await firstStart;
+      await isolated.db.query("UPDATE tk_jobs SET started_at=now()-interval '11 minutes' WHERE id=$1", [capture.job_id]);
+      second = isolatedStore.processJob({ extract: async () => {
+        secondStarted();
+        await secondHold;
+        return { memories: input.explicit_memories! };
+      } });
+      await secondStart;
+      firstRelease();
+      const stale = await first;
+      assert.equal(stale?.status, 'cancelled');
+      assert.equal(stale?.accepted, 0);
+      const processing = (await isolated.db.query('SELECT status,attempts,error_code,result FROM tk_jobs WHERE id=$1', [capture.job_id])).rows[0];
+      assert.equal(processing.status, 'processing', 'An older attempt cannot finalize the reclaimed job.');
+      assert.equal(processing.attempts, 2);
+      assert.equal(processing.error_code, null);
+      assert.equal(processing.result, null);
+      assert.deepEqual((await isolatedStore.search(profile, {})).memories, [], 'An older successful attempt cannot admit extracted content.');
+      secondRelease();
+      const current = await second;
+      assert.equal(current?.status, 'complete');
+      assert.equal(current?.accepted, 1);
+      assert.deepEqual((await isolatedStore.search(profile, {})).memories.map(memory => memory.statement), [input.events[0].text]);
+      const completed = (await isolated.db.query('SELECT status,attempts,error_code FROM tk_jobs WHERE id=$1', [capture.job_id])).rows[0];
+      assert.deepEqual(completed, { status: 'complete', attempts: 2, error_code: null });
+    } finally {
+      firstRelease();
+      secondRelease();
+      await Promise.allSettled([first, second]);
+      await isolated.close();
+    }
+  });
+}
+
 test('source instructions remain inert, and model output cannot change ownership or scope', async () => {
   const { profile, clientA } = principals();
   const secretOwner = principals();
