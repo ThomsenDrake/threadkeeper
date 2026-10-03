@@ -158,12 +158,14 @@ const database = databaseResource = await createTestDatabase();
     assert.equal(result.isError, undefined);
     return (result.structuredContent as any).memories as any[];
   }
-  for (const item of corpus) {
+  for (const [index, item] of corpus.entries()) {
     currentCase = item; attempts = []; replayOffset = 0;
     const start = performance.now();
     const attemptStart = observer?.records.length ?? 0;
     currentProgress = { id: item.id, status: 'attempted', phase: 'capture', rubric_passed: false, attempt_start: attemptStart };
-    const project = `synthetic-evaluation-${item.id}`;
+    // Assessment category names stay out of the provider's runtime context.
+    // Preserve the historical corpus context for comparable old recordings.
+    const project = holdout ? `project-${String(index + 1).padStart(2, '0')}` : `synthetic-evaluation-${item.id}`;
     const captured = await a.callTool({ name: 'context_capture', arguments: { idempotency_key: `synthetic-evaluation-${item.id}`, project_id: project, subject: 'self', events: item.events } });
     assert.equal(captured.isError, undefined);
     const receipt = captured.structuredContent as any;
