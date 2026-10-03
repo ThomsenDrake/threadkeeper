@@ -1,5 +1,9 @@
 # Provider verification
 
+## Assertion kind probe — 2026-10-03
+
+The [seven-control probe](ASSERTION_KIND_PROBE.md) at frozen `81c1159`, after a generic taxonomy prompt clarification, scored **4/7** and exited **1**. All seven jobs completed; seven direct HTTP 200 chats used **11,027 tokens**, zero reasoning, no embeddings and complete valid accounting. All source/canonical checks and cleanup passed. The unchanged [raw report](measurements/nebius-assertion-kind-probe-v1.json) and [independent assessment](measurements/nebius-assertion-kind-probe-v1-assessment.json) retain a taxonomy-only constraint mismatch, omission of a fact inside a question, and loss of explicit report framing despite preserved agent_reported metadata. No template-only false negatives were found, no score changed, and no retry sought green. Correct outputs on this fresh set do not establish a causal improvement. This was PGlite extraction/full-text recall; correction/forgetting, native, embeddings and installed-host checks remain separate.
+
 Current evaluation: 2026-10-03 UTC. Earlier observations dated 2026-10-02 are retained below. All provider data is synthetic. No credentials or private transcript content belong in this document. Rerun `pnpm provider:check` with an operator-managed secret before deployment.
 
 ## Frozen extraction holdout — 2026-10-03
