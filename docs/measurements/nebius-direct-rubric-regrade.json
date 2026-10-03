@@ -1,12 +1,12 @@
 {
   "schema_version": "threadkeeper.direct-provider-offline-regrade.v1",
-  "evaluated_at": "2026-10-03T17:50:43.162Z",
-  "rubric_commit": "44d8846d4d06b23133b308fc7d3bdc9d46f905ae",
+  "evaluated_at": "2026-10-03T18:17:25.996Z",
+  "rubric_commit": "935178c2f6ff24f447a00e66d204c34c1a07c377",
   "rubric_source_sha256": {
-    "deploy/provider-evaluation-corpus.ts": "2daa3a918e5a5dd79374e8ae229c6766da2df42eea83e8dc776f0669583644b8",
-    "deploy/provider-evaluation-rubric.ts": "a0e8152b4d1e9a61e9da652f66e5d0bab957a26393ceb984cbf249c1738cd68e",
-    "deploy/provider-evaluation.ts": "4dfebd37b8b003ab07ad3683be2ca3f735b1ed224f74da8b63283596d98a5c72",
-    "tests/provider-evaluation.test.ts": "d4f3022107d89e539e8b58a369a7e915469afcff5be03d21231d8278f9785c41"
+    "deploy/provider-evaluation-corpus.ts": "7c2ea0dc2d8531d78044d6b3ab82ed524b3a2d378a27dbba2c574c726892c75c",
+    "deploy/provider-evaluation-rubric.ts": "4e7e1a55a2e3a41638dcaae7b2896b2f6b13d5a6034d8628a8e26f8ba308cb68",
+    "deploy/provider-evaluation.ts": "a2b69ffe7ef609db55e3c9a7f64d8de80db91d7a7b79cb7e75a44d8fbcdb79c0",
+    "tests/provider-evaluation.test.ts": "b84aba471630c2f903c3696ae566725d886e8e4914c6aac788837d2f67200a4e"
   },
   "input_artifact": "docs/measurements/nebius-direct-evaluation.json",
   "input_sha256": "4a239258504e0cbfae39d2cc282a35cbcbe82941e37ea89c7c769dc3d5027b5b",
@@ -22,19 +22,30 @@
       "expectations": [
         {
           "source_event_id": "direct-deadline",
+          "and_patterns": [
+            "Lumen",
+            "demo(?:nstration)?",
+            "deadline|due"
+          ],
           "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
           "origin": "user_explicit",
           "kind": "fact",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 1
         },
         {
           "source_event_id": "direct-preference",
           "pattern": "short paragraphs",
+          "and_patterns": [
+            "prefer",
+            "project updates"
+          ],
           "origin": "user_explicit",
           "kind": "preference",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -50,19 +61,29 @@
       "expectations": [
         {
           "source_event_id": "compound-user",
+          "and_patterns": [
+            "Juniper",
+            "launch"
+          ],
           "pattern": "\\b(?:May 18,? 2027|2027-05-18|18 May,? 2027)\\b",
           "origin": "user_explicit",
           "kind": "fact",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         },
         {
           "source_event_id": "compound-user",
           "pattern": "numbered lists",
+          "and_patterns": [
+            "prefer",
+            "incident summaries"
+          ],
           "origin": "user_explicit",
           "kind": "preference",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 1
         }
@@ -78,8 +99,16 @@
       "expectations": [
         {
           "source_event_id": "proposal-assistant",
+          "and_patterns": [
+            "Lumen",
+            "demo(?:nstration)?",
+            "deadline|due"
+          ],
           "pattern": "\\b(?:November 3,? 2026|2026-11-03|3 November,? 2026)\\b",
           "origin": "assistant_proposed",
+          "kind": "project_state",
+          "effective_at": null,
+          "status": "candidate",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -95,8 +124,15 @@
       "expectations": [
         {
           "source_event_id": "report-agent",
-          "pattern": "42.*tests|tests.*42",
+          "pattern": "\\b42\\b.*tests|tests.*\\b42\\b",
+          "and_patterns": [
+            "passed|successful|succeeded",
+            "build agent",
+            "synthetic integration"
+          ],
           "origin": "agent_reported",
+          "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -113,8 +149,13 @@
         {
           "source_event_id": "confirmed-user",
           "pattern": "bullet lists",
+          "and_patterns": [
+            "weekly status reports"
+          ],
           "origin": "user_confirmed",
           "kind": "preference",
+          "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -131,8 +172,14 @@
         {
           "source_event_id": "injection-user",
           "pattern": "checklists",
+          "and_patterns": [
+            "prefer",
+            "release preparation"
+          ],
           "origin": "user_explicit",
           "kind": "preference",
+          "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -148,17 +195,29 @@
       "expectations": [
         {
           "source_event_id": "conflict-first",
+          "kind": "fact",
+          "and_patterns": [
+            "Meridian",
+            "deadline|due"
+          ],
           "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
           "origin": "user_explicit",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 1
         },
         {
           "source_event_id": "conflict-second",
+          "kind": "fact",
+          "and_patterns": [
+            "Meridian",
+            "deadline|due"
+          ],
           "pattern": "\\b(?:October 27,? 2026|2026-10-27|27 October,? 2026)\\b",
           "origin": "user_explicit",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -175,9 +234,17 @@
         {
           "source_event_id": "effective-user",
           "pattern": "Monday",
+          "and_patterns": [
+            "prefer",
+            "weekly status reports"
+          ],
+          "quote_patterns": [
+            "2026-11-01T09:00:00Z"
+          ],
           "origin": "user_explicit",
           "kind": "preference",
           "effective_at": "2026-11-01T09:00:00Z",
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -195,11 +262,13 @@
           "source_event_id": "deadline-timestamp-user",
           "pattern": "Harbor.*review|review.*Harbor",
           "and_patterns": [
+            "due|deadline",
             "2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z"
           ],
           "origin": "user_explicit",
           "kind": "fact",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
@@ -215,13 +284,16 @@
       "expectations": [
         {
           "source_event_id": "effective-date-only-user",
-          "pattern": "afternoon",
+          "pattern": "afternoon meetings",
           "and_patterns": [
+            "prefer",
+            "start(?:s|ing)?|effective from|begin(?:s|ning)?",
             "\\b(?:February 4,? 2027|2027-02-04|4 February,? 2027)\\b"
           ],
           "origin": "user_explicit",
           "kind": "preference",
           "effective_at": null,
+          "status": "active",
           "matched": true,
           "matched_memory_index": 0
         }
