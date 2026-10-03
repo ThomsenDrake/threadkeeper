@@ -1,6 +1,6 @@
 # Threadkeeper MVP
 
-Status: implementation in progress. Product requirements come from Drake's request and the attached Threadkeep development brief. These are acceptance criteria, not completed results.
+Status: private MVP development. The core owner/client product flows are implemented and development priorities 1–5 are merged. Priority 6 operational recovery awaits final review/merge; external release validation remains separately tracked in [HANDOFF.md](HANDOFF.md). Product requirements come from Drake's request and the attached Threadkeep development brief.
 
 Threadkeeper owns portable personal context for existing chatbots and coding agents. Its profile is the user's control surface. The domain is `threadkeep.si`; the tagline is “Switch agents. Keep the thread.” A general assistant, task manager, and automatic access to every client's conversations are outside scope.
 
@@ -45,7 +45,7 @@ The release gate additionally requires independent existing chatbot/coding-agent
 
 ## Existing implementation and infrastructure
 
-Initial workspace inspection found the attached brief and no existing implementation. No remote repository implementation was established: the available Executor capabilities did not expose a repository inspection tool. This workspace contains the new implementation begun in this session; inspect its code before continuing elsewhere.
+The private repository now contains the React profile, authenticated HTTP/MCP service, bounded extraction/indexing worker and PostgreSQL/optional pgvector store. Captures and retries, explicit candidate review, scoped client controls, guarded source/memory forgetting, complete owner pagination/import feedback and isolated deletion-aware recovery work through the canonical database. [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [HANDOFF.md](HANDOFF.md) record actual merge state and synthetic acceptance evidence; inspect current main and pending PRs before continuing development.
 
 DNS migration is existing user-reported work. This build makes no registrar, Cloudflare, domain, deployment, or paid-resource changes. No public demo is implied by local code or checks.
 

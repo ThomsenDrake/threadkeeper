@@ -2,9 +2,11 @@ import { createStore } from '../packages/core/src/index.ts';
 import { connectDatabase } from '../packages/core/src/db.ts';
 import { createEmbeddingProvider } from '../packages/providers/src/index.ts';
 import { migrate } from './migrate.ts';
+import { holdRuntimeGate } from '../packages/core/src/recovery-gate.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
+const gate = await holdRuntimeGate(databaseUrl, () => { console.error(JSON.stringify({ event: 'runtime_database_lock_lost' })); process.exit(1); });
 const embeddings = createEmbeddingProvider();
 if (!embeddings) throw new Error('EMBEDDING_MODEL and EMBEDDING_DIMENSIONS are required');
 const database = connectDatabase(databaseUrl);
@@ -37,4 +39,5 @@ try {
   process.exitCode = 1;
 } finally {
   await database.close();
+  await gate.close();
 }

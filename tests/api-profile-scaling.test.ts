@@ -46,7 +46,10 @@ test('authenticated owner browsing reaches older pages, exposes recovery guards,
     assert(invalid.data.issues.some((issue: { path: string[] }) => issue.path[0] === (incompleteGuards.includes('snapshot_version') ? 'ranking_version' : 'snapshot_version')));
   }
   assert.equal(transactions, 0); assert.equal(embeddings.calls.length, 0);
-  assert.equal(queries.length, 3); assert(queries.every(sql => sql.includes('FROM tk_sessions')), 'Only authentication queries run before an invalid owner page is rejected.');
+  assert.equal(queries.length, 6);
+  assert.equal(queries.filter(sql => sql === "SELECT to_regclass('tk_recovery.state') AS relation").length, 3);
+  assert.equal(queries.filter(sql => sql.includes('FROM tk_sessions')).length, 3);
+  assert(queries.every(sql => sql === "SELECT to_regclass('tk_recovery.state') AS relation" || sql.includes('FROM tk_sessions')), 'Only recovery readiness and authentication queries run before an invalid owner page is rejected.');
   for (const firstPageGuards of ['', `&snapshot_version=${first.data.snapshot_version}`, `&ranking_version=${first.data.ranking_version}`, pageQuery]) {
     const initial = await request('/api/memories?offset=0&limit=50' + firstPageGuards);
     assert.equal(initial.status, 200); assert.deepEqual(initial.data.memories, first.data.memories);

@@ -1,9 +1,11 @@
 import { createStore } from '../../../packages/core/src/index.ts';
 import { connectDatabase } from '../../../packages/core/src/db.ts';
 import { createEmbeddingProvider, createProvider } from '@threadkeeper/providers';
+import { holdRuntimeGate } from '../../../packages/core/src/recovery-gate.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
+const gate = await holdRuntimeGate(databaseUrl, () => { console.error(JSON.stringify({ event: 'runtime_database_lock_lost' })); process.exit(1); });
 const pollMs = Number(process.env.WORKER_POLL_MS || '1000');
 if (!Number.isSafeInteger(pollMs) || pollMs < 100 || pollMs > 60_000) throw new Error('WORKER_POLL_MS must be between 100 and 60000');
 
@@ -58,4 +60,5 @@ try {
   }
 } finally {
   await database.close();
+  await gate.close();
 }

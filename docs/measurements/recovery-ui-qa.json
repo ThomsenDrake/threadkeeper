@@ -1,0 +1,57 @@
+{
+  "recorded_at": "2026-10-03T13:56:44.308Z",
+  "browser": "151.0.7922.173",
+  "database": "disposable PGlite",
+  "application": "production React build served by actual Express API on localhost",
+  "production_asset": "/assets/index-kgeGInNT.js",
+  "artifact": {
+    "schema_version": "threadkeeper.deletion-ledger.v1",
+    "tombstones": 3,
+    "filename": "threadkeeper-deletions-2026-10-03.json"
+  },
+  "checks": [
+    "The production owner profile exposes the third Import & export card with download-time coverage and separate-backup guidance.",
+    "Keyboard activation downloads a valid strict deletion-ledger v1 JSON with canonical owner, snapshot and deletion hashes; no source text, memory statements, email, source/memory/client IDs or credentials.",
+    "A failed ledger request reports the API error without downloading a file, re-enables the button and a subsequent successful request recovers.",
+    "The deletion ledger card and keyboard download remain usable at 390 px with no horizontal overflow.",
+    "Signing out while an authorized ledger response is held suppresses the late download and success notice through the authentication-generation guard.",
+    "Signing in again clears the prior busy state and permits a fresh owner-ledger download.",
+    "Updated desktop and mobile screenshots were visually reviewed: the ledger guidance and button are readable, with no clipping or overlaps.",
+    "No browser runtime exceptions occurred."
+  ],
+  "observations": [
+    {
+      "label": "desktop deletion ledger",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "label": "390px mobile deletion ledger",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    }
+  ],
+  "runtime_exceptions": [],
+  "screenshots": [
+    "recovery-ledger-desktop.png",
+    "recovery-ledger-mobile.png"
+  ],
+  "limitations": [
+    "Synthetic PGlite/browser evidence only; no native PostgreSQL restore, providers, embeddings, installed MCP host or deployment was exercised in this smoke.",
+    "Deletion state is seeded with the shared transactional deletion graph; this focused smoke does not repeat the separate forgetting UI workflow.",
+    "The 503 failure and held-response sign-out checks use deliberate Chromium interception.",
+    "This repeat verifies the deletion-ledger flow only; it does not repeat the separate full pagination, import-outcome or forgetting browser workflows."
+  ],
+  "source_commit": "ba14f3a4eff911381fa2c1a1081abac19bafb57a",
+  "verification_scope": "Focused deletion-ledger smoke repeated against the integrated profile, including the existing pagination, import outcomes and capture controls.",
+  "build": {
+    "command": "PATH=/tmp/threadkeeper-bin:$PATH pnpm build",
+    "result": "passed"
+  }
+}

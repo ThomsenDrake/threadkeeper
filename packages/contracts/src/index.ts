@@ -158,6 +158,14 @@ export const ExportSchema = z.object({
   tombstones: z.array(z.object({ kind: z.enum(['source_identity', 'source_content', 'memory_content']), hash: z.string().regex(/^[a-f0-9]{64}$/), deleted_at: Timestamp }).strict()).max(100_000),
 }).strict();
 
+export const DeletionLedgerSchema = z.object({
+  schema_version: z.literal('threadkeeper.deletion-ledger.v1'),
+  owner_id: Identifier,
+  exported_at: Timestamp,
+  snapshot_version: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  tombstones: ExportSchema.shape.tombstones,
+}).strict();
+
 export type SourceEvent = z.infer<typeof SourceEventSchema>;
 export type ExplicitMemory = z.infer<typeof ExplicitMemorySchema>;
 export type CaptureInput = z.infer<typeof CaptureSchema>;
@@ -166,3 +174,4 @@ export type Memory = z.infer<typeof MemorySchema>;
 export type ExportBundle = z.infer<typeof ExportSchema>;
 export type CaptureStatus = z.infer<typeof CaptureStatusSchema>;
 export type DeletionPreview = z.infer<typeof DeletionPreviewSchema>;
+export type DeletionLedger = z.infer<typeof DeletionLedgerSchema>;

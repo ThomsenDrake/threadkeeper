@@ -40,14 +40,15 @@ async function createNativeTestDatabase(databaseUrl: string) {
 }
 
 /** Real PostgreSQL in WASM, without a mock SQL parser or a running daemon. */
-export async function createTestDatabase(options: { vector?: boolean } = {}) {
-  if (options.vector && process.env.THREADKEEPER_NATIVE_TEST_URL) return createNativeTestDatabase(process.env.THREADKEEPER_NATIVE_TEST_URL);
-  const pglite = new PGlite(options.vector ? { extensions: { vector } } : {});
+export async function createTestDatabase(options: { vector?: boolean; snapshot?: Blob } = {}) {
+  if (options.vector && process.env.THREADKEEPER_NATIVE_TEST_URL && !options.snapshot) return createNativeTestDatabase(process.env.THREADKEEPER_NATIVE_TEST_URL);
+  const pglite = new PGlite({ ...(options.vector ? { extensions: { vector } } : {}), ...(options.snapshot ? { loadDataDir: options.snapshot } : {}) });
   await pglite.waitReady;
   for (const migration of migrations) {
     await pglite.exec(await readFile(new URL(`../deploy/migrations/${migration}`, import.meta.url), 'utf8'));
   }
   const transactionAdapter = (transaction: Transaction): Database => ({
+    async exec(sql) { await transaction.exec(sql); },
     async query<T = any>(sql: string, parameters?: any[]) {
       const result = await transaction.query<T>(sql, parameters);
       return { rows: result.rows };
@@ -57,6 +58,7 @@ export async function createTestDatabase(options: { vector?: boolean } = {}) {
     },
   });
   const db: Database = {
+    async exec(sql) { await pglite.exec(sql); },
     async query<T = any>(sql: string, parameters?: any[]) {
       const result = await pglite.query<T>(sql, parameters);
       return { rows: result.rows };
