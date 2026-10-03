@@ -1,12 +1,12 @@
 {
   "schema_version": "threadkeeper.direct-provider-offline-regrade.v1",
-  "evaluated_at": "2026-10-03T17:40:52.708Z",
-  "rubric_commit": "3a52eded4a59a7ee663c0583d9f8c9f396101e1f",
+  "evaluated_at": "2026-10-03T17:50:43.162Z",
+  "rubric_commit": "44d8846d4d06b23133b308fc7d3bdc9d46f905ae",
   "rubric_source_sha256": {
-    "deploy/provider-evaluation-corpus.ts": "0be707d43d4df522a6265786fb01c37fa90155c40eed915f1ede9acbe5b19984",
+    "deploy/provider-evaluation-corpus.ts": "2daa3a918e5a5dd79374e8ae229c6766da2df42eea83e8dc776f0669583644b8",
     "deploy/provider-evaluation-rubric.ts": "a0e8152b4d1e9a61e9da652f66e5d0bab957a26393ceb984cbf249c1738cd68e",
     "deploy/provider-evaluation.ts": "4dfebd37b8b003ab07ad3683be2ca3f735b1ed224f74da8b63283596d98a5c72",
-    "tests/provider-evaluation.test.ts": "ca2651ff528f7d2fbc480a400e6c94ca2efa6a12609d1e367e253a06094bc888"
+    "tests/provider-evaluation.test.ts": "d4f3022107d89e539e8b58a369a7e915469afcff5be03d21231d8278f9785c41"
   },
   "input_artifact": "docs/measurements/nebius-direct-evaluation.json",
   "input_sha256": "4a239258504e0cbfae39d2cc282a35cbcbe82941e37ea89c7c769dc3d5027b5b",
@@ -22,7 +22,7 @@
       "expectations": [
         {
           "source_event_id": "direct-deadline",
-          "pattern": "October 20|2026-10-20|20 October",
+          "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
           "origin": "user_explicit",
           "kind": "fact",
           "effective_at": null,
@@ -50,7 +50,7 @@
       "expectations": [
         {
           "source_event_id": "compound-user",
-          "pattern": "May 18|2027-05-18|18 May",
+          "pattern": "\\b(?:May 18,? 2027|2027-05-18|18 May,? 2027)\\b",
           "origin": "user_explicit",
           "kind": "fact",
           "effective_at": null,
@@ -78,7 +78,7 @@
       "expectations": [
         {
           "source_event_id": "proposal-assistant",
-          "pattern": "November 3|2026-11-03|3 November",
+          "pattern": "\\b(?:November 3,? 2026|2026-11-03|3 November,? 2026)\\b",
           "origin": "assistant_proposed",
           "matched": true,
           "matched_memory_index": 0
@@ -148,7 +148,7 @@
       "expectations": [
         {
           "source_event_id": "conflict-first",
-          "pattern": "October 20|2026-10-20|20 October",
+          "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
           "origin": "user_explicit",
           "effective_at": null,
           "matched": true,
@@ -156,7 +156,7 @@
         },
         {
           "source_event_id": "conflict-second",
-          "pattern": "October 27|2026-10-27|27 October",
+          "pattern": "\\b(?:October 27,? 2026|2026-10-27|27 October,? 2026)\\b",
           "origin": "user_explicit",
           "effective_at": null,
           "matched": true,
@@ -217,7 +217,7 @@
           "source_event_id": "effective-date-only-user",
           "pattern": "afternoon",
           "and_patterns": [
-            "February 4|2027-02-04|4 February"
+            "\\b(?:February 4,? 2027|2027-02-04|4 February,? 2027)\\b"
           ],
           "origin": "user_explicit",
           "kind": "preference",
