@@ -1,0 +1,11 @@
+import {connectDatabase} from '../../../packages/core/src/db.ts';
+import {createApp} from './app.ts';
+import {bootstrap} from './auth.ts';
+import {migrate} from '../../../deploy/migrate.ts';
+const db=connectDatabase(process.env.DATABASE_URL??'postgres://threadkeeper:threadkeeper@localhost:5432/threadkeeper');
+await migrate(db);
+await bootstrap(db,process.env.BOOTSTRAP_EMAIL,process.env.BOOTSTRAP_PASSWORD);
+const port=Number(process.env.PORT??3000);
+const {app}=createApp(db,{origin:process.env.APP_ORIGIN??`http://localhost:${port}`,cookieSecure:process.env.COOKIE_SECURE==='true'});
+const server=app.listen(port,process.env.HOST??'127.0.0.1',()=>console.log(`Threadkeeper listening on port ${port}`));
+async function shutdown(){server.close();await db.close();process.exit(0);}process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);

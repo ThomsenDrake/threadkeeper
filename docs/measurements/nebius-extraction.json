@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "model": "nvidia/Nemotron-3_5-Lightning",
+  "finish_reason": "stop",
+  "content": "{\"memories\": [{\"statement\": \"The Atlas deadline is 20 October 2026.\", \"kind\": \"fact\", \"source_event_id\": \"deadline-v1\", \"quote\": \"The Atlas deadline is 20 October 2026.\", \"origin\": \"user_explicit\", \"subject\": null, \"effective_at\": null}, {\"statement\": \"I prefer short sentences when writing.\", \"kind\": \"preference\", \"source_event_id\": \"writing-v1\", \"quote\": \"I prefer short sentences when writing.\", \"origin\": \"user_explicit\", \"subject\": null, \"effective_at\": null}]}",
+  "usage": {
+    "completion_tokens": 2068,
+    "prompt_tokens": 769,
+    "total_tokens": 2837,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": null,
+      "audio_tokens": null,
+      "reasoning_tokens": 1928,
+      "rejected_prediction_tokens": null
+    },
+    "prompt_tokens_details": null,
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 769
+  },
+  "checked_at": "2026-10-02",
+  "transport": "authenticated Executor Nebius integration, using application-generated request",
+  "validation": "Recorded live response passed shared provider validation and PostgreSQL worker replay: accepted2/skipped0; both current memories contain evidence and null effective_at. This was a replay of measured inference, not a direct app API-key call."
+}

@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS tk_users(id text PRIMARY KEY,email text UNIQUE NOT NULL,password_hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS tk_sessions(token_hash text PRIMARY KEY,user_id text NOT NULL REFERENCES tk_users(id) ON DELETE CASCADE,expires_at timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS tk_clients(id text PRIMARY KEY,user_id text NOT NULL REFERENCES tk_users(id) ON DELETE CASCADE,name text NOT NULL,token_hash text UNIQUE NOT NULL,permissions jsonb NOT NULL,projects jsonb,revoked_at timestamptz,created_at timestamptz NOT NULL DEFAULT now());

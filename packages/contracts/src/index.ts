@@ -1,0 +1,92 @@
+import { z } from 'zod';
+
+export const OriginSchema = z.enum(['user_explicit', 'user_confirmed', 'assistant_proposed', 'agent_reported', 'inferred']);
+export const AuthorRoleSchema = z.enum(['user', 'assistant', 'system', 'unknown']);
+export const MemoryKindSchema = z.enum(['fact', 'preference', 'decision', 'constraint', 'project_state']);
+export const MemoryStatusSchema = z.enum(['candidate', 'active', 'disputed', 'superseded']);
+export const CaptureMethodSchema = z.enum(['explicit_capture', 'client_summary', 'profile_entry', 'profile_correction', 'import']);
+const Identifier = z.string().min(1).max(200);
+const Timestamp = z.string().datetime({ offset: true });
+
+export const SourceEventSchema = z.object({
+  id: Identifier,
+  text: z.string().min(1).max(24_000),
+  author_role: AuthorRoleSchema,
+  origin: OriginSchema,
+  occurred_at: Timestamp.optional(),
+  client_id: Identifier.optional(),
+  capture_method: CaptureMethodSchema.optional(),
+}).strict();
+export const ExplicitMemorySchema = z.object({
+  statement: z.string().min(1).max(4_000),
+  kind: MemoryKindSchema,
+  source_event_id: Identifier,
+  quote: z.string().min(1).max(24_000),
+  origin: OriginSchema,
+  subject: Identifier.optional(),
+  effective_at: Timestamp.optional(),
+}).strict();
+export const CaptureSchema = z.object({
+  idempotency_key: Identifier,
+  project_id: Identifier.nullable().default(null),
+  subject: Identifier.default('self'),
+  events: z.array(SourceEventSchema).min(1).max(32),
+  explicit_memories: z.array(ExplicitMemorySchema).max(64).optional(),
+}).strict().superRefine((capture, ctx) => {
+  if (new Set(capture.events.map(event => event.id)).size !== capture.events.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['events'], message: 'Event IDs must be unique within a capture.' });
+  }
+  if (capture.events.reduce((size, event) => size + event.text.length, 0) > 64_000) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['events'], message: 'A capture may contain at most 64,000 characters.' });
+  }
+});
+export const SearchSchema = z.object({
+  query: z.string().max(4_000).default(''),
+  project_id: Identifier.nullable().optional(),
+  subject: Identifier.optional(),
+  source: Identifier.optional(),
+  status: MemoryStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+}).strict();
+export const CorrectSchema = z.object({
+  statement: z.string().min(1).max(4_000),
+  expected_revision: z.number().int().positive(),
+  effective_at: Timestamp.nullable().optional(),
+}).strict();
+export const DeleteSchema = z.object({ expected_revision: z.number().int().positive() }).strict();
+export const MemorySchema = z.object({
+  id: Identifier, project_id: Identifier.nullable(), subject: Identifier,
+  statement: z.string().min(1).max(4_000), kind: MemoryKindSchema, origin: OriginSchema,
+  status: MemoryStatusSchema, revision: z.number().int().positive(), authoritative: z.boolean(),
+  effective_at: Timestamp.nullable(), created_at: Timestamp, updated_at: Timestamp,
+  extractor: z.string().max(500).nullable(),
+});
+export const ExportSourceSchema = z.object({
+  id: Identifier, event_id: Identifier, client_id: Identifier, project_id: Identifier.nullable(), subject: Identifier,
+  text: z.string().min(1).max(24_000), author_role: AuthorRoleSchema, origin: OriginSchema,
+  occurred_at: Timestamp.nullable(), recorded_at: Timestamp,
+  checksum: z.string().regex(/^[a-f0-9]{64}$/), extraction_blocked: z.boolean(),
+  capture_method: CaptureMethodSchema,
+}).strict();
+export const EvidenceSchema = z.object({ memory_id: Identifier, revision: z.number().int().positive(), source_id: Identifier, quote: z.string().min(1).max(24_000) }).strict();
+export const RevisionSchema = z.object({
+  memory_id: Identifier, revision: z.number().int().positive(), statement: z.string().min(1).max(4_000),
+  origin: OriginSchema, status: MemoryStatusSchema, effective_at: Timestamp.nullable(), created_at: Timestamp,
+  editor_client_id: Identifier,
+}).strict();
+export const ExportSchema = z.object({
+  schema_version: z.literal('threadkeeper.export.v1'),
+  exported_at: Timestamp,
+  sources: z.array(ExportSourceSchema).max(10_000),
+  memories: z.array(MemorySchema).max(10_000),
+  evidence: z.array(EvidenceSchema).max(50_000),
+  revisions: z.array(RevisionSchema).max(50_000),
+  tombstones: z.array(z.object({ kind: z.enum(['source_identity', 'source_content', 'memory_content']), hash: z.string().regex(/^[a-f0-9]{64}$/), deleted_at: Timestamp }).strict()).max(100_000),
+}).strict();
+
+export type SourceEvent = z.infer<typeof SourceEventSchema>;
+export type ExplicitMemory = z.infer<typeof ExplicitMemorySchema>;
+export type CaptureInput = z.infer<typeof CaptureSchema>;
+export type SearchInput = z.infer<typeof SearchSchema>;
+export type Memory = z.infer<typeof MemorySchema>;
+export type ExportBundle = z.infer<typeof ExportSchema>;

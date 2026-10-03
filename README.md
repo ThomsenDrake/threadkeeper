@@ -1,2 +1,101 @@
-# threadkeeper
-Portable personal context across chatbots and coding agents. Source-backed memory with MCP, an editable profile, and complete self-hosting.
+# Threadkeeper
+
+**Switch agents. Keep the thread.**
+
+Threadkeeper is a personal-context service for existing chatbots and coding agents, with an editable profile and MCP as its primary integration. The intended public domain is `threadkeep.si`. A dedicated memory model extracts source-backed records; database code owns authorization, corrections, revisions and deletion. It does not perform the user's general tasks.
+
+This repository is an early MVP hosted privately at [ThomsenDrake/threadkeeper](https://github.com/ThomsenDrake/threadkeeper). It has not been publicly released or deployed. The OSS license is still undecided and must be selected before public release.
+
+## What works in the current slice
+
+- Local owner sign-in; revocable client tokens with read/capture permissions and project scopes.
+- MCP capture, recall and source lookup, plus a secondary HTTP/OpenAPI interface.
+- PostgreSQL source records, evidence links, memories, revisions, jobs and non-content deletion tombstones.
+- Explicit captures and a bounded worker extraction adapter. The Nebius default is `nvidia/Nemotron-3_5-Lightning`.
+- Profile browsing/search, subject/project/source/status filters, provenance, revision-checked correction, deletion, client access and import/export.
+- PostgreSQL full-text search with a substring fallback. **Semantic retrieval is not wired yet.** An embedding adapter and optional vector table are preparation for that work.
+
+The central lifecycle has passed through two independent authenticated MCP SDK clients and profile HTTP operations: capture a deadline and preference, recall from the other client, correct the deadline, delete the preference, then recall the new state from both. This establishes server and transport behavior; installed ChatGPT/Codex or other host integrations still need validation.
+
+The real profile UI also passed a synthetic Chromium 153 browser walkthrough against a disposable PGlite-backed API: sign-in, capture, all four filters, provenance, revision-aware correction/deletion, search, scoped client creation and revocation, export/import and sign-out. Desktop, provenance and mobile screenshots were visually reviewed; see [browser evidence](docs/measurements/ui-qa.json). This browser test did not use inference or a deployed service.
+
+Separate live synthetic calls verified the exact Nemotron model, JSON-object output, a no-side-effect tool call and source-backed extraction. An available Qwen embedding model returned 4,096 finite dimensions. See [provider evidence](docs/PROVIDER_VERIFICATION.md) for failures, token usage and limits. Full local GPU inference, native PostgreSQL/pgvector containers, managed hosting, robust semantic reconciliation and release-quality evaluation remain unverified.
+
+## Run local checks
+
+Prerequisites: Node.js 24 and pnpm 11.25.0. Initial dependency downloads require network access.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm check
+pnpm demo
+```
+
+`pnpm check` runs typechecking, focused tests and the profile build. The test database is PostgreSQL via PGlite in WebAssembly, not a native PostgreSQL deployment. `pnpm demo` is a deterministic synthetic core walkthrough with explicit captures and a fresh-database export/import. It invokes neither a model nor a browser.
+
+For an immediately runnable, disposable profile demonstration:
+
+```sh
+pnpm build
+pnpm dev:demo
+```
+
+Open `http://127.0.0.1:3000`. Synthetic demo credentials are `demo@example.invalid` / `threadkeeper-demo-password`. This binds locally, uses a disposable PGlite database and performs no inference. Data disappears when it exits; use the persistent container setup for actual use.
+
+## Run the application with containers
+
+Docker and Compose are required. This environment had no Docker executable, so the following configuration still needs an actual build/run check.
+
+```sh
+cp .env.example .env
+```
+
+Set `POSTGRES_PASSWORD`, `BOOTSTRAP_EMAIL` and a `BOOTSTRAP_PASSWORD` of at least 12 characters in your private `.env`. Use a URL-safe database password for this Compose configuration. For the hackathon worker, configure `NEBIUS_API_KEY` securely. Do not commit `.env` or paste secrets into chat.
+
+```sh
+docker compose --env-file .env -f deploy/compose.yaml up --build
+```
+
+Open `http://localhost:3000` and sign in as the bootstrapped owner. The API serves the built profile and runs rerunnable SQL setup before listening. The worker starts after API/database readiness. PostgreSQL uses a named data volume; ports are published to localhost. Changing the bootstrap settings after an owner exists does not change that owner's password.
+
+For a host-run application against an already available PostgreSQL database, set `DATABASE_URL` in `.env`, then run these in separate terminals:
+
+```sh
+pnpm build
+node --env-file=.env --import tsx apps/api/src/index.ts
+node --env-file=.env --import tsx apps/worker/src/index.ts
+```
+
+With `APP_ORIGIN=http://localhost:3000`, use that exact origin. Host and Origin checks reject mismatches. Public hosting also requires HTTPS and `COOKIE_SECURE=true`; no public hosting has been configured here.
+
+## Provider and client checks
+
+Use operator-managed environment secrets to rerun synthetic provider checks:
+
+```sh
+node --env-file=.env --import tsx deploy/provider-check.ts
+```
+
+The script records separate checks and skips embeddings unless `EMBEDDING_MODEL` is configured. JSON-schema probing is opt-in via `PROVIDER_CHECK_SCHEMA=true`. Do not silently change the memory model when a check fails. Local compatible inference endpoints need no Nebius credentials; the selected local checkpoint alias must match that server.
+
+Create one credential per client in the profile. Connect it to `/mcp` with a bearer token, or use the operations described by `/openapi.json`. See [client instructions](docs/CLIENTS.md). Installing an MCP server does not guarantee that a host captures conversations or recalls memories automatically.
+
+## Corrections, deletion and portability
+
+Profile edits create user-authored correction evidence and make the current revision authoritative. Fresh default retrieval uses active current records. Model output remains bounded and locally validated; source instructions cannot control owner IDs or permissions.
+
+Deletion currently removes **whole connected source events and all memories supported by them**, including revision history and pending jobs. This is deliberately conservative and can remove sibling memories. Capture independent facts in separate source events for precise deletion. The central demonstration uses separate deadline and preference events.
+
+The versioned export preserves remaining records, evidence and corrections, with non-content tombstones. It excludes accounts, credentials and access grants. Backup restore is not yet deletion-safe by itself: an older backup can contain forgotten data. See [portability and operations](docs/PORTABILITY.md) before restoring a database.
+
+Complete self-hostability with feature parity is a binding release requirement. Model/embedding endpoints are configurable, but packaging alone does not demonstrate GPU compatibility or operation without external control-plane access. Managed deployments may charge for operations and resources, never exclusive application features.
+
+## Continue development
+
+- [Codex Cloud setup](docs/CODEX_CLOUD.md)
+- [Compact MVP brief](docs/MVP_BRIEF.md)
+- [Decisions and blockers](docs/DECISIONS.md)
+- [Provider verification](docs/PROVIDER_VERIFICATION.md)
+- [Local Codex handoff](docs/HANDOFF.md)
+
+No DNS, registrar, Cloudflare or deployment changes were made by this implementation. No remote implementation was available for inspection; the starter was created locally after workspace inspection. Keep real personal history, employer data and credentials out of demos and source control.

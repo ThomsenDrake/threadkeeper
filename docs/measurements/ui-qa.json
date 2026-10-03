@@ -1,0 +1,28 @@
+{
+  "recorded_at": "2026-10-02T23:24:59.711Z",
+  "browser": "153.0.8010.0",
+  "database": "disposable PGlite",
+  "viewport": {
+    "desktop": "1440×1000",
+    "mobile": "390×844"
+  },
+  "checks": [
+    "local sign-in",
+    "subject, project, source, and status filters",
+    "two separate source-backed captures",
+    "provenance, evidence, and revision detail",
+    "revision-aware correction reflected in profile",
+    "profile deletion leaves corrected deadline and removes preference",
+    "search no longer returns old deadline",
+    "client token, project grant, and fresh independent HTTP recall",
+    "export fidelity and idempotent UI import",
+    "client revocation takes effect immediately",
+    "mobile layout, no horizontal overflow, sign-out available",
+    "sign-out",
+    "no browser runtime exceptions"
+  ],
+  "limitations": [
+    "This validates the browser profile and fresh HTTP recall; independent MCP clients are validated in tests/api.test.ts.",
+    "No cloud inference, provider, deployed environment, or local GPU inference was used in this UI test."
+  ]
+}

@@ -1,0 +1,1 @@
+{"name":"@threadkeeper/core","version":"0.1.0","private":true,"type":"module","exports":{".":"./src/index.ts","./db":"./src/db.ts"},"dependencies":{"@threadkeeper/contracts":"workspace:*","pg":"8.16.3"}}

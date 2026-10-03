@@ -1,0 +1,17 @@
+{
+  "name": "@threadkeeper/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@threadkeeper/core": "workspace:*",
+    "@threadkeeper/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0"
+  }
+}

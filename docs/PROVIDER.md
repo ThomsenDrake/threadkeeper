@@ -1,0 +1,32 @@
+# Model provider contract
+
+The worker calls the configured OpenAI-compatible HTTP endpoint directly. It does not require Executor or an OpenAI account. The default request model is `nvidia/Nemotron-3_5-Lightning` at `https://api.tokenfactory.nebius.com/v1/`. A configured local alias uses the same adapter. No automatic model substitution occurs.
+
+The extractor receives only the authorized source events in one capture job. It produces candidates with one exact source quote each. Shared Zod schemas check the shape; code checks source IDs, exact quotations, subject, and direct-user attribution. Agent reports remain agent reports, assistant proposals cannot become direct user statements, and the model cannot invent user confirmation. Database code owns authorization, corrections, revisions, and deletion. Exact quote validation establishes the quoted text exists; semantic support still requires evaluation.
+
+Extraction has at most two requests: one attempt and one repair. The default requests `json_object` and validates locally. Set `MODEL_JSON_OBJECT=false` for prompt-only local endpoints. Strict JSON schema is an optional capability via `MODEL_STRUCTURED_OUTPUT=true`. A rejected format or invalid output receives one prompt-only repair using the same model. Truncated output is rejected. No reasoning-control parameter is sent to Nebius.
+
+| Variable | Default or behavior |
+| --- | --- |
+| `MODEL_BASE_URL` | Nebius `/v1/` base URL above |
+| `MODEL_ID` | Exact Lightning ID above; configurable local alias |
+| `MODEL_API_KEY` | Optional; omitted from keyless local requests |
+| `NEBIUS_API_KEY` | Fallback only for the official Nebius hostname |
+| `MODEL_TIMEOUT_MS` | 60000 per request; maximum 300000 |
+| `MODEL_MAX_OUTPUT_TOKENS` | 4096; maximum 32768 |
+| `MODEL_JSON_OBJECT` | Enabled unless `false` |
+| `MODEL_STRUCTURED_OUTPUT` | Disabled unless `true` |
+| `MODEL_MAX_EVENTS` | 32; upper bound 32 |
+| `MODEL_MAX_SOURCE_CHARACTERS` | 64000; upper bound 64000 |
+| `EMBEDDING_MODEL` | Unset; embeddings disabled |
+| `EMBEDDING_BASE_URL` | Same as model endpoint unless supplied |
+| `EMBEDDING_API_KEY` | Optional; falls back to the model key only for the same normalized endpoint |
+| `EMBEDDING_TIMEOUT_MS` | 60000 per request; maximum 300000 |
+| `EMBEDDING_DIMENSIONS` | Optional dimension pin; otherwise measured from the first response |
+| `WORKER_POLL_MS` | 1000; 100 to 60000 allowed |
+
+The embedding adapter validates numeric vectors, response indices, consistent length, and changes against the measured or configured length. It creates no fallback or fabricated vectors. Configuring it does not prove it is integrated into retrieval or that the model's query/document preprocessing is correct. Run and measure those checks before enabling a database vector index. Local inference hardware and runtime compatibility require a separate real deployment test.
+
+Run `pnpm provider:check` with operator-configured secrets to measure model listing, chat, a validation-only tool call, JSON output, source-backed extraction, and optional embeddings. Set `PROVIDER_CHECK_SCHEMA=true` for an additional strict-schema probe. The script sends synthetic data, does not execute the proposed tool, and prints only capability checks, timing, usage, and sanitized error codes. Its output describes that run only. It does not claim full self-hosting, quality superiority, or a deployment.
+
+The targeted provider unit tests use mocked HTTP responses. They verify invalid-evidence rejection, bounded repair, fixed model selection, role/origin distinctions, usage accumulation, vector validation, dimension drift, and key separation. They are not live inference checks.
