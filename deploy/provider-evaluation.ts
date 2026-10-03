@@ -11,14 +11,18 @@ import { OpenAICompatibleProvider, providerConfigFromEnv, DEFAULT_MODEL_ID } fro
 import { evaluationCorpus, type EvaluationCase } from './provider-evaluation-corpus.ts';
 import { evaluateMemoryRubric } from './provider-evaluation-rubric.ts';
 import { extractionHoldout, extractionHoldoutManifest, extractionHoldoutSha256, assertHoldoutConfig, type HoldoutCase } from './provider-extraction-holdout.ts';
+import { extractionHoldoutV2, extractionHoldoutV2Manifest, extractionHoldoutV2Sha256 } from './provider-extraction-holdout-v2.ts';
 import { assertHoldoutRecords, evaluateHoldoutOutcome, holdoutRequestLimits, assessHoldoutObservations } from './provider-holdout-checks.ts';
 
 type RecordedAttempt = { request: any; response?: any; error?: { code: string; status?: number }; elapsed_ms?: number };
 type Recording = { schema_version: string; cases: Array<{ id: string; attempts: RecordedAttempt[] }> };
-const holdout = process.argv.includes('--holdout');
-const args = process.argv.slice(2).filter(value => value !== '--holdout');
+const legacyHoldout = process.argv.includes('--holdout-v1');
+const holdout = process.argv.includes('--holdout') || legacyHoldout;
+const args = process.argv.slice(2).filter(value => !['--holdout', '--holdout-v1'].includes(value));
 const mode = args[0] ?? '--live';
-const corpus = holdout ? extractionHoldout : evaluationCorpus;
+const corpus = holdout ? legacyHoldout ? extractionHoldout : extractionHoldoutV2 : evaluationCorpus;
+const holdoutManifest = legacyHoldout ? extractionHoldoutManifest : extractionHoldoutV2Manifest;
+const holdoutSha256 = legacyHoldout ? extractionHoldoutSha256 : extractionHoldoutV2Sha256;
 let recording: Recording | undefined;
 const output: Array<Record<string, any>> = [];
 const requests: Recording['cases'] = [];
@@ -30,8 +34,8 @@ let currentProgress: Record<string, any> | undefined;
 let deferredReport: Record<string, any> | undefined;
 let sourceCommit: string | undefined;
 const holdoutMetadata = () => holdout ? {
-  holdout: { manifest: extractionHoldoutManifest, manifest_sha256: extractionHoldoutSha256, source_commit: sourceCommit ?? null },
-  manual_review: { status: 'required', instruction: extractionHoldoutManifest.manual_review },
+  holdout: { manifest: holdoutManifest, manifest_sha256: holdoutSha256, source_commit: sourceCommit ?? null },
+  manual_review: { status: 'required', instruction: holdoutManifest.manual_review },
 } : {};
 function report(value: Record<string, any>) {
   if (holdout) deferredReport = value;
@@ -61,12 +65,14 @@ let appServer: Server | undefined;
 const clients: Client[] = [];
 let observer: ReturnType<typeof installDirectProviderObserver> | undefined;
 try {
+assert(!(legacyHoldout && process.argv.includes('--holdout')), 'Choose one holdout version');
+assert(!legacyHoldout || ['--requests', '--replay'].includes(mode), 'Legacy holdout supports offline requests/replay only');
 assert(['--live', '--requests', '--replay'].includes(mode) && args.length === (mode === '--replay' ? 2 : args.length === 0 ? 0 : 1), 'Invalid evaluation arguments');
 recording = mode === '--replay' ? JSON.parse(await readFile(args[1], 'utf8')) : undefined;
 if (recording) {
   assert.equal(recording.schema_version, 'threadkeeper.provider-evaluation-recording.v1');
   assert.deepEqual(recording.cases.map(item => item.id), corpus.map(item => item.id));
-  if (holdout) assert.equal((recording as any).holdout?.manifest_sha256, extractionHoldoutSha256);
+  if (holdout) assert.equal((recording as any).holdout?.manifest_sha256, holdoutSha256);
 }
 const config = providerConfigFromEnv();
 if (holdout) {
