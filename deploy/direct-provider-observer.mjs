@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { embeddingResponseFingerprints } from './embedding-fingerprints.mjs';
+import { extractionResponseFingerprint } from './extraction-fingerprints.mjs';
 
 // Development-only observation of the application's original direct fetch.
 // No request is relayed. Never retain headers, prompts, response text or errors.
@@ -29,20 +30,34 @@ export function providerObservationConfigFromEnv(env = process.env) {
     models: [...new Set([env.MODEL_ID || DEFAULT_MODELS[0], env.EMBEDDING_MODEL, ...DEFAULT_MODELS].filter(Boolean))],
     limits: { 'chat/completions': limit('THREADKEEPER_PROVIDER_CHAT_LIMIT'), embeddings: limit('THREADKEEPER_PROVIDER_EMBEDDING_LIMIT') },
     embeddingFingerprints: env.THREADKEEPER_PROVIDER_EMBEDDING_FINGERPRINTS === '1',
+    extractionFingerprints: env.THREADKEEPER_PROVIDER_EXTRACTION_FINGERPRINTS === '1',
   };
 }
 
 export function numericTokenUsage(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return inspectNumericTokenUsage(value).usage;
+}
+
+function inspectNumericTokenUsage(value, depth = 0) {
+  if (value === undefined) return { usage: undefined, invalid: false };
+  if (!value || typeof value !== 'object' || Array.isArray(value) || depth > 8) return { usage: undefined, invalid: true };
   const result = {};
+  let invalid = false;
   for (const [key, count] of Object.entries(value)) {
-    if (COUNT_KEYS.has(key) && Number.isSafeInteger(count) && count >= 0) result[key] = count;
+    if (COUNT_KEYS.has(key)) {
+      if (Number.isSafeInteger(count) && count >= 0) result[key] = count;
+      else invalid = true;
+    }
     else if (DETAIL_KEYS.has(key)) {
-      const detail = numericTokenUsage(count);
-      if (detail && Object.keys(detail).length) result[key] = detail;
+      // OpenAI-compatible optional detail objects may be null (unreported).
+      // A null value for a recognized numeric count remains invalid above.
+      if (count === null) continue;
+      const detail = inspectNumericTokenUsage(count, depth + 1);
+      invalid ||= detail.invalid;
+      if (detail.usage) result[key] = detail.usage;
     }
   }
-  return Object.keys(result).length ? result : undefined;
+  return { usage: Object.keys(result).length ? result : undefined, invalid };
 }
 
 export function summarizeProviderObservations(records) {
@@ -55,11 +70,14 @@ export function summarizeProviderObservations(records) {
   }
   const sent = records.filter(record => record.sent);
   const inference = sent.filter(record => record.path !== 'models');
-  const complete = record => record.usage_status === 'reported' && (typeof record.usage?.total_tokens === 'number'
+  const complete = record => !record.usage_invalid && record.usage_status === 'reported' && (typeof record.usage?.total_tokens === 'number'
     || (typeof record.usage?.prompt_tokens === 'number' && typeof record.usage?.completion_tokens === 'number')
     || (typeof record.usage?.input_tokens === 'number' && typeof record.usage?.output_tokens === 'number'));
   let derivedTotals = 0;
   for (const record of inference) {
+    // Do not turn a rejected raw total into a valid derived component total,
+    // nor present any part of a malformed envelope as trustworthy accounting.
+    if (record.usage_invalid) continue;
     const reported = record.usage;
     let normalized = reported;
     // Preserve each raw envelope, but do not undercount aggregate totals when
@@ -79,6 +97,7 @@ export function summarizeProviderObservations(records) {
     usage_complete: inference.every(complete),
     inference_requests_without_usage: inference.filter(record => record.usage_status !== 'reported').length,
     inference_requests_without_complete_usage: inference.filter(record => !complete(record)).length,
+    inference_requests_with_invalid_usage: inference.filter(record => record.usage_invalid).length,
     derived_total_tokens_request_count: derivedTotals,
     usage,
   };
@@ -150,6 +169,10 @@ export function installDirectProviderObserver(options = {}) {
       let payload;
       try { payload = JSON.parse(text); } catch { /* No raw body is retained. */ }
       if (payload && typeof payload === 'object') {
+        if (options.extractionFingerprints && path === 'chat/completions' && response.ok) {
+          const fingerprints = extractionResponseFingerprint(request, payload);
+          if (fingerprints) record.extraction_fingerprints = fingerprints;
+        }
         if (options.embeddingFingerprints && path === 'embeddings' && response.ok) {
           const fingerprints = embeddingResponseFingerprints(request, payload);
           if (fingerprints) record.embedding_fingerprints = fingerprints;
@@ -158,7 +181,9 @@ export function installDirectProviderObserver(options = {}) {
           record.returned_model_matches = payload.model === request?.model;
           if (models.has(payload.model)) record.returned_model = payload.model;
         }
-        record.usage = numericTokenUsage(payload.usage);
+        const usage = inspectNumericTokenUsage(payload.usage);
+        record.usage = usage.usage;
+        if (usage.invalid) record.usage_invalid = true;
         const reason = payload.choices?.[0]?.finish_reason;
         if (['stop', 'length', 'tool_calls', 'content_filter', 'function_call'].includes(reason)) record.finish_reason = reason;
       }
