@@ -34,3 +34,15 @@ export const literalReportSkipControls = [
   { name: 'curly quotation', source: 'Iris reports: “The backup is complete.”', statement: 'The backup is complete.', quote: 'The backup is complete.' },
   { name: 'reported attribution retained', source: 'Iris reports: "The backup is complete."', statement: 'According to Iris, the backup is complete.', quote: 'Iris reports: "The backup is complete."' },
 ] as const;
+
+// Additional pre-implementation syntactic bounds requested by peer review.
+export const literalReportBoundaryControls = [
+  { reporter: `R${'a'.repeat(79)}`, assertion: 'The batch is ready.', statement: 'The batch is ready.', reject: true },
+  { reporter: `R${'a'.repeat(80)}`, assertion: 'The batch is ready.', statement: 'The batch is ready.', reject: false },
+  { reporter: 'Iris Rhea Nova', assertion: 'The batch is ready.', statement: 'The batch is ready.', reject: true },
+  { reporter: 'Iris Rhea Nova Vega', assertion: 'The batch is ready.', statement: 'The batch is ready.', reject: false },
+  { reporter: 'Iris  Rhea', assertion: 'The batch is ready.', statement: 'The batch is ready.', reject: false },
+  { reporter: 'The imaginary monitor', assertion: 'The batch is ready.', statement: 'The batch is ready.', reject: false },
+  { reporter: 'Iris', assertion: 'A'.repeat(4000), statement: 'A'.repeat(4000), reject: true },
+  { reporter: 'Iris', assertion: `${'A'.repeat(4000)}.`, statement: 'A'.repeat(4000), reject: false },
+] as const;
