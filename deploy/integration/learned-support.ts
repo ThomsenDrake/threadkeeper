@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, rmSync } from 'node:fs';
-import { lstat, mkdir, open, readFile, rm } from 'node:fs/promises';
+import { lstat, open, readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { summarizeProviderObservations, type ProviderObservation } from '../direct-provider-observer.mjs';
 
@@ -33,32 +32,22 @@ export async function reserveEvidence(path: string) {
   };
 }
 
-/** Docker and Compose read only a private archive of the recorded commit. */
-export async function archiveLearnedSource(root: string, destination: string) {
-  const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
-  const implementation = (path: string) => path && !path.startsWith('docs/') && !path.endsWith('.md');
-  const implementationFiles = git('ls-files', '-z').split('\0').filter(implementation);
-  assert.equal(git('status', '--porcelain', '--untracked-files=all', '--', ...implementationFiles), '', 'Commit source changes before live validation');
-  assert.deepEqual(git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(implementation), [], 'Commit new implementation files before live validation');
-  const commit = git('rev-parse', 'HEAD');
-  const tree = git('rev-parse', `${commit}^{tree}`);
-  await mkdir(destination, { mode: 0o700 });
-  const archive = resolve(destination, '../source.tar');
-  try {
-    execFileSync('git', ['archive', '--format=tar', `--output=${archive}`, commit], { cwd: root });
-    execFileSync('tar', ['-xf', archive, '-C', destination]);
-  } finally { await rm(archive, { force: true }); }
-  const files = Object.fromEntries(await Promise.all(implementationFiles.map(async path => [path,
-    createHash('sha256').update(await readFile(resolve(destination, path))).digest('hex')])));
-  return { commit, tree, files };
+/** Verify all recorded implementation bytes in the private running snapshot. */
+export async function verifyLearnedSnapshot(root: string, source: { files: Record<string, string> }) {
+  for (const [path, expected] of Object.entries(source.files)) {
+    assert.equal(createHash('sha256').update(await readFile(resolve(root, path))).digest('hex'), expected, 'Snapshot bytes changed during validation');
+  }
 }
 
-/** Host scenario modules are loaded once; reject concurrent edits or commits. */
-export async function verifyLearnedSource(root: string, source: { commit: string; files: Record<string, string> }) {
-  assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), source.commit, 'Source commit changed during validation');
-  for (const [path, expected] of Object.entries(source.files)) {
-    assert.equal(createHash('sha256').update(await readFile(resolve(root, path))).digest('hex'), expected, 'Source bytes changed during validation');
-  }
+/** Tags can change on a shared daemon. Inspect the running container instead. */
+export async function inspectLearnedContainerImage(service: string, compose: (args: string[]) => Promise<string>, docker: (args: string[]) => Promise<string>) {
+  const container = await compose(['ps', '--quiet', service]);
+  assert.match(container, /^[0-9a-f]{64}$/, 'Expected exactly one native service container');
+  const image = await docker(['container', 'inspect', container, '--format', '{{.Image}}']);
+  assert.match(image, /^sha256:[0-9a-f]{64}$/, 'Container omitted its immutable image identity');
+  const digests = JSON.parse(await docker(['image', 'inspect', image, '--format', '{{json .RepoDigests}}'])) ?? [];
+  assert(Array.isArray(digests) && digests.every(digest => typeof digest === 'string' && /^[^\s@]+@sha256:[0-9a-f]{64}$/.test(digest)), 'Invalid repository digest metadata');
+  return { image, repository_digests: digests as string[] };
 }
 
 export type LearnedObservation = ProviderObservation & { service: 'api' | 'worker' };
