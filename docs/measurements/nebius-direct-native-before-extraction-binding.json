@@ -1,9 +1,9 @@
 {
   "schema_version": "threadkeeper.direct-learned-lifecycle.v1",
-  "measured_at": "2026-10-03T20:53:01.663Z",
+  "measured_at": "2026-10-03T20:09:52.765Z",
   "source": {
-    "commit": "5db08e59cbdffccd58a643b84e1b14b099abc66b",
-    "tree": "2840bd61d9e3aa6afcd8f688f332e1196964fc00",
+    "commit": "239f4a930c4e989007880085cc73bfae5503e76b",
+    "tree": "bce7ad80e898cdf7bc488ba009380e799299e01e",
     "files": {
       ".dockerignore": "2859d93561c69b21a54342bb8f5114e3f52aeb16f70576aa060b415601e82bee",
       ".env.example": "0d31a15c43007d835bc7fdd2813a725227423b95c5002fba5e6eb9cbc3434ce7",
@@ -26,24 +26,19 @@
       "deploy/deletion-ledger.ts": "84484ac342e0a49269e8e746ffef18a00d5f2590b7fff63690592cc97f2fb791",
       "deploy/demo.ts": "b37bacc7d8c11831b9f0b23443c55e65263f9ddc2ee8898a9dc41784db34bb25",
       "deploy/dev-demo.ts": "5839230bfac5d44aba255d30b0e852d3a34baf7be6d73b60e773083d6839f270",
-      "deploy/direct-provider-observer.d.mts": "181bd09a0d8f842d6cf39b57de5259dbaea63507e046f74af00d8efa257396b6",
-      "deploy/direct-provider-observer.mjs": "a42f78dac2a27ca7ab9641018c98263261d679c3e745b4dc67d19b56ac0e4941",
+      "deploy/direct-provider-observer.d.mts": "a8d7597a8c915f23853f2cb0eaac00c538f74fdac5ae5c434ac8200ec2937f53",
+      "deploy/direct-provider-observer.mjs": "03addfb7eddd5f9a50db1f926721ad3200ed3f8605a4b614918f4fd1a02a0e2b",
       "deploy/direct-provider-preload.mjs": "710a95a31091087cff95ca0f71e2094610754facbb594264e422138921841ae6",
       "deploy/embedding-fingerprints.d.mts": "93758c432d67361984eba8207c5ebd26ff605733f05508db720a8c35a7ad74cf",
       "deploy/embedding-fingerprints.mjs": "e781f0357a87dbf482c628447046f913b09bbdf83ba623b56b414e6565b92c01",
-      "deploy/extraction-fingerprints.d.mts": "21db8c3e30afe03344496a6ef8ee1798ad20b8c72deae07f5a804a9842b87734",
-      "deploy/extraction-fingerprints.mjs": "d07fb6ac60e09db755ae65a42e21fd73ccaa0af9e294e3c6b4da46fee6a0be0c",
       "deploy/installed-codex-check.ts": "5d8f0964c3e5fdb805b3b8c63b6d985ee76bf238213d37a7f524271a7a807f85",
       "deploy/integration/compose.yaml": "79d0ebfcbef8bc64c5b7ec3ad01273d8cb8b3e95092d28ffae7a5c5da952ffc2",
-      "deploy/integration/learned-assertions.ts": "667cb77d28815bf1ce7bfb4636773c366839418384f2a946cab3e36719dc3ab2",
-      "deploy/integration/learned-child.mjs": "312c3ddda770cc8ba7621012d4040d6a0b4f11ae4ce364da2fbee6c1781c3ccf",
-      "deploy/integration/learned-compose.yaml": "d273d56d93bfb433c7f14e10d1af440496481803fee688134142e3649760d69f",
-      "deploy/integration/learned-execute.ts": "7dfa66f375ebfc8ebf1677fbd3b18f64ea0c921e7bbb2531c01e5187d90e043c",
-      "deploy/integration/learned-extraction-evidence.ts": "866902bad03455e4a4a52d084def08e0150d058fcff282727615d93dd7b76699",
-      "deploy/integration/learned-run.d.mts": "6df5efa446a1ed5baa7b777e5a18726b639e0e6e8b0b0690e66c7058423ad8b1",
-      "deploy/integration/learned-run.mjs": "4dfd22176de20e95303dca73e2d73adcea05301f146c00887140bf37c770e01a",
-      "deploy/integration/learned-scenarios.ts": "f76ab32af407a896d41e2635763efda44b93a501f4a5cab382f561305824a079",
-      "deploy/integration/learned-support.ts": "fe4e8946e26c6c615da30f630504c1ea9594f2b40e19be0fbf35c2af6f60b620",
+      "deploy/integration/learned-assertions.ts": "0c4fb9ed484526371c39c76de2dcf15e7e3f1c53bf9560d628dd747ede33590a",
+      "deploy/integration/learned-compose.yaml": "e0dc06c489dd88f27da3964e19f51e6b9ec8e0573cf22f63c2e21d528861e1ec",
+      "deploy/integration/learned-execute.ts": "52fdfad5b74a71ab2d2400263f48de5542e67f66fbeeb6552d2683cae54aed8d",
+      "deploy/integration/learned-run.ts": "80f559c1dfb20130a0db38ce78a1d58280a062d600400b0770ad4bdd46bb9410",
+      "deploy/integration/learned-scenarios.ts": "dac58ebf19c8e2442b02a2079b94e1d920e7884d203a86eee4691fdf9158311e",
+      "deploy/integration/learned-support.ts": "a06ec09dd3224b5e825c00d3ff40e69db2e1e80b259698325ca42a7e289fafdd",
       "deploy/integration/learned-vector-evidence.ts": "77c2e8949946179b51bfd355900ca9177b190d0cd4fc9adcd7a706ea8187cbee",
       "deploy/integration/provider-fixture.ts": "cc750099f49648468833c5be29f4f238b5c046eca649cef1051a6cccbf5ab802",
       "deploy/integration/run.ts": "0cf8fc036483396186f650141ea7e05d83d2dcc020e7573e46746293ab7f41b6",
@@ -66,7 +61,7 @@
       "deploy/recovery-status.ts": "52063aeb8b5c5b46dbb6d64a12dad6b1f59578eb9ec8f65830f7f20fc9c48648",
       "deploy/reindex.ts": "f150d8a730697a6ea42dd882f12ad4ea222e6b3aeeed31364a083b44792f3dba",
       "deploy/restore.ts": "7a5107a1777d3690cddc8e220513cbaf7ea4ce1e62df6b165df03716b7d09d10",
-      "package.json": "da172978c978109aef7a056591c42a71824a350048120fa59d56a09281b30d87",
+      "package.json": "04a1935a982f4dbdddf09e020f414194c1c0c25dfb31d7438b5929b49f949fbe",
       "packages/contracts/package.json": "271fbcbdb54262e0e373dd5972237daf880aa2b6a6eccafc88f0f047a92f9030",
       "packages/contracts/src/index.ts": "b96feb8d1f4039f74138d0fa5d611e2335851375a577cd5f4d2fd02a2f2f14a5",
       "packages/core/package.json": "97d4c2c1d228093ac627fdae6b42836d0f2bef71798a16059239404785bffc10",
@@ -97,15 +92,14 @@
       "tests/helpers.ts": "c33162b7da83542c72d79cd8badbb06173c95034b78a4d189cf5033a7d88535a",
       "tests/hybrid-fixtures.ts": "0c47ea61ef0fd043de5e8ec7fc3944537d790c9b7bda4629796dfdfce6f8946a",
       "tests/hybrid.test.ts": "2f718e2bc71d7f58455c2471bf9eb43d516a69b75d502ac1d8f255b8aa75b346",
-      "tests/learned-acceptance.test.ts": "2c9e6a893a33f8077cea327e0990c7b864e92606386ece2cfa088b27ceed1118",
-      "tests/learned-extraction-evidence.test.ts": "3421277407d62c46a62aaa81250036eea45089f9b4129eb6cdfe217fa44f76cc",
-      "tests/learned-harness.test.ts": "049cc81f67ccbad927b2579886aa5dbdd1b8693b30d63ef4df4d17abb48a8735",
+      "tests/learned-acceptance.test.ts": "cf7ec853636ae4da6a934f94780a72a14aa14f3c7ffe11547d7ffd6237a6b303",
+      "tests/learned-harness.test.ts": "e2c78b65789dfbf477ee0a21d0467fb781c4135b1da3033c1d7fd48dea3a5570",
       "tests/learned-vector-evidence.test.ts": "4fec520ea0229c360884e4f0044f5dad2ed079b8601a7b1fb710fb636b70f098",
       "tests/migrations.test.ts": "5accccc751b25f3dbdc5c132611cc75cd76aa8bbaae2567d1b4b7da5f8ab79e2",
       "tests/profile-scaling.test.ts": "9851b3aa99c82a500b41c07ac24a763fb3065c2006b30ef60a4ddbb35b945ed5",
       "tests/provider-evaluation.test.ts": "df34e35300cd4f568fe9bc59b75b6c311ad401b6719acbef5037cbf8d596fd31",
       "tests/provider-fixture.test.ts": "4e2ae9cfece6eac8b01abfe7fd07fab1d9a19c914fc2241fa9cae2429679f06c",
-      "tests/provider-observer.test.ts": "128ff43f0e442a28febf710cc353fbaaa8ed7ed199a79584244da8d22a7dd49d",
+      "tests/provider-observer.test.ts": "3e58c671bc16900831aee9caacd1ac57517ce6df8cadd6b558f49b0dcbe4db13",
       "tests/provider-probe.test.ts": "9de840b97fe47c66f9ed26c756a77cd436f635e47466f6f3f73b485591b7fb90",
       "tests/providers.test.ts": "63273d47d4f5abce80f2c26c3cdec701646c41a02a5e8fc63d23aaf43c806c1b",
       "tests/recovery-fixtures.ts": "e581fc33b8b5d0d9da9d657aedd03c4f1edf3a85dc58eb40644b52253d98036d",
@@ -125,20 +119,14 @@
   },
   "runtime": {
     "host_node": "24.7.0",
-    "host_dependencies": {
-      "package_manager": "pnpm@11.25.0",
-      "installation": "private_offline_frozen_copy_ignore_scripts",
-      "lockfile_sha256": "c02d6c6a5d73620b1b2f4b9618f58505bc42dbe7e076586719d600d5bd7b2889",
-      "typescript_loader": "tsx@4.20.6"
-    },
     "node": "v24.7.0",
     "pnpm": "11.25.0",
     "docker": "28.4.0",
     "compose": "2.40.3",
     "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
     "pgvector": "0.8.7",
-    "application_build_image": "sha256:633961576bc9f4d740348c4cce217536d8b84f85cd7b6eaf90fd2f591501f89d",
-    "application_image": "sha256:633961576bc9f4d740348c4cce217536d8b84f85cd7b6eaf90fd2f591501f89d",
+    "application_build_image": "sha256:1c603d643931075e82ef6b5d2b6e28d84dc28b9c3c8918299cbb73e434d52bc1",
+    "application_image": "sha256:1c603d643931075e82ef6b5d2b6e28d84dc28b9c3c8918299cbb73e434d52bc1",
     "application_repository_digests": [],
     "database_image": "sha256:151aa1c2e849e7828ed8aef2183ae15f692cbe887d2f28921d8b44b26e154d7e",
     "database_repository_digests": [
@@ -167,30 +155,24 @@
     "accepted": 2,
     "model": "nvidia/Nemotron-3_5-Lightning"
   },
-  "extraction_evidence": {
-    "canonical_version": "threadkeeper-extraction-v1",
-    "input_sha256": "04aef53ab5632d0765d44cff14d85eb52ee011723d16693075e754dde37184e0",
-    "memory_count": 2,
-    "memories_sha256": "9e5a91d84ba798b9fcc279e9ba17d0ec0e7ddefc5267af33cc0df4eff4a0ea7f"
-  },
   "vector_evidence": {
     "original": {
-      "memory_id": "49dd3776-4689-4a3d-90eb-2482fd970e25",
+      "memory_id": "a8d7e35d-9765-4884-8561-ec86c33ca6c8",
       "revision": 1,
       "model": "Qwen/Qwen3-Embedding-8B",
       "dimensions": 256,
       "preprocessing_version": "raw-statement-unit-v1",
       "input_sha256": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
-      "stored_vector_sha256": "3de3e2a8ea764dd57b52176e0b702661295d5b0ac0799971615d3c2f577abb50"
+      "stored_vector_sha256": "28e527cdbb4f21b4fe082c027057b45e63b776a03cc98dfccc961184f49f9aea"
     },
     "corrected": {
-      "memory_id": "49dd3776-4689-4a3d-90eb-2482fd970e25",
+      "memory_id": "a8d7e35d-9765-4884-8561-ec86c33ca6c8",
       "revision": 2,
       "model": "Qwen/Qwen3-Embedding-8B",
       "dimensions": 256,
       "preprocessing_version": "raw-statement-unit-v1",
       "input_sha256": "8b2e155ace3d2f7555c573fe14bbd5f8f6f2821b8d6f00cea4cf92eecf18775a",
-      "stored_vector_sha256": "995b84cd3206ba91918f9d8db0fb6aca333868fd167ec8e0f16a5095815bce83"
+      "stored_vector_sha256": "93f7863c842ea09d45a5d98ec071bd131896c66db7be1c29b4abf3db85f6adde"
     }
   },
   "surviving_memory": {
@@ -198,21 +180,21 @@
     "revision": 2,
     "authoritative": true
   },
-  "elapsed_ms": 55521,
+  "elapsed_ms": 14617,
   "provider_requests": [
     {
       "event": "direct_provider_request",
       "ordinal": 1,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:52:18.401Z",
+      "started_at": "2026-10-03T20:09:43.992Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "48098c1ebd26c38200a2778e27f1287a6284cb0b1a074f1c414edb289ed5e653",
+      "response_sha256": "b6696b8f763175a1348a3ac14ef6cc8997f32abdc90b6566e558095255acf8a7",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -220,7 +202,7 @@
           {
             "index": 0,
             "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "0ddacb413f723637ae692be168fcf42fe3d2a50135f4aef44c3aa5eb9c7d64cf"
+            "stored_vector_sha256": "847d882f3f57caa66ce76f161cc1a8c1b55f850c8496062597f6efd1e0071941"
           }
         ]
       },
@@ -232,7 +214,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 2982,
+      "elapsed_ms": 1029,
       "service": "api"
     },
     {
@@ -240,14 +222,14 @@
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:52:21.588Z",
+      "started_at": "2026-10-03T20:09:45.287Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "338ee423bb2e7d346f54cbde8bf058559e1b78e7af2d463ef241eb154319209e",
+      "response_sha256": "2038ddb3126295b121edfc60aeda76a6a2e949c8c239838c46f3d00fbfe84db7",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -255,7 +237,7 @@
           {
             "index": 0,
             "input_sha256": "706fcb6b830cbc392a4264fd792a34bed7795b658e10292dd87b7e26f41b7e64",
-            "stored_vector_sha256": "1ded8926db83648e3fe528ebbe4d8ca0f0af10adeb63c1bee717cc33f335ca04"
+            "stored_vector_sha256": "8b0e2dc5c33f305b6e6a515f3894b88a4933a3eb9083b1de7ba88e4216ff2bb8"
           }
         ]
       },
@@ -267,7 +249,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 8884,
+      "elapsed_ms": 366,
       "service": "api"
     },
     {
@@ -275,14 +257,14 @@
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:52:42.046Z",
+      "started_at": "2026-10-03T20:09:47.264Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "f9959dc7ba17f8e95bddbd5ff6e17c6f78604970806fd955a33fa24f1f48dc93",
+      "response_sha256": "166f800d9eae5980ff21a72d8a09c4d70a4970a86eb021c74db6cc706973f33e",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -290,7 +272,7 @@
           {
             "index": 0,
             "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "0ddacb413f723637ae692be168fcf42fe3d2a50135f4aef44c3aa5eb9c7d64cf"
+            "stored_vector_sha256": "b984b8dfb04895ab952d2a1b543331fafa6ad9b7c1b422570fc183c3236e1728"
           }
         ]
       },
@@ -302,7 +284,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 10515,
+      "elapsed_ms": 390,
       "service": "api"
     },
     {
@@ -310,14 +292,14 @@
       "ordinal": 4,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:52:52.618Z",
+      "started_at": "2026-10-03T20:09:47.697Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "e3f8cfe18d48265bdad78efa2d936767e24ac222028ad5412e0d5dfe476f314e",
+      "response_sha256": "314120119255d42ea06ec97490c83b30a7df2f78ec1cee65e6444613b390df07",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -325,7 +307,7 @@
           {
             "index": 0,
             "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "6ce72662544bdf271e1a3429e84301e69ee81099aa55cf6933924829ab2f42d0"
+            "stored_vector_sha256": "aba95e857b4a309daf1deb21ccb0fd53ce3602aff2277fad5f9bc3839675bfe5"
           }
         ]
       },
@@ -337,7 +319,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 7888,
+      "elapsed_ms": 2400,
       "service": "api"
     },
     {
@@ -345,14 +327,14 @@
       "ordinal": 5,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:53:00.537Z",
+      "started_at": "2026-10-03T20:09:50.110Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "ace4c38f2896afa06346e18c23d04fb702d7d36e5f31cee956279fea6600cf4a",
+      "response_sha256": "c5e6a46a40f3563d60e1f81970517d281cf1ee8e48719fc2768ec802fd98f7ed",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -360,7 +342,7 @@
           {
             "index": 0,
             "input_sha256": "706fcb6b830cbc392a4264fd792a34bed7795b658e10292dd87b7e26f41b7e64",
-            "stored_vector_sha256": "c17720e51c477787c0aa22719d853c7f259ac03c3f38e067761eda395878962c"
+            "stored_vector_sha256": "18dab609a7f348c88d03ed789f5a6dc927953c2185a05df319cbefced667fa4d"
           }
         ]
       },
@@ -372,7 +354,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 680,
+      "elapsed_ms": 2224,
       "service": "api"
     },
     {
@@ -380,32 +362,26 @@
       "ordinal": 1,
       "path": "chat/completions",
       "method": "POST",
-      "started_at": "2026-10-03T20:52:07.221Z",
+      "started_at": "2026-10-03T20:09:39.719Z",
       "sent": true,
       "requested_model": "nvidia/Nemotron-3_5-Lightning",
-      "request_sha256": "accf8098c215de0b65a3b3d6caae62c893f5ea9f5b5a0fe42f5c0a723e6ec58d",
+      "request_sha256": "d46ed9dd00946975787007587b744716e57d58232c71ebd43dc89ebc49b5c4eb",
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "32a970f320d112abb1c215c3aca7e1a3767b36892dccd7d770829a77c76c7e0d",
-      "extraction_fingerprints": {
-        "canonical_version": "threadkeeper-extraction-v1",
-        "input_sha256": "04aef53ab5632d0765d44cff14d85eb52ee011723d16693075e754dde37184e0",
-        "memory_count": 2,
-        "memories_sha256": "9e5a91d84ba798b9fcc279e9ba17d0ec0e7ddefc5267af33cc0df4eff4a0ea7f"
-      },
+      "response_sha256": "7580689737de47e20d7684e9e13fd32f7e891e2c77672627d84c41624feaa3b1",
       "returned_model_matches": true,
       "returned_model": "nvidia/Nemotron-3_5-Lightning",
       "usage": {
         "completion_tokens": 149,
-        "prompt_tokens": 1579,
-        "total_tokens": 1728,
+        "prompt_tokens": 1583,
+        "total_tokens": 1732,
         "completion_tokens_details": {
           "reasoning_tokens": 0
         }
       },
       "finish_reason": "stop",
       "usage_status": "reported",
-      "elapsed_ms": 1629,
+      "elapsed_ms": 2830,
       "service": "worker"
     },
     {
@@ -413,14 +389,14 @@
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:52:08.921Z",
+      "started_at": "2026-10-03T20:09:42.571Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "48a0dd4c45eb093f8985e437fffba5252a0aacc0490b727b0f12c495f20fc07f",
       "input_count": 2,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "26466e6ac7ae6141c4227528a88eb06e829217093930185d5f895bff3be7da91",
+      "response_sha256": "a311aca22b7c5e07f9baf6b530ed16d7882bfd305c39156ffe4cd0f3e526982a",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -428,12 +404,12 @@
           {
             "index": 0,
             "input_sha256": "62ff7796da575e87e172ba08a89325629486c4fc2bc4a5964a1665a904525a09",
-            "stored_vector_sha256": "7f61f0599f3e6d8d76e67176b57fe328ccda7dc07b45220c6d560fc779333301"
+            "stored_vector_sha256": "1ee576f3d0e6867f24971f595a9d8caf73a0f49149492f673806af7c37515962"
           },
           {
             "index": 1,
             "input_sha256": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
-            "stored_vector_sha256": "3de3e2a8ea764dd57b52176e0b702661295d5b0ac0799971615d3c2f577abb50"
+            "stored_vector_sha256": "28e527cdbb4f21b4fe082c027057b45e63b776a03cc98dfccc961184f49f9aea"
           }
         ]
       },
@@ -445,7 +421,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 8515,
+      "elapsed_ms": 935,
       "service": "worker"
     },
     {
@@ -453,14 +429,14 @@
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:52:31.536Z",
+      "started_at": "2026-10-03T20:09:46.550Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b83ae344d3ca84b892d10b6224c0171056b6ef2a8339c0172a99fcc292624a2a",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "a94bcdec556c49eef805793b220200cc1423f14fa56684d37b5a5eecae87f9d2",
+      "response_sha256": "d3040b8430abbc75380fc6b084e996821b587ae3eff2c2452734fdd580701f40",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -468,7 +444,7 @@
           {
             "index": 0,
             "input_sha256": "8b2e155ace3d2f7555c573fe14bbd5f8f6f2821b8d6f00cea4cf92eecf18775a",
-            "stored_vector_sha256": "995b84cd3206ba91918f9d8db0fb6aca333868fd167ec8e0f16a5095815bce83"
+            "stored_vector_sha256": "93f7863c842ea09d45a5d98ec071bd131896c66db7be1c29b4abf3db85f6adde"
           }
         ]
       },
@@ -480,7 +456,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 10318,
+      "elapsed_ms": 324,
       "service": "worker"
     }
   ],
@@ -491,11 +467,10 @@
     "usage_complete": true,
     "inference_requests_without_usage": 0,
     "inference_requests_without_complete_usage": 0,
-    "inference_requests_with_invalid_usage": 0,
     "derived_total_tokens_request_count": 0,
     "usage": {
-      "prompt_tokens": 1673,
-      "total_tokens": 1822,
+      "prompt_tokens": 1677,
+      "total_tokens": 1826,
       "completion_tokens": 149,
       "completion_tokens_details": {
         "reasoning_tokens": 0
@@ -512,10 +487,6 @@
       "index": 0
     },
     "normalized_vector_changed": true
-  },
-  "extraction_observation_binding": {
-    "ordinal": 1,
-    "memory_count": 2
   },
   "provider_request_count": 8,
   "cleanup": true,
