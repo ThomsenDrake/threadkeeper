@@ -49,7 +49,15 @@ export function summarizeProviderObservations(records) {
 
 export function installDirectProviderObserver(options = {}) {
   let bases;
-  try { bases = (options.baseUrls ?? [options.baseUrl ?? DEFAULT_BASE_URL]).map(value => new URL(value)); }
+  try {
+    bases = (options.baseUrls ?? [options.baseUrl ?? DEFAULT_BASE_URL]).map(value => {
+      const base = new URL(value);
+      // Provider bases denote directories even when the configured URL omits
+      // its final slash. Preserve /v1 rather than resolving against its parent.
+      base.pathname = base.pathname.replace(/\/+$/, '') + '/';
+      return base;
+    });
+  }
   catch { throw new Error('Invalid provider observation base URL'); }
   const endpoints = new Map(bases.flatMap(base => ['models', 'chat/completions', 'embeddings'].map(path => [new URL(path, base).href, path])));
   const models = new Set(options.models ?? DEFAULT_MODELS);
