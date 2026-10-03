@@ -1,6 +1,55 @@
 # Threadkeeper handoff
 
-## Deletion-aware operational recovery checkpoint — 2026-10-03
+## Current delivery snapshot — 2026-10-03
+
+All six development outcomes are implemented and merged. The verified feature-delivery main commit is `31befe419dfda4ccf63659055c616a31242b9aaa`, after [PR #8](https://github.com/ThomsenDrake/threadkeeper/pull/8) and [PR #9](https://github.com/ThomsenDrake/threadkeeper/pull/9). This remains a private development build with the external release gates below still open.
+
+The post-merge open PR list was empty at **14:23:40 UTC**. At **14:23:59 UTC**, root `/workspace/threadkeeper` was clean on main tracking `origin/main`, its tree matched reviewed head `b404898`, and the client-control, forgetting, profile and recovery worktrees were clean. Docker had no containers or volumes and only its default bridge/host/none networks; no listeners remained on ports **3190–3199, 3000 and 5173**. This handoff update is documentation only; its `codex/mvp-delivery-handoff` branch follows the same final-head review and guarded merge process. The next product work depends on the provider, GPU or installed-host access listed below.
+
+PR #8's exact final head `cf482056a7ed365ad6db0dcc9885422d9b660afa` received a finding-free Codex review after its pagination finding was fixed, the actionable thread was resolved, and GitGuardian succeeded; it merged as `2c433c9e3516a1b2f0638aec6daf146f77bfd4bd`. PR #9's exact final head `b404898c0a3e271336e85b83420fce0072f353f6` received a Codex review with no major issues at **14:23:04 UTC**, plus successful Devin Review and GitGuardian checks. No unresolved review threads, required approvals/checks or merge conflict remained; merge used an expected-head guard and produced `31befe419dfda4ccf63659055c616a31242b9aaa`.
+
+The final recovery product tree passed `pnpm check` with **108/108 tests**, typechecking and the production build, plus both `pnpm demo` paths. Native application verification passed **11 full-stack stages** and **54 native-enabled regressions**; actual custom-format archive recovery passed **9 check groups**. The profile ledger passed **7 browser checks** and desktop/mobile visual review. [Application](measurements/recovery-integration.json), [archive](measurements/recovery-native-qa.json), and [browser](measurements/recovery-ui-qa.json) evidence retain their actual run timestamps, implementation hashes and limits. Native application/provider checks use deterministic synthetic HTTP responses; they establish neither learned-model quality nor installed-host/GPU behavior.
+
+| Product outcome | Implemented flow and actual evidence | Delivery state |
+| --- | --- | --- |
+| Capture progress and retry | Live canonical status, owner retry, independent HTTP/MCP recall and worker attempt fences; native full-stack checks | Merged [PR #4](https://github.com/ThomsenDrake/threadkeeper/pull/4), main `26c025d` |
+| Candidate review | Explicit confirm/edit-and-confirm/dismiss, separate user evidence and preserved model history; profile/HTTP/MCP/native checks | Merged [PR #5](https://github.com/ThomsenDrake/threadkeeper/pull/5), main `487e4d4` |
+| Client connection/control | Endpoint/configuration guidance, observed-use metadata, scoped capture/recall, pause/resume and revocation; browser/native checks | Merged [PR #6](https://github.com/ThomsenDrake/threadkeeper/pull/6), main `50c7dc4` |
+| Predictable forgetting | Current graph preview, stale-consent rejection, source-only/duplicate cleanup and in-flight fences; browser/native checks | Merged [PR #7](https://github.com/ThomsenDrake/threadkeeper/pull/7), main `981f679` |
+| Practical owner archive | Complete snapshot/ranking-guarded pagination, recovery states and counted/tombstone-safe import; 16 profile browser checks and native regressions | Merged [PR #8](https://github.com/ThomsenDrake/threadkeeper/pull/8), main `2c433c9` |
+| Operational recovery | Newer owner ledgers, guarded isolated native restore, historical graph purge, credential resets and atomic migrations; 9 actual archive check groups | Merged [PR #9](https://github.com/ThomsenDrake/threadkeeper/pull/9), main `31befe4` |
+
+## Remaining release access and next executable work
+
+This remains a private development build. Fresh learned-provider evaluation requires usable operator-managed credentials or an authorized compatible endpoint. Full local inference requires an NVIDIA GPU/operator inference server and a compatible embedding server. Actual client validation requires installed intended chatbot/coding-agent MCP hosts. None is available in this task. Historical live provider observations and independent SDK transports retain their narrower claims in [PROVIDER_VERIFICATION.md](PROVIDER_VERIFICATION.md) and [CLIENTS.md](CLIENTS.md).
+
+1. **Provider evaluation:** when an ignored operator-managed environment file is available, run the existing synthetic probe:
+
+   ```sh
+   node --env-file=.env --import tsx deploy/provider-check.ts
+   ```
+
+   `pnpm provider:check` is equivalent with configuration already exported. Preserve the exact hosted Nemotron default in [PROVIDER.md](PROVIDER.md). Then run a synthetic evaluation corpus through the actual API/worker and independent fresh recall, measuring attribution/evidence support, extraction and retrieval quality, token usage and latency. Record observed embedding dimensions and preprocessing. The probe alone does not establish semantic quality.
+
+2. **Local GPU feature parity:** use the published starting recipe in [PROVIDER_VERIFICATION.md](PROVIDER_VERIFICATION.md) with operator-run compatible inference and embedding endpoints. Set `MODEL_BASE_URL`/`MODEL_ID` to the local server's actual identity and configure verified `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL` and `EMBEDDING_DIMENSIONS`. Keep API, worker and reindex configuration aligned, run the provider probe, and rebuild on a disposable synthetic installation:
+
+   ```sh
+   node --env-file=.env --import tsx deploy/reindex.ts
+   ```
+
+   Exercise capture/extraction, review, independent MCP recall, profile correction/forgetting and fresh-instance import with hosted credentials absent and external control-plane access disabled after setup downloads. Record hardware, runtime digest, checkpoint revision, preprocessing and actual results before advertising compatibility or hardware requirements.
+
+3. **Installed clients:** configure two installed intended MCP clients with separate credentials using [CLIENTS.md](CLIENTS.md). Run the [central demonstration](MVP_BRIEF.md), then verify scoped access, capture pause/resume and revocation through those hosts. Record host versions and the actual configuration/invocation path. SDK transport tests already pass but do not close this gate; a host that cannot supply the documented bearer header needs a supported authentication integration.
+
+4. **Publication decisions:** the OSS license, public repository destination and deployment host remain open. Choose the license before publication. Deployment, DNS changes, paid provisioning and changes to reusable Cloud settings still require explicit user authorization. No public deployment or publication is implied by merged code or local verification.
+
+Exact lexical/vector ranking and deletion-graph construction scan eligible owner records; sustained archive-load latency and ANN selection remain unmeasured. Indexing is eventual, and embedding batches have no durable per-record retry ledger or attempt lease. Exact normalized copies and known obsolete statements are fenced; semantic paraphrase conflict/deduplication remains incomplete. [PORTABILITY.md](PORTABILITY.md) records the supported recovery limits: recovery cannot reconstruct unavailable newer deletion history or later captures/corrections, automatically downgrade the schema, or erase retained exports/backups/provider/client copies.
+
+## Historical development checkpoints
+
+The sections below preserve evidence at each recorded branch/commit. Their pending-review, next-work and not-run statements describe that checkpoint and can be superseded by the delivery snapshot above. Keep their original counts, timestamps and synthetic/provider boundaries when continuing work.
+
+## Historical recovery checkpoint — 2026-10-03
 
 Priority 6 is implemented on `codex/deletion-aware-recovery`, based on actual main `2c433c9e3516a1b2f0638aec6daf146f77bfd4bd`. Priority 5 [PR #8](https://github.com/ThomsenDrake/threadkeeper/pull/8) merged after exact head `cf482056` received a finding-free final Codex review, its actionable pagination thread was resolved and GitGuardian succeeded. Its merged tree is byte-identical to the tested prerequisite. This recovery increment awaits its own final-head review/merge; the coordinating session owns the PR workflow.
 
@@ -14,22 +63,11 @@ Local reviewers found three concrete empty-target gaps: relation-only checks mis
 
 The subsequent priority 5 review fix required both snapshot/ranking guards on positive owner offsets and added one core test. Its first integrated run passed 107/108 tests: the HTTP instrumentation expected only three authentication queries, while recovery readiness correctly added three catalog lookups. The assertion now permits exactly those readiness/authentication checks and still proves zero transactions, content retrieval or embedding calls for malformed continuations. The final 108-test check, both demos and 11-stage/54-regression native application run passed after this adjustment. Recovery implementation and native archive behavior were unchanged; the earlier archive/browser checkpoints retain their actual timestamps and hashes.
 
-### Implemented acceptance matrix
-
-| Product outcome | Implemented flow and actual evidence | Delivery state |
-| --- | --- | --- |
-| Capture progress and retry | Live canonical status, owner retry, independent HTTP/MCP recall and worker attempt fences; native full-stack checks | Merged [PR #4](https://github.com/ThomsenDrake/threadkeeper/pull/4), main `26c025d` |
-| Candidate review | Explicit confirm/edit-and-confirm/dismiss, separate user evidence and preserved model history; profile/HTTP/MCP/native checks | Merged [PR #5](https://github.com/ThomsenDrake/threadkeeper/pull/5), main `487e4d4` |
-| Client connection/control | Endpoint/configuration guidance, observed-use metadata, scoped capture/recall, pause/resume and revocation; browser/native checks | Merged [PR #6](https://github.com/ThomsenDrake/threadkeeper/pull/6), main `50c7dc4` |
-| Predictable forgetting | Current graph preview, stale-consent rejection, source-only/duplicate cleanup and in-flight fences; browser/native checks | Merged [PR #7](https://github.com/ThomsenDrake/threadkeeper/pull/7), main `981f679` |
-| Practical owner archive | Complete snapshot/ranking-guarded pagination, recovery states and counted/tombstone-safe import; 16 profile browser checks and native regressions | Merged [PR #8](https://github.com/ThomsenDrake/threadkeeper/pull/8), main `2c433c9` |
-| Operational recovery | Newer owner ledgers, guarded isolated native restore, historical graph purge, credential resets and atomic migrations; 9 actual archive check groups | Implemented in this explicitly dependent branch; review/merge pending |
-
 The supported recovery limits remain explicit in [PORTABILITY.md](PORTABILITY.md): no raw restore bypass, no reconstruction of unavailable newer deletion history or later captures/corrections, no automatic schema downgrade, and no erasure of retained exports/backups/provider/client copies. Recovery performs no inference and needs no hosted service.
 
 External release gates remain open: this task has no usable operator-managed provider credentials for fresh learned-model quality/latency evaluation, no NVIDIA GPU/operator inference server for the full local Nemotron recipe, and no installed intended MCP host to validate actual client invocation. Historical provider calls and independent SDK clients remain accurately labeled. The OSS license/publication choice and deployment/DNS/paid-resource authorization are still separate user decisions. None of these unavailable gates was replaced with additional fixture or configuration claims.
 
-## Profile archive development — 2026-10-03
+## Historical profile archive development — 2026-10-03
 
 Implemented priority 5 on `codex/profile-scaling`, initially based on candidate review, integrated with client controls/forgetting, and now rebased onto actual merged main `981f679bba1bb014822903bc1118de2e9a497bf2`. [PR #8](https://github.com/ThomsenDrake/threadkeeper/pull/8) is open; its actionable pagination consistency finding is addressed below and the resulting head awaits GitHub review. It has not merged. The acceptance flow reaches older records and completes owner operations on a realistic collection rather than limiting browsing to 100 results.
 
@@ -79,7 +117,7 @@ Focused typechecking and **5/5 profile database/HTTP tests** passed. The missing
 
 Earlier **53 native-enabled regressions**, **11 full-stack stages** and **16 production browser checks** belong to the preceding combined product tree recorded above. The follow-up changes admission validation and documentation; browser code, ranking queries, import and deletion behavior are unchanged. Native/container/browser runs are not claimed for this follow-up head.
 
-## Current delivery state — 2026-10-03
+## Historical delivery checkpoint after PR #7 — 2026-10-03
 
 Candidate review [PR #5](https://github.com/ThomsenDrake/threadkeeper/pull/5) merged into main `487e4d47193cef00d2478db2498f5426a6381e36`. GitHub Codex reviewed final head `e73661ed0cb6b6869dd0d6418ae8a8d4c2649670` with no new findings after the legacy import fix, GitGuardian reported success, and the coordinating session checked the review, verification and merge conditions before merging.
 
@@ -87,7 +125,7 @@ Client connection and capture controls [PR #6](https://github.com/ThomsenDrake/t
 
 Priority 4 forgetting [PR #7](https://github.com/ThomsenDrake/threadkeeper/pull/7) merged into main `981f679bba1bb014822903bc1118de2e9a497bf2`. Exact final head `f7d4c7a8d3a2bc378de679b84160dfad1259e5a7` received a finding-free GitHub Codex review and successful Devin Review/GitGuardian checks; no required approvals, unresolved threads or merge conflicts remained. Its final rebase preserved the verified application/package/test/deployment/measurement trees, with **92/92 tests**, typecheck/build, both demos, **15 browser checks**, **11 full-stack stages** and **49 native-enabled regressions**. Priority 5 is implemented/verified on actual main and awaits its own final-head review/merge; priority 6 recovery remains the next product outcome.
 
-## Predictable forgetting — 2026-10-03
+## Historical predictable forgetting checkpoint — 2026-10-03
 
 Priority 4 was developed independently from main `26c025d`, integrated with candidate review and client controls, and rebased onto their merged main `50c7dc4`. Forgetting still requires its own final-head GitHub review/merge loop. Memory and source evidence views load the complete forgetting impact before enabling confirmation. Source-only pending/processing captures can be forgotten. Both owner HTTP deletion routes require a current semantic preview hash; memory deletion also checks its revision. The shared graph covers every revision/evidence link, scoped matching assertion histories, connected siblings and known normalized raw-source copies across projects. Only unrestricted owner access can preview or delete this graph.
 
@@ -108,7 +146,7 @@ The combined production UI passed all **10 forgetting browser regressions** agai
 The final history rebase onto `cdd9d4b` changed only delivery documentation and ancestry: application, packages, tests, deployment and preexisting measurement trees were byte-identical to the combined tested tree. The already-upstream client evidence patch was skipped. No application checks were repeated for that unchanged product tree. After PR #6 merged, the subsequent rebase onto main `50c7dc4` also retained byte-identical product/test/evidence trees; only delivery notes changed. Priority 5 may update its stack to this branch while forgetting review/merge remains explicit.
 
 
-## Candidate review development — 2026-10-03
+## Historical candidate review development — 2026-10-03
 
 Capture recovery [PR #4](https://github.com/ThomsenDrake/threadkeeper/pull/4) merged as main `26c025d` after GitHub Codex reviewed exact head `0744ca387a`, found no major issues, and remote Devin Review reported success. No review threads, required approvals or merge conflicts remained; merge used an expected-head SHA guard. Continued priority 2 on `codex/candidate-review`, initially stacked on that PR, then fast-forwarded to the merged main before submission. The final capture screenshot visual-review note is included in this branch.
 
@@ -124,7 +162,7 @@ Local review reproduced and fixed compatibility with old v1 exports missing revi
 
 Connection guidance and server capture pause are being implemented in isolated `/workspace/threadkeeper-client-control` (`codex/client-control`) from the same merged capture baseline. Deletion previews/source forgetting are being implemented in `/workspace/threadkeeper-forgetting` (`codex/forgetting-preview`). Integrate each onto current main and review its resulting head before any self-merge; these independent worktrees are not finished/merged product claims.
 
-## Capture progress and recovery — 2026-10-03
+## Historical capture progress and recovery — 2026-10-03
 
 Continued from fetched main `b8734a4` on `codex/capture-recovery`. No open PRs existed at kickoff. Read all required guidance and reconciled the backlog with merged hybrid/full-stack work. The initial pinned Node 24.19.0 / pnpm 11.25.0 baseline passed typechecking, **51 tests**, profile build and both `pnpm demo` lifecycles.
 
@@ -138,7 +176,7 @@ Final `pnpm check` passed **64/64 tests**, typechecking and build after the two 
 
 Remaining product priorities are candidate review, connection guidance/use and server capture pause, deletion previews/source forgetting, larger memory-list pagination/import reporting, and deletion-aware operational recovery. Captures use bounded offset pagination and refresh visible pages while jobs are pending/processing; large-scale latency is not measured. Exports still omit capture/job receipts and credentials; imported sources do not automatically recreate extraction jobs. Retries cover failed jobs with surviving eligible evidence, rather than starting arbitrary new extraction from completed/cancelled captures.
 
-## Autonomous development direction — 2026-10-03
+## Historical autonomous development checkpoint — 2026-10-03
 
 The user now authorizes future broad development tasks to choose and deliver complete MVP product flows, run the GitHub `@codex review` loop, merge their own qualifying PRs, and continue to the next unblocked outcome. Follow [AGENTS.md](../AGENTS.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for final-head review/check requirements, the product backlog and existing deployment/DNS/spending/publication boundaries. A narrower explicit request still controls its task.
 
@@ -146,7 +184,7 @@ This guidance change is documentation only. `git diff --check` and relative Mark
 
 Hybrid recall is merged in PR #1. [PR #2](https://github.com/ThomsenDrake/threadkeeper/pull/2), containing full-stack integration and extraction attempt fencing, merged while this guidance was under review. This branch includes that main update (`b6b11ef`), and its evidence is retained below. Do not duplicate those changes. The next default product flow is scoped capture/job status and owner-controlled retry across HTTP/MCP and the profile. Missing real-provider credentials or GPU/installed-host access should block only dependent checks while independent product work continues.
 
-## Full-stack integration evidence — 2026-10-03
+## Historical full-stack integration evidence — 2026-10-03
 
 Continued fetched `origin/main` **`3f412ea`**, including merged PR #1, on
 `codex/self-hosted-stack`. Read AGENTS.md, README.md, MVP_BRIEF.md, DECISIONS.md,
@@ -310,7 +348,9 @@ Native tests use explicit `THREADKEEPER_NATIVE_TEST_URL`, require pgvector insta
 
 **Native checks not run:** full Threadkeeper application image build/Compose API+worker startup, production upgrade/rollback/backup-restore, sustained load/ANN benchmarks and non-container/native-host packaging. These were not blocked by a missing database; they remain separate validation scope. No learned local/GPU embedding or inference server, real external-provider hybrid retrieval, or installed MCP host was tested in this task.
 
-## Remaining limits and next work
+## Historical hybrid limits and next work
+
+These were the early hybrid increment's limits. Later implementations provide candidate review, affected-record previews, extraction attempt fencing, capture status/retry and deletion-aware recovery with a migration ledger. Current release gates and remaining limits are recorded above; the original checkpoint claims below are retained for context.
 
 - Exact vector ranking scans eligible rows; no large-archive latency/throughput measurement or ANN index selection is claimed. The cosine threshold 0.3 and RRF parameters are initial heuristics.
 - Synthetic geometry proves integration and lifecycle behavior, not semantic quality. Measure the chosen provider's dimensions, preprocessing/instruction prefixes, recall quality, token usage and latency before selecting it for real data. The implementation sends raw statement/query text and stores unit vectors.
@@ -326,7 +366,7 @@ Native tests use explicit `THREADKEEPER_NATIVE_TEST_URL`, require pgvector insta
 
 Continue product development using [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), beginning with observable capture progress and safe retry unless current code or dependencies change that priority. Full application container validation is now recorded in the full-stack evidence above. Real embedding quality and installed MCP hosts remain verification work; run access-dependent checks when their configuration is available. Preserve explicit client-invoked capture/recall, authoritative profile corrections and deletion behavior. Rerun the checks/demo and relevant native/browser tests after behavioral changes; record results instead of treating configuration as proof.
 
-## Review follow-up — 2026-10-03
+## Historical hybrid review follow-up — 2026-10-03
 
 The requested GitHub `@codex review` of `88ac4d4` completed with no findings. A parallel local review found that the embedding adapter discarded an explicit response model identity and always reported the configured model. Same-dimensional vectors from a detectably different model could therefore enter the configured space.
 
@@ -336,7 +376,7 @@ The adapter now rejects an explicit different model (`embedding_model_mismatch`)
 
 Prior live synthetic Nemotron/embedding observations are recorded in [PROVIDER_VERIFICATION.md](PROVIDER_VERIFICATION.md) and [nebius-extraction.json](measurements/nebius-extraction.json). They established the exact Nemotron ID, JSON-object output, a no-side-effect tool call, two source-backed extraction records and a 4096-dimensional Qwen response through the developer's authenticated integration. They are historical evidence, not new API-key worker or hybrid-quality checks from this Cloud task. Earlier Chromium 153 visual screenshots remain in [ui-qa.json](measurements/ui-qa.json); the new browser regression evidence is separate.
 
-## Client connection and capture controls — 2026-10-03
+## Historical client connection and capture controls — 2026-10-03
 
 Priority 3 is implemented on `codex/client-control`, based on the merged capture-recovery tree (`26c025d`). This branch is prepared for integration after priority 2; its GitHub PR/review/merge remain for the coordinating session to complete. The profile now supplies the exact configured remote MCP endpoint, generic endpoint/header JSON and a first explicitly authorized synthetic capture/recall walkthrough. Tokens stay in the transient creation dialog and are removed from application state when it closes or the owner signs out. Scope labels explicitly show that restricted projects also include global personal context. Credential issuance is shown separately from **Never used** / **Last authenticated request**; an active credential never implies an installed host or a captured transcript.
 

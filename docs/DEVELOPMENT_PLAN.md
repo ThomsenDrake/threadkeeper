@@ -4,13 +4,13 @@ The user's standing direction is to develop the full Threadkeeper application au
 
 ## Start from evidence
 
-Read the required project documents, inspect current implementation and open PRs, fetch the latest main branch, and establish the credential-free checks/demo baseline. The backlog below describes product gaps observed on 2026-10-03; reconcile it with current code before implementing anything. Prefer reusing completed work over rebuilding it.
+Read the required project documents, inspect current implementation and open PRs, and fetch the latest main branch. The six outcomes below describe the product gaps originally observed on 2026-10-03; all are now implemented. Their current merge state, verification and access-dependent release work are recorded in [HANDOFF.md](HANDOFF.md). Reuse completed flows and run checks appropriate to actual changes rather than rebuilding this historical backlog.
 
 Hybrid recall is merged in PR #1. Full-stack integration and extraction attempt fencing are also merged in [PR #2](https://github.com/ThomsenDrake/threadkeeper/pull/2), at main commit `b6b11ef`. Reuse that implementation and its synthetic integration evidence. Inspect current open PRs for newer work before choosing or stacking another increment; this guidance does not authorize merging another task's PR.
 
-## Default product sequence
+## Implemented product sequence
 
-These are implementation outcomes, not an instruction to stop after the first row. Reorder when current defects or dependencies justify it, record the reason, and keep moving through unblocked work. Each feature should work through the actual application surfaces its users need.
+These remain the acceptance outcomes for the MVP. Each works through the actual application surfaces its users need. Reconcile any new task with current main and the handoff before treating an outcome as unfinished.
 
 | Priority | Product outcome | Acceptance evidence |
 | --- | --- | --- |
@@ -31,9 +31,9 @@ Priority 4 merged in [PR #7](https://github.com/ThomsenDrake/threadkeeper/pull/7
 
 Priority 5 merged in [PR #8](https://github.com/ThomsenDrake/threadkeeper/pull/8), main `2c433c9`: complete owner pagination with snapshot/ranking guards, realistic older-record workflows, counted atomic import feedback and recoverable profile states. Its actionable consistency finding is fixed: positive offsets require both guards before retrieval work. Exact final head `cf482056` received a finding-free Codex review, its actionable thread was resolved and GitGuardian succeeded. Standalone final **97 tests**, typechecking/build and both demos passed; recovery's final combined **108 tests** and **54 native-enabled regressions** include that fix. Earlier **16 production browser checks** retain their own checkpoint. [Handoff evidence](HANDOFF.md) separates actual observations from release gates.
 
-The six product outcomes are implemented and priorities 1–5 are merged. Complete priority 6's final-head review/merge loop, then perform the remaining external release validation when its access and hardware become available. Do not equate synthetic acceptance with installed-host or learned-model/GPU validation.
+The six product outcomes are implemented and merged. The verified feature-delivery main commit is `31befe4`. Continue the remaining provider, local GPU and installed-client validation when the documented access becomes available; [HANDOFF.md](HANDOFF.md) gives the missing capabilities and next commands. Synthetic acceptance does not establish installed-host or learned-model/GPU behavior.
 
-Priority 6 is implemented on `codex/deletion-aware-recovery`: owner deletion-ledger download, isolated native archive restore with startup gating, all-history graph reconciliation, password/client/session reset and checksum-tracked transactional migrations. Its synthetic PGlite/browser/native archive evidence and prerequisite integration/review state are recorded in [HANDOFF.md](HANDOFF.md). Treat it as pending until the final integrated head is reviewed and merged.
+Priority 6 merged in [PR #9](https://github.com/ThomsenDrake/threadkeeper/pull/9), main `31befe4`: owner deletion-ledger download, isolated native archive restore with startup gating, all-history graph purge, password/client/session reset and checksum-tracked transactional migrations. Exact head `b404898` received Codex review with no major issues and successful Devin Review/GitGuardian checks before the guarded merge. Final **108 tests**, typechecking/build, both demos, **11 native application stages/54 regressions**, **9 archive recovery groups** and **7 ledger browser checks** are scoped to their recorded checkpoints in [HANDOFF.md](HANDOFF.md). All six outcomes can be reused from main; external release validation remains separate.
 
 ## Delivery loop
 
@@ -56,4 +56,4 @@ Self-merging permission does not authorize deployment, DNS changes, paid resourc
 
 ## Short kickoff for a future task
 
-> Continue autonomous Threadkeeper MVP development from the latest main branch. Follow AGENTS.md and docs/DEVELOPMENT_PLAN.md, reconcile the backlog with current code and open PRs, and deliver the next complete product flow. Run the GitHub @codex review loop, merge your own qualifying PRs, and continue through unblocked priorities. Preserve the existing deployment, DNS, spending and publication boundaries.
+> Continue autonomous Threadkeeper MVP development from the latest main branch. Follow AGENTS.md and docs/DEVELOPMENT_PLAN.md, inspect the current delivery snapshot in docs/HANDOFF.md and open PRs, and continue the next unblocked implementation or release-validation outcome. Reuse the six implemented flows. Run the GitHub @codex review loop for changes, merge your own qualifying PRs, and preserve the existing deployment, DNS, spending and publication boundaries.
