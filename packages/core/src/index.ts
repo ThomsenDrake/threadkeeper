@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
 import {
-  CaptureSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, SearchSchema,
+  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, SearchSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
 } from '@threadkeeper/contracts';
 
@@ -168,8 +168,88 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         await tx.query(`INSERT INTO tk_jobs(id,owner_id,client_id,project_id,subject,source_ids) VALUES ($1,$2,$3,$4,$5,$6)`, [jobId, auth.ownerId, auth.clientId, input.project_id, input.subject, sourceIds]);
       }
       const result = { capture_id: captureId, source_ids: sourceIds, memory_ids: [...new Set(memoryIds)], status: jobId ? 'pending' : 'complete', ...(jobId ? { job_id: jobId } : {}), snapshot_version: await bump(tx, auth.ownerId) };
-      await tx.query(`INSERT INTO tk_captures(id,owner_id,client_id,idempotency_key,payload_hash,result) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`, [captureId, auth.ownerId, auth.clientId, input.idempotency_key, payloadHash, JSON.stringify(result)]);
+      await tx.query(`INSERT INTO tk_captures(id,owner_id,client_id,idempotency_key,payload_hash,result,project_id,subject,scope_known,source_ids,job_id) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,true,$9,$10)`, [captureId, auth.ownerId, auth.clientId, input.idempotency_key, payloadHash, JSON.stringify(result), input.project_id, input.subject, sourceIds, jobId ?? null]);
       return result;
+    });
+  }
+
+  function captureScope(auth: Auth, params: any[]) {
+    // Capture-only credentials can inspect their own submissions without gaining
+    // recall access to another client's sources or extraction results.
+    if (!auth.permissions.includes('read') && !auth.permissions.includes('*')) permission(auth, 'capture');
+    else permission(auth, 'read');
+    let where = scope(auth, params, 'c');
+    if (!(auth.projects === null && (auth.permissions.includes('*') || auth.permissions.includes('admin')))) where += ' AND c.scope_known=true';
+    if (!auth.permissions.includes('read') && !auth.permissions.includes('*')) {
+      params.push(auth.clientId);
+      where += ` AND c.client_id=$${params.length}`;
+    }
+    return where;
+  }
+  async function findCapture(tx: Database, auth: Auth, id: string) {
+    const params: any[] = [id];
+    const row = (await tx.query(`SELECT c.* FROM tk_captures c WHERE c.id=$1 AND ${captureScope(auth, params)}`, params)).rows[0];
+    if (!row) throw new DomainError(404, 'capture_not_found');
+    return row;
+  }
+  async function currentCapture(tx: Database, auth: Auth, capture: any) {
+    const sources = (await tx.query('SELECT id,extraction_blocked FROM tk_sources WHERE owner_id=$1 AND id=ANY($2::text[]) ORDER BY id', [auth.ownerId, capture.source_ids])).rows;
+    const job = capture.job_id ? (await tx.query('SELECT * FROM tk_jobs WHERE id=$1 AND owner_id=$2 AND client_id=$3', [capture.job_id, auth.ownerId, capture.client_id])).rows[0] : null;
+    const memories = (await tx.query(`SELECT DISTINCT m.id FROM tk_memories m
+      JOIN tk_evidence e ON e.memory_id=m.id JOIN tk_sources s ON s.id=e.source_id
+      WHERE m.owner_id=$1 AND s.owner_id=$1 AND s.id=ANY($2::text[]) ORDER BY m.id`, [auth.ownerId, sources.map(source => source.id)])).rows;
+    const eligible = sources.some(source => !source.extraction_blocked);
+    const status = capture.job_id ? (job?.status ?? 'cancelled') : sources.length ? 'saved' : 'cancelled';
+    const retryReason = !auth.permissions.includes('retry') && !auth.permissions.includes('*') ? 'owner_retry_required'
+      : !capture.job_id ? 'extraction_not_requested' : !job ? 'job_unavailable'
+        : !eligible ? 'sources_unavailable' : job.status !== 'failed' ? 'job_not_failed' : null;
+    return parsed(CaptureStatusSchema, {
+      capture_id: capture.id, client_id: capture.client_id, project_id: capture.project_id,
+      subject: capture.subject ?? 'unknown', created_at: date(capture.created_at), status,
+      source_ids: sources.map(source => source.id), memory_ids: memories.map(memory => memory.id),
+      job: job ? {
+        id: job.id, status: job.status, attempts: Number(job.attempts), started_at: date(job.started_at),
+        completed_at: date(job.completed_at), error_code: job.error_code,
+        accepted: Number.isInteger(job.result?.accepted) ? job.result.accepted : null,
+        skipped: Number.isInteger(job.result?.skipped) ? job.result.skipped : null,
+      } : null,
+      can_retry: retryReason === null, retry_unavailable_reason: retryReason,
+    });
+  }
+  async function captureStatus(auth: Auth, id: string) {
+    captureScope(auth, []);
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      return currentCapture(tx, auth, await findCapture(tx, auth, id));
+    });
+  }
+  async function listCaptures(auth: Auth, raw: unknown = {}) {
+    const filters = parsed(CaptureListSchema, raw);
+    const params: any[] = [];
+    const where = captureScope(auth, params);
+    params.push(filters.limit + 1, filters.offset);
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      const rows = (await tx.query(`SELECT c.* FROM tk_captures c WHERE ${where} ORDER BY c.created_at DESC,c.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params)).rows;
+      const captures = [];
+      for (const row of rows.slice(0, filters.limit)) captures.push(await currentCapture(tx, auth, row));
+      return { captures, next_offset: rows.length > filters.limit ? filters.offset + filters.limit : null };
+    });
+  }
+  async function retryCapture(auth: Auth, id: string, raw: unknown) {
+    permission(auth, 'retry');
+    const input = parsed(CaptureRetrySchema, raw);
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      const capture = await findCapture(tx, auth, id);
+      const job = capture.job_id ? (await tx.query('SELECT * FROM tk_jobs WHERE id=$1 AND owner_id=$2 FOR UPDATE', [capture.job_id, auth.ownerId])).rows[0] : null;
+      if (job && Number(job.attempts) !== input.expected_attempts) throw new DomainError(409, 'attempt_conflict');
+      const current = await currentCapture(tx, auth, capture);
+      if (!current.can_retry) throw new DomainError(409, 'retry_unavailable', current.retry_unavailable_reason!);
+      // Preserve the source/job identity and attempt fence. Only claiming a job
+      // increments attempts, so double retry and stale workers cannot admit twice.
+      await tx.query("UPDATE tk_jobs SET status='pending',started_at=NULL,completed_at=NULL,error_code=NULL,result=NULL WHERE id=$1", [job.id]);
+      return currentCapture(tx, auth, capture);
     });
   }
 
@@ -280,6 +360,10 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       }
       // Old source events remain available as history, but no pending extractor can admit them again.
       await tx.query('UPDATE tk_sources SET extraction_blocked=true WHERE id IN (SELECT source_id FROM tk_evidence WHERE memory_id=$1)', [id]);
+      await tx.query(`UPDATE tk_jobs j SET status='cancelled',completed_at=now(),error_code=NULL,result=NULL
+        WHERE j.owner_id=$1 AND j.status IN ('pending','processing','failed') AND NOT EXISTS (
+          SELECT 1 FROM tk_sources s WHERE s.owner_id=j.owner_id AND s.id=ANY(j.source_ids) AND s.extraction_blocked=false
+        )`, [auth.ownerId]);
       const sourceId = uuid();
       await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,extraction_blocked,capture_method)
         VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_explicit',now(),$8,true,'profile_correction')`, [sourceId, auth.ownerId, auth.clientId, `correction:${id}:${input.expected_revision + 1}`, memory.project_id, memory.subject, input.statement, hash(input.statement)]);
@@ -441,7 +525,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const job = await db.transaction(async tx => {
       const pending = (await tx.query(`SELECT * FROM tk_jobs WHERE status='pending' OR (status='processing' AND started_at < now()-interval '10 minutes') ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`)).rows[0];
       if (!pending) return null;
-      return (await tx.query("UPDATE tk_jobs SET status='processing',started_at=now(),attempts=attempts+1,error_code=NULL WHERE id=$1 RETURNING *", [pending.id])).rows[0];
+      return (await tx.query("UPDATE tk_jobs SET status='processing',started_at=now(),completed_at=NULL,result=NULL,attempts=attempts+1,error_code=NULL WHERE id=$1 RETURNING *", [pending.id])).rows[0];
     });
     if (!job) return null;
     try {
@@ -459,6 +543,10 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         const live = (await tx.query("SELECT id FROM tk_jobs WHERE id=$1 AND status='processing' AND attempts=$2 FOR UPDATE", [job.id, job.attempts])).rows[0];
         if (!live) return { job_id: job.id, status: 'cancelled', accepted: 0, skipped: candidates.length };
         const current = (await tx.query('SELECT * FROM tk_sources WHERE owner_id=$1 AND id=ANY($2::text[]) AND extraction_blocked=false', [job.owner_id, job.source_ids])).rows;
+        if (!current.length) {
+          await tx.query("UPDATE tk_jobs SET status='cancelled',completed_at=now(),error_code=NULL,result=NULL WHERE id=$1 AND status='processing' AND attempts=$2", [job.id, job.attempts]);
+          return { job_id: job.id, status: 'cancelled', accepted: 0, skipped: candidates.length };
+        }
         const available = new Map(current.map(source => [source.event_id, source]));
         const auth: Auth = { ownerId: job.owner_id, clientId: job.client_id, permissions: ['capture'], projects: job.project_id === null ? [] : [job.project_id] };
         let accepted = 0;
@@ -488,5 +576,5 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const result = await db.query(`SELECT j.id,j.project_id,j.subject,j.status,j.attempts,j.created_at,j.started_at,j.completed_at,j.error_code,j.result FROM tk_jobs j WHERE ${scope(auth, params, 'j')} ORDER BY j.created_at DESC LIMIT 100`, params);
     return { jobs: result.rows };
   }
-  return { capture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
+  return { capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
 }

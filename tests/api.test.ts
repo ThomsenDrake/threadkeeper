@@ -20,7 +20,7 @@ test('two independent MCP clients observe profile correction and deletion throug
   const lowercase=await request('/api/context/search',undefined,'GET',{Authorization:`bearer ${tokenB}`});assert.equal(lowercase.r.status,200);
   const malformed=await request('/api/context/search',undefined,'GET',{Authorization:'Bearer invalid token'});assert.equal(malformed.r.status,401);
   const cookieMcp=await request('/mcp',{},'POST');assert.equal(cookieMcp.r.status,403);
-  const tools=await b.listTools();assert.deepEqual(tools.tools.map(t=>t.name).sort(),['context_get_source','context_search']);
+  const tools=await b.listTools();assert.deepEqual(tools.tools.map(t=>t.name).sort(),['context_capture_status','context_get_source','context_search']);
   const deadline='The Atlas deadline is 20 October 2026.',preference='I prefer short sentences when writing.';
   const captured=await a.callTool({name:'context_capture',arguments:{idempotency_key:'synthetic-demo',project_id:'atlas',subject:'self',events:[{id:'deadline-v1',text:deadline,author_role:'user',origin:'user_explicit'},{id:'writing-v1',text:preference,author_role:'user',origin:'user_explicit'}],explicit_memories:[{statement:deadline,kind:'project_state',source_event_id:'deadline-v1',quote:deadline,origin:'user_explicit'},{statement:preference,kind:'preference',source_event_id:'writing-v1',quote:preference,origin:'user_explicit'}]}});assert.equal(captured.isError,undefined);
   const recall=async(c:Client)=>(await c.callTool({name:'context_search',arguments:{query:'',project_id:'atlas'}})).structuredContent as any;

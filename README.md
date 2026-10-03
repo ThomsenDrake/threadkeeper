@@ -9,10 +9,10 @@ This repository is an early MVP hosted privately at [ThomsenDrake/threadkeeper](
 ## What works in the current slice
 
 - Local owner sign-in; revocable client tokens with read/capture permissions and project scopes.
-- MCP capture, recall and source lookup, plus a secondary HTTP/OpenAPI interface.
+- MCP capture, live capture-status lookup, recall and source lookup, plus a secondary HTTP/OpenAPI interface.
 - PostgreSQL source records, evidence links, memories, revisions, jobs and non-content deletion tombstones.
 - Explicit captures and a bounded worker extraction adapter. The Nebius default is `nvidia/Nemotron-3_5-Lightning`.
-- Profile browsing/search, subject/project/source/status filters, provenance, revision-checked correction, deletion, client access and import/export.
+- Profile browsing/search, subject/project/source/status filters, provenance, revision-checked correction, deletion, client access and import/export. Recent captures show current processing outcomes and let the owner retry eligible failed extraction jobs.
 - Credential-free PostgreSQL full-text search with a substring fallback, plus optional hybrid recall through configurable OpenAI-compatible embedding endpoints, including self-hosted servers. See [retrieval setup and limits](docs/RETRIEVAL.md).
 
 The central lifecycle has passed through two independent authenticated MCP SDK clients and profile HTTP operations: capture a deadline and preference, recall from the other client, correct the deadline, delete the preference, then recall the new state from both. This establishes server and transport behavior; installed ChatGPT/Codex or other host integrations still need validation.

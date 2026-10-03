@@ -17,6 +17,9 @@ function ensure(condition: unknown, message: string): asserts condition {
 function sameStatements(result: any, expected: string[], message: string) {
   ensure(JSON.stringify(statements(result)) === JSON.stringify([...expected].sort()), message);
 }
+function sameIds(actual: string[], expected: string[], message: string) {
+  ensure(JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort()), message);
+}
 
 /** Real API, MCP transports, provider HTTP adapter and worker; synthetic data only. */
 export async function runScenarios(options: {
@@ -119,6 +122,8 @@ export async function runScenarios(options: {
   }
   const recall = (client: Client, query = semanticQuery, filters: Record<string, unknown> = {}) =>
     tool(client, 'context_search', { query, ...filters });
+  const captureStatus = (client: Client, captureId: string) =>
+    tool(client, 'context_capture_status', { capture_id: captureId });
   async function toolDenied(client: Client, name: string, args: Record<string, unknown>) {
     options.signal?.throwIfAborted();
     const [result] = await Promise.allSettled([client.callTool({ name, arguments: args }, { signal: options.signal, timeout: 20_000 })]);
@@ -181,6 +186,7 @@ export async function runScenarios(options: {
       ensure(profile.ok && (await profile.text()).includes('<div id="root">'), 'container did not serve the built profile');
     });
     await stage('worker HTTP extraction and native pgvector hybrid recall', async () => {
+      await control('configure', { holdChat: true });
       const captured = await tool(a, 'context_capture', {
         idempotency_key: 'integration-central', project_id: 'atlas',
         events: [
@@ -188,9 +194,26 @@ export async function runScenarios(options: {
           { id: 'writing-v1', text: preference, author_role: 'user', origin: 'user_explicit' },
         ],
       });
-      ensure(captured.status === 'pending' && captured.job_id && captured.memory_ids.length === 0, 'capture did not queue source-only extraction');
+      ensure(captured.capture_id && captured.status === 'pending' && captured.job_id && captured.memory_ids.length === 0, 'capture did not queue source-only extraction');
+      await poll('held initial extraction request', async () => (await control('status')).heldChat > 0, 20_000);
+      const processing = await captureStatus(a, captured.capture_id);
+      ensure(processing.status === 'processing' && processing.job?.id === captured.job_id
+        && processing.job.status === 'processing' && processing.job.attempts === 1
+        && processing.job.started_at && processing.job.completed_at === null
+        && processing.job.accepted === null && processing.job.skipped === null && !processing.can_retry,
+      'MCP status did not expose the live processing job');
+      sameIds(processing.source_ids, captured.source_ids, 'processing status changed the captured source identity');
+      const readerProcessing = (await expected(`/api/captures/${captured.capture_id}`, 200, { token: grantB.token })).data;
+      ensure(readerProcessing.status === 'processing' && readerProcessing.job.id === captured.job_id
+        && readerProcessing.memory_ids.length === 0, 'independent reader HTTP status did not expose in-flight extraction');
+      await control('release', {});
       const processed = await job(captured.job_id, 'complete');
       ensure(processed.result?.accepted === 3 && processed.result?.model === DEFAULT_MODEL_ID, 'actual worker extraction did not accept the configured three fixture memories');
+      const completed = await captureStatus(b, captured.capture_id);
+      ensure(completed.status === 'complete' && completed.job?.id === captured.job_id
+        && completed.job.status === 'complete' && completed.job.accepted === 3 && completed.job.skipped === 0
+        && completed.job.completed_at && completed.memory_ids.length === 3 && !completed.can_retry,
+      'independent reader MCP status did not expose completed extraction and current memories');
       await indexed();
       const lexical = (await sql(`SELECT count(*) AS n FROM tk_memories WHERE owner_id=${literal(ownerId)}
         AND status='active' AND (search_vector @@ websearch_to_tsquery('english',${literal(semanticQuery)})
@@ -238,6 +261,9 @@ export async function runScenarios(options: {
     });
     await stage('owner, project, source and client permission isolation', async () => {
       const hidden = await expected('/api/capture', 201, { body: capture('vault-deadline', 'The Vault deadline is 21 October 2026.', 'vault') });
+      const saved = (await expected(`/api/captures/${hidden.data.capture_id}`, 200)).data;
+      ensure(saved.status === 'saved' && saved.job === null && saved.memory_ids.length === 1 && !saved.can_retry,
+        'explicit capture was not reported as saved without an extraction job');
       const otherId = randomUUID();
       await sql(`INSERT INTO tk_users(id,email,password_hash) SELECT ${literal(otherId)},'other@example.invalid',password_hash
         FROM tk_users WHERE id=${literal(ownerId)} RETURNING id`);
@@ -253,6 +279,10 @@ export async function runScenarios(options: {
       }
       await expected(`/api/sources/${hidden.data.source_ids[0]}`, 404, { token: grantB.token });
       await toolDenied(b, 'context_get_source', { source_id: hidden.data.source_ids[0] });
+      await expected(`/api/captures/${hidden.data.capture_id}`, 404, { token: grantB.token });
+      await toolDenied(b, 'context_capture_status', { capture_id: hidden.data.capture_id });
+      await expected(`/api/captures/${hidden.data.capture_id}`, 404, { token: otherGrant.token });
+      await toolDenied(other, 'context_capture_status', { capture_id: hidden.data.capture_id });
       const correctedSource = (await recall(b, 'deadline')).memories[0].evidence[0].source_id;
       await expected(`/api/sources/${correctedSource}`, 404, { token: otherGrant.token });
       await toolDenied(other, 'context_get_source', { source_id: correctedSource });
@@ -293,23 +323,81 @@ export async function runScenarios(options: {
         sameStatements(recovered, [correctedDeadline], 'recovered hybrid retrieval crossed project scope');
       }
     });
-    await stage('chat HTTP failure and model mismatch are durable without accepted output', async () => {
+    await stage('live capture failure, owner retry and independent recall preserve source and job identity', async () => {
       for (const chatMode of ['http-error', 'wrong-model']) {
         await control('configure', { chatMode });
         const text = `The ${chatMode} extraction deadline is synthetic.`;
-        const captured = await tool(a, 'context_capture', capture(`chat-${chatMode}`, text, 'atlas', false));
+        const input = capture(`chat-${chatMode}`, text, 'atlas', false);
+        const captured = await tool(a, 'context_capture', input);
+        ensure(captured.status === 'pending' && captured.job_id && captured.memory_ids.length === 0,
+          'failure scenario did not queue a source-only capture');
         const failed = await job(captured.job_id, 'failed');
         ensure(failed.error_code === 'provider_or_validation_failed' && Number(failed.attempts) === 1 && failed.result === null,
           'failed extraction did not retain sanitized durable failure state');
+        const ownerFailure = (await expected(`/api/captures/${captured.capture_id}`, 200)).data;
+        ensure(ownerFailure.status === 'failed' && ownerFailure.job?.id === captured.job_id
+          && ownerFailure.job.status === 'failed' && ownerFailure.job.attempts === 1
+          && ownerFailure.job.error_code === 'provider_or_validation_failed'
+          && ownerFailure.job.accepted === null && ownerFailure.job.skipped === null
+          && ownerFailure.job.completed_at && ownerFailure.memory_ids.length === 0 && ownerFailure.can_retry,
+        'owner HTTP status did not expose the failed retryable job');
+        sameIds(ownerFailure.source_ids, captured.source_ids, 'failed extraction lost source evidence');
+        const readerFailure = await captureStatus(b, captured.capture_id);
+        ensure(readerFailure.status === 'failed' && readerFailure.job?.id === captured.job_id
+          && readerFailure.job.error_code === 'provider_or_validation_failed' && !readerFailure.can_retry,
+        'independent reader MCP status did not expose failure with owner-only recovery');
         const count = (await sql(`SELECT count(*) AS n FROM tk_memories WHERE statement=${literal(text)}`))[0];
         ensure(Number(count.n) === 0, `${chatMode} extraction admitted provider output`);
-        await control('configure', { chatMode: 'ok' });
-        const recovered = await tool(a, 'context_capture', capture(`chat-recovered-${chatMode}`, `Recovery from ${chatMode} uses synthetic context.`, 'atlas', false));
-        const successful = await job(recovered.job_id, 'complete');
+        const cachedFailure = await tool(a, 'context_capture', input);
+        ensure(cachedFailure.capture_id === captured.capture_id && cachedFailure.job_id === captured.job_id
+          && cachedFailure.status === 'pending' && cachedFailure.memory_ids.length === 0,
+        'idempotent capture receipt changed instead of using fresh job status');
+        await expected(`/api/captures/${captured.capture_id}/retry`, 403, {
+          token: grantB.token, body: { expected_attempts: ownerFailure.job.attempts },
+        });
+        await expected(`/api/captures/${captured.capture_id}/retry`, 403, {
+          token: grantA.token, body: { expected_attempts: ownerFailure.job.attempts },
+        });
+        await expected(`/api/captures/${captured.capture_id}/retry`, 409, {
+          body: { expected_attempts: 0 },
+        });
+        await control('configure', { chatMode: 'ok', holdChat: true });
+        const retried = (await expected(`/api/captures/${captured.capture_id}/retry`, 200, {
+          body: { expected_attempts: ownerFailure.job.attempts },
+        })).data;
+        ensure(retried.capture_id === captured.capture_id && retried.job?.id === captured.job_id
+          && ['pending', 'processing'].includes(retried.status) && !retried.can_retry,
+        'owner retry did not requeue the existing capture job');
+        sameIds(retried.source_ids, captured.source_ids, 'owner retry changed the original source identity');
+        await poll('held retry extraction request', async () => (await control('status')).heldChat > 0, 20_000);
+        const retryProcessing = await captureStatus(a, captured.capture_id);
+        ensure(retryProcessing.status === 'processing' && retryProcessing.job?.id === captured.job_id
+          && retryProcessing.job.attempts === 2 && retryProcessing.job.error_code === null
+          && retryProcessing.job.completed_at === null && retryProcessing.memory_ids.length === 0,
+        'retry progress did not expose a clean second attempt for the same job');
+        await expected(`/api/captures/${captured.capture_id}/retry`, 409, {
+          body: { expected_attempts: ownerFailure.job.attempts },
+        });
+        await control('release', {});
+        const successful = await job(captured.job_id, 'complete');
         ensure(successful.result.accepted === 1 && successful.result.model === DEFAULT_MODEL_ID, 'worker did not recover with the configured memory model');
-        const current = (await expected('/api/memories?source=' + encodeURIComponent(recovered.source_ids[0]), 200)).data.memories[0];
-        ensure(current, 'recovery job has no profile memory');
+        const recovered = await captureStatus(b, captured.capture_id);
+        ensure(recovered.status === 'complete' && recovered.job?.id === captured.job_id && recovered.job.attempts === 2
+          && recovered.job.accepted === 1 && recovered.job.skipped === 0 && recovered.job.error_code === null
+          && recovered.memory_ids.length === 1 && !recovered.can_retry,
+        'fresh MCP status did not expose the one completed recovered memory');
+        sameIds(recovered.source_ids, captured.source_ids, 'completed retry changed the source identity');
+        await indexed();
+        const recalled = await recall(b, 'deadline', { source: captured.source_ids[0] });
+        sameStatements(recalled, [text], 'Client B did not recall the original failed source after owner recovery');
+        sameIds(recalled.memories.map((memory: any) => memory.id), recovered.memory_ids,
+          'capture status and independent recall disagree on current recovered memories');
+        const current = (await expected('/api/memories/' + recovered.memory_ids[0], 200)).data.memory;
         await remove(current);
+        const forgotten = (await expected(`/api/captures/${captured.capture_id}`, 200)).data;
+        ensure(forgotten.status === 'cancelled' && forgotten.job === null && forgotten.source_ids.length === 0
+          && forgotten.memory_ids.length === 0 && !forgotten.can_retry,
+        'forgotten recovered capture retained live content or a retry action');
       }
     });
     await stage('correction and deletion during in-flight embedding processing', async () => {
@@ -354,8 +442,19 @@ export async function runScenarios(options: {
       await poll('held correction extraction request', async () => (await control('status')).heldChat > 0, 20_000);
       const changed = await patch(seedMemory, corrected);
       await control('release', {});
-      const completed = await job(pending.job_id, 'complete');
-      ensure(completed.result.accepted === 0 && completed.result.skipped === 1, 'stale source extraction was not skipped after correction');
+      const cancelled = await job(pending.job_id, 'cancelled');
+      ensure(cancelled.result === null, 'cancelled stale-source extraction admitted a result after correction');
+      // Cancellation is visible before the provider reply is admitted. A later
+      // job on this worker proves the held attempt settled before stale-write
+      // invariants are inspected.
+      const correctionFence = await tool(a, 'context_capture', capture('extraction-correction-fence', 'Synthetic correction completion fence.', 'atlas', false));
+      await job(correctionFence.job_id, 'complete');
+      const correctionFenceMemory = (await expected('/api/memories?source=' + encodeURIComponent(correctionFence.source_ids[0]), 200)).data.memories[0];
+      await remove(correctionFenceMemory);
+      const cancelledCapture = await captureStatus(a, pending.capture_id);
+      ensure(cancelledCapture.status === 'cancelled' && cancelledCapture.job?.id === pending.job_id
+        && cancelledCapture.job.status === 'cancelled' && !cancelledCapture.can_retry,
+      'fresh capture status did not report correction-blocked extraction as cancelled');
       const rows = await sql(`SELECT id,statement,revision FROM tk_memories WHERE owner_id=${literal(ownerId)}
         AND statement IN (${literal(original)},${literal(corrected)})`);
       ensure(rows.length === 1 && rows[0].statement === corrected && Number(rows[0].revision) === 2, 'in-flight extraction restored the obsolete deadline');

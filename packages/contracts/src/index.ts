@@ -54,6 +54,24 @@ export const CorrectSchema = z.object({
   effective_at: Timestamp.nullable().optional(),
 }).strict();
 export const DeleteSchema = z.object({ expected_revision: z.number().int().positive() }).strict();
+export const CaptureListSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).max(100_000).default(0),
+}).strict();
+export const CaptureRetrySchema = z.object({ expected_attempts: z.number().int().min(0) }).strict();
+export const CaptureStatusSchema = z.object({
+  capture_id: Identifier, client_id: Identifier, project_id: Identifier.nullable(), subject: Identifier,
+  created_at: Timestamp,
+  status: z.enum(['saved', 'pending', 'processing', 'complete', 'failed', 'cancelled']),
+  source_ids: z.array(Identifier), memory_ids: z.array(Identifier),
+  job: z.object({
+    id: Identifier, status: z.enum(['pending', 'processing', 'complete', 'failed', 'cancelled']),
+    attempts: z.number().int().min(0), started_at: Timestamp.nullable(), completed_at: Timestamp.nullable(),
+    error_code: z.string().nullable(), accepted: z.number().int().min(0).nullable(), skipped: z.number().int().min(0).nullable(),
+  }).nullable(),
+  can_retry: z.boolean(), retry_unavailable_reason: z.string().nullable(),
+});
+export const CaptureListResultSchema = z.object({ captures: z.array(CaptureStatusSchema), next_offset: z.number().int().min(0).nullable() });
 export const MemorySchema = z.object({
   id: Identifier, project_id: Identifier.nullable(), subject: Identifier,
   statement: z.string().min(1).max(4_000), kind: MemoryKindSchema, origin: OriginSchema,
@@ -90,3 +108,4 @@ export type CaptureInput = z.infer<typeof CaptureSchema>;
 export type SearchInput = z.infer<typeof SearchSchema>;
 export type Memory = z.infer<typeof MemorySchema>;
 export type ExportBundle = z.infer<typeof ExportSchema>;
+export type CaptureStatus = z.infer<typeof CaptureStatusSchema>;

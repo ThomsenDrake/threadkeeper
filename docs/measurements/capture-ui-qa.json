@@ -1,0 +1,143 @@
+{
+  "recorded_at": "2026-10-03T13:15:32.443Z",
+  "browser": "151.0.7922.173",
+  "database": "disposable PGlite",
+  "application": "production React build served by actual Express API",
+  "production_asset": "/assets/index-BoybQE60.js",
+  "provider": "synthetic MemoryProvider fixture with controlled failure and held processing; no real model",
+  "viewport": {
+    "desktop": "1440x1000",
+    "mobile": "390x844"
+  },
+  "checks": [
+    "Local owner signs in with keyboard submit",
+    "Captures navigation is keyboard reachable and empty state is visible",
+    "Capture dialog focuses, keeps keyboard traversal inside, and restores opener focus on Escape",
+    "Explicit profile save appears as Saved with source and memory, without an extraction job",
+    "Source-only save remains Pending with durable evidence and a separately labeled original receipt",
+    "Automatic live polling observes Processing while the synthetic worker holds inference",
+    "Automatic live polling observes Completed after synthetic provider recovery",
+    "Failed extraction is visible with owner retry and independently accessible preserved source evidence",
+    "Keyboard owner retry queues the same source and canonical job without admitting memories early",
+    "Retry recovers through live Processing and Completed, admits one current memory, and opens its provenance",
+    "Navigating from completed polling to Your memories refreshes extracted records without a filter change or mutation",
+    "Capture refresh displays loading, retains last successful records on network failure, and recovers with Try again",
+    "Source evidence dialog shows loading and failure, then recovers without closing the capture flow",
+    "Fresh independent scoped HTTP client recalls exactly the one current recovered memory",
+    "Desktop and 390x844 mobile capture/source/save/sign-in layouts have no horizontal overflow; mobile sign-out works",
+    "A held successful capture response released after modal close, sign-out, and new sign-in cannot repopulate its receipt or success notice",
+    "No browser runtime exceptions"
+  ],
+  "observations": [
+    {
+      "name": "desktop captures",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "name": "mobile captures",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile source evidence",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile capture dialog",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile sign-in",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    }
+  ],
+  "worker_report": {
+    "results": [
+      {
+        "job_id": "132a60b6-8c3b-4c18-b3ad-4095cea42fdc",
+        "status": "complete",
+        "accepted": 1,
+        "skipped": 0,
+        "model": "synthetic-browser-fixture",
+        "usage": null
+      },
+      {
+        "job_id": "0989e231-aa1c-475c-8338-5769964631e1",
+        "status": "failed",
+        "error_code": "provider_or_validation_failed",
+        "accepted": 0
+      },
+      {
+        "job_id": "0989e231-aa1c-475c-8338-5769964631e1",
+        "status": "complete",
+        "accepted": 1,
+        "skipped": 0,
+        "model": "synthetic-browser-fixture",
+        "usage": null
+      }
+    ],
+    "jobs": [
+      {
+        "status": "complete",
+        "attempts": 1,
+        "error_code": null,
+        "result": {
+          "model": "synthetic-browser-fixture",
+          "usage": null,
+          "job_id": "132a60b6-8c3b-4c18-b3ad-4095cea42fdc",
+          "status": "complete",
+          "skipped": 0,
+          "accepted": 1
+        }
+      },
+      {
+        "status": "complete",
+        "attempts": 2,
+        "error_code": null,
+        "result": {
+          "model": "synthetic-browser-fixture",
+          "usage": null,
+          "job_id": "0989e231-aa1c-475c-8338-5769964631e1",
+          "status": "complete",
+          "skipped": 0,
+          "accepted": 1
+        }
+      }
+    ],
+    "counts": {
+      "sources": 4,
+      "memories": 4
+    }
+  },
+  "runtime_exceptions": [],
+  "screenshots": [
+    "capture-profile-failed.png",
+    "capture-profile-desktop.png",
+    "capture-profile-mobile.png",
+    "capture-source-mobile.png"
+  ],
+  "limitations": [
+    "Browser processing/retry uses a deterministic synthetic MemoryProvider and disposable PGlite; it does not establish real-provider semantic quality or native database/container behavior.",
+    "Fresh independent HTTP recall is observed here; installed MCP host behavior is not exercised.",
+    "Network-failure states and the delayed-save lifecycle regression are exercised with intentional browser request interception (HTTP 503 and held requests)."
+  ]
+}
