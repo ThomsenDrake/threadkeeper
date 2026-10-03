@@ -88,3 +88,52 @@ test('opt-in request budgets fence direct calls and unrelated URLs are neither o
     assert(!JSON.stringify(observer.records).includes('synthetic-query-secret'));
   } finally { observer.restore(); globalThis.fetch = originalFetch; }
 });
+
+test('provider probe preserves synthetic extraction evidence and full attempt accounting when its semantic rubric fails', async () => {
+  const { createServer } = await import('node:http');
+  const { spawn } = await import('node:child_process');
+  const server = createServer(async (request, response) => {
+    response.setHeader('content-type', 'application/json');
+    if (request.url === '/v1/models') { response.end(JSON.stringify({ data: [{ id: model }] })); return; }
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString());
+    let message: Record<string, unknown> = { content: 'READY' };
+    if (body.tools) {
+      const nonce = body.messages[0].content.match(/nonce ([^. ]+)/)[1];
+      message = { content: null, tool_calls: [{ id: 'synthetic-tool', type: 'function', function: { name: 'record_probe', arguments: JSON.stringify({ nonce }) } }] };
+    } else if (body.messages[0].role === 'system') {
+      message = { content: JSON.stringify({ memories: [{ statement: 'The Lumen demo deadline is October 20, 2026.', kind: 'fact',
+        source_event_id: 'provider-check-user-1', quote: 'The Lumen demo deadline is October 20, 2026.', origin: 'user_explicit' }] }) };
+    } else if (body.response_format) message = { content: JSON.stringify({ ok: true, deadline: '2026-10-20' }) };
+    response.end(JSON.stringify({ model, choices: [{ finish_reason: 'stop', message }], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14,
+      completion_tokens_details: { reasoning_tokens: 0 } } }));
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address(); assert(address && typeof address !== 'string');
+  try {
+    const child = spawn(process.execPath, ['--import', 'tsx', 'deploy/provider-check.ts'], {
+      cwd: process.cwd(), env: { ...process.env, MODEL_BASE_URL: `http://127.0.0.1:${address.port}/v1/`, MODEL_ID: model,
+        MODEL_API_KEY: 'synthetic-probe-secret', MODEL_REASONING_EFFORT: 'none', EMBEDDING_MODEL: '', PROVIDER_CHECK_SCHEMA: 'false',
+        THREADKEEPER_PROVIDER_OBSERVATIONS_FILE: '' }, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = ''; let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    const code = await new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+    assert.equal(code, 1, stderr);
+    const result = JSON.parse(stdout);
+    const extraction = result.checks.find((check: any) => check.check === 'source_backed_extraction');
+    assert.equal(extraction.reason, 'extraction_missing_preference');
+    assert.equal(extraction.extraction.expected_deadline, true);
+    assert.equal(extraction.extraction.expected_preference, false);
+    assert.equal(extraction.extraction.memories.length, 1);
+    assert.equal(extraction.provider_attempts.length, 1);
+    assert.equal(result.provider_accounting.direct_request_count, 5);
+    assert.equal(result.provider_accounting.inference_request_count, 4);
+    assert.equal(result.provider_accounting.usage_complete, true);
+    assert.equal(result.provider_accounting.usage.total_tokens, 56);
+    assert.equal(result.provider_accounting.usage.completion_tokens_details.reasoning_tokens, 0);
+    assert(!stdout.includes('synthetic-probe-secret'));
+  } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+});
