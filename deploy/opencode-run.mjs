@@ -84,7 +84,11 @@ export async function runOpenCodeProcess(executable, args, options) {
     const timer = setTimeout(stop, options.timeoutMs ?? 180_000);
     child.stdout.on('data', data => { if (options.forward) process.stdout.write(data); else output = (output + data).slice(-12_000); });
     child.stderr.on('data', data => { if (options.forward) process.stderr.write(data); });
-    child.on('message', message => options.onMessage?.(message));
+    child.on('message', message => {
+      try {
+        options.onMessage?.(message, reply => child.send(reply, error => { if (error) stop(); }), child.pid);
+      } catch { stop(); }
+    });
     const clear = () => { clearTimeout(timer); if (force) clearTimeout(force); options.signal.removeEventListener('abort', stop); };
     child.once('error', () => { clear(); reject(new Error('Private host process failed to start')); });
     child.once('close', code => {
@@ -136,11 +140,60 @@ export async function runOpenCodeChild(manifest, installation, signal, environme
   assert.equal(digest(await readFile(manifest.binary.path)), manifest.binary.sha256, 'Private host executable changed');
   const manifestPath = resolve(manifest.directory, 'validation.json');
   await writeFile(manifestPath, JSON.stringify(manifest), { flag: 'wx', mode: 0o600 });
-  return await runOpenCodeProcess(process.execPath, ['--import', pathToFileURL(installation.loader).href,
-    resolve(manifest.root, 'deploy/opencode-child.mjs'), 'execute', manifestPath], {
-    cwd: manifest.root, environment: openCodeEnvironment(environment, true), signal, forward: true,
-    timeoutMs: 15 * 60_000, killAfterMs: 12_000, onMessage,
-  });
+  const hostGroups = new Set();
+  let deadline, forceTimer, cleanupFailed = false;
+  const killHost = (pid, name) => {
+    try { process.kill(-pid, name); }
+    catch (error) { if (error.code !== 'ESRCH') cleanupFailed = true; }
+  };
+  const stopHosts = () => {
+    if (!hostGroups.size) return;
+    deadline ??= Date.now() + 1000;
+    for (const pid of hostGroups) killHost(pid, 'SIGTERM');
+    forceTimer ??= setTimeout(() => {
+      for (const pid of hostGroups) killHost(pid, 'SIGKILL');
+    }, Math.max(0, deadline - Date.now()));
+  };
+  signal.addEventListener('abort', stopHosts, { once: true });
+  try {
+    const result = await runOpenCodeProcess(process.execPath, ['--import', pathToFileURL(installation.loader).href,
+      resolve(manifest.root, 'deploy/opencode-child.mjs'), 'execute', manifestPath], {
+      cwd: manifest.root, environment: openCodeEnvironment(environment, true), signal, forward: true,
+      timeoutMs: 15 * 60_000, killAfterMs: 12_000,
+      onMessage: (message, reply, executorPid) => {
+        if (message?.event === 'opencode_host_started') {
+          const pid = message.pid;
+          assert(Number.isSafeInteger(pid) && pid > 1 && pid !== process.pid && pid !== executorPid, 'Invalid host process group');
+          // A supervisor is registered before stdin releases its host process.
+          // Only a direct child in its own process group can be acknowledged.
+          const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+          const fields = stat.slice(stat.lastIndexOf(') ') + 2).trim().split(/\s+/);
+          assert.equal(Number(fields[1]), executorPid, 'Host supervisor belongs to another parent');
+          assert.equal(Number(fields[2]), pid, 'Host supervisor does not own its process group');
+          assert(!hostGroups.has(pid), 'Host process group was registered twice');
+          hostGroups.add(pid);
+          if (signal.aborted) killHost(pid, 'SIGKILL');
+          else reply({ event: 'opencode_host_tracked', pid });
+        } else if (message?.event === 'opencode_host_closed') {
+          assert(hostGroups.has(message.pid), 'Unknown host process group closed');
+          killHost(message.pid, 'SIGKILL');
+          assert(!cleanupFailed, 'Host process group cleanup failed');
+          hostGroups.delete(message.pid);
+          reply({ event: 'opencode_host_untracked', pid: message.pid });
+        }
+        onMessage?.(message);
+      },
+    });
+    assert.equal(hostGroups.size, 0, 'Executor returned with active host process groups');
+    return result;
+  } finally {
+    stopHosts();
+    if (deadline) await new Promise(resolveCleanup => setTimeout(resolveCleanup, Math.max(0, deadline - Date.now())));
+    for (const pid of hostGroups) killHost(pid, 'SIGKILL');
+    if (forceTimer) clearTimeout(forceTimer);
+    signal.removeEventListener('abort', stopHosts);
+    assert(!cleanupFailed, 'Host process group cleanup failed');
+  }
 }
 
 export function parseOpenCodeArguments(args) {

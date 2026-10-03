@@ -84,8 +84,26 @@ test('OpenCode child uses archived code and private frozen dependencies without 
     await writeFile(installer, await readFile(installer, 'utf8') + '\nassert.equal(process.env.NEBIUS_API_KEY, undefined); assert.equal(process.env.MODEL_API_KEY, undefined);\n');
     await writeFile(join(root, '.gitignore'), 'node_modules\n');
     await writeFile(join(root, 'deploy/helper.ts'), 'export const value = "archived-helper";\n');
-    await writeFile(join(root, 'deploy/opencode-execute.ts'), `import assert from 'node:assert/strict'; import { writeFile } from 'node:fs/promises'; import { z } from 'zod'; import { value } from './helper.ts';
-export async function runOpenCodeLifecycle(options) { assert.equal(process.env.NEBIUS_API_KEY, ${JSON.stringify(syntheticKey)}); assert.equal(process.env.MODEL_API_KEY, undefined); options.signal.throwIfAborted(); await writeFile(options.output, JSON.stringify({ value: z.string().parse(value), commit: options.source.commit })); }\n`);
+    await writeFile(join(root, 'deploy/host-supervisor.mjs'), `import { spawn } from 'node:child_process'; import { writeFileSync } from 'node:fs';
+writeFileSync(process.argv[2], String(process.pid)); process.on('SIGTERM', () => {});
+spawn(process.execPath, ['-e', "require('node:fs').writeFileSync(process.argv[1], String(process.pid)); process.on('SIGTERM', () => {}); setInterval(() => {}, 1000);", process.argv[2] + '.descendant'], { stdio: 'ignore' }); setInterval(() => {}, 1000);\n`);
+    await writeFile(join(root, 'deploy/opencode-execute.ts'), `import assert from 'node:assert/strict'; import { spawn } from 'node:child_process'; import { readFile, writeFile } from 'node:fs/promises'; import { resolve } from 'node:path'; import { z } from 'zod'; import { value } from './helper.ts';
+export async function runOpenCodeLifecycle(options) {
+  assert.equal(process.env.NEBIUS_API_KEY, ${JSON.stringify(syntheticKey)}); assert.equal(process.env.MODEL_API_KEY, undefined); options.signal.throwIfAborted();
+  if (['crash.json', 'orphan.json', 'cancel.json', 'closed.json'].some(name => options.output.endsWith(name))) {
+    const host = spawn(process.execPath, [resolve(options.root, 'deploy/host-supervisor.mjs'), options.output + '.pid'], { detached: true, stdio: 'ignore' }); host.unref();
+    await new Promise((resolveAck, reject) => {
+      const timer = setTimeout(() => reject(new Error('Parent did not acknowledge host tracking')), 2000);
+      const receive = message => { if (message?.event === 'opencode_host_tracked' && message.pid === host.pid) { clearTimeout(timer); process.off('message', receive); resolveAck(); } };
+      process.on('message', receive); process.send({ event: 'opencode_host_started', pid: host.pid });
+    });
+    for (let attempt = 0; attempt < 100; attempt++) { try { await readFile(options.output + '.pid.descendant'); break; } catch { await new Promise(resolveWait => setTimeout(resolveWait, 20)); } }
+    if (options.output.endsWith('closed.json')) await new Promise((resolveAck, reject) => { const timer = setTimeout(() => reject(new Error('Parent did not acknowledge host cleanup')), 2000); const receive = message => { if (message?.event === 'opencode_host_untracked' && message.pid === host.pid) { clearTimeout(timer); process.off('message', receive); resolveAck(); } }; process.on('message', receive); process.send({ event: 'opencode_host_closed', pid: host.pid }); });
+    if (options.output.endsWith('crash.json')) process.exit(7);
+    if (options.output.endsWith('cancel.json')) { const keepAlive = setInterval(() => {}, 1000); try { if (!options.signal.aborted) await new Promise(resolveAbort => options.signal.addEventListener('abort', resolveAbort, { once: true })); options.signal.throwIfAborted(); } finally { clearInterval(keepAlive); } }
+  }
+  await writeFile(options.output, JSON.stringify({ value: z.string().parse(value), commit: options.source.commit }));
+}\n`);
     git('add', '.'); git('commit', '-m', 'Archived private host fixture');
     const source = await archiveOpenCodeSource(root, archive, git('rev-parse', 'HEAD'));
     const environment = { ...process.env, NEBIUS_API_KEY: syntheticKey, MODEL_API_KEY: 'unused-synthetic-key' };
@@ -103,7 +121,40 @@ export async function runOpenCodeLifecycle(options) { assert.equal(process.env.N
     const output = join(directory, 'result.json');
     await runOpenCodeChild({ root: archive, directory, source, output, binary, host_dependencies: installation.evidence }, installation, signal, environment);
     assert.deepEqual(JSON.parse(await readFile(output, 'utf8')), { value: 'archived-helper', commit: source.commit });
-  } finally { await rm(directory, { recursive: true, force: true }); }
+    // The outer bootstrap owns registered process groups independently of the
+    // executor's normal finally: cover fatal exit and a returned orphan alike.
+    for (const outcome of ['crash', 'orphan', 'cancel', 'closed']) {
+      const executionDirectory = join(directory, outcome); await mkdir(executionDirectory);
+      const executionOutput = join(executionDirectory, `${outcome}.json`);
+      const executionAbort = new AbortController();
+      const operation = runOpenCodeChild({ root: archive, directory: executionDirectory, source, output: executionOutput,
+        binary, host_dependencies: installation.evidence }, installation, executionAbort.signal, environment);
+      if (outcome === 'cancel') {
+        const rejected = assert.rejects(operation, /preparation or validation failed/);
+        for (let attempt = 0; attempt < 100; attempt++) {
+          try { await readFile(executionOutput + '.pid.descendant'); break; } catch { await new Promise(resolveWait => setTimeout(resolveWait, 20)); }
+        }
+        executionAbort.abort(); await rejected;
+      } else if (outcome === 'crash') await assert.rejects(operation, /preparation or validation failed/);
+      else if (outcome === 'orphan') await assert.rejects(operation, /active host process groups/);
+      else await operation;
+      for (const suffix of ['.pid', '.pid.descendant']) {
+        const pid = Number(await readFile(executionOutput + suffix, 'utf8'));
+        let exited = false;
+        for (let attempt = 0; attempt < 50 && !exited; attempt++) {
+          try { process.kill(pid, 0); exited = /\) Z /.test(await readFile(`/proc/${pid}/stat`, 'utf8')); }
+          catch (error) { exited = ['ESRCH', 'ENOENT'].includes((error as NodeJS.ErrnoException).code ?? ''); }
+          if (!exited) await new Promise(resolveWait => setTimeout(resolveWait, 20));
+        }
+        assert(exited, `Registered ${outcome} host process must not survive outer cleanup`);
+      }
+    }
+  } finally {
+    for (const outcome of ['crash', 'orphan', 'cancel', 'closed']) {
+      try { const pid = Number(await readFile(join(directory, outcome, outcome + '.json.pid'), 'utf8')); process.kill(-pid, 'SIGKILL'); } catch {}
+    }
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 for (const detachedStdio of [false, true]) test(`OpenCode cancellation removes hanging preparation descendants with detached stdio=${detachedStdio}`, { timeout: 10_000 }, async () => {
