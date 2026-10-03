@@ -19,6 +19,7 @@ Date: 2026-10-02 UTC / 2026-10-03 Europe/Paris. User-confirmed requirements take
 | Optional hybrid full-text and exact vector retrieval | Full-text stays available without credentials. Reciprocal-rank fusion combines authorized lexical and cosine results. Native pgvector 0.8.7 exact retrieval supports 4,096 dimensions; vector HNSW/IVFFlat reject more than 2,000. No ANN index is selected in this increment |
 | Embeddings are revision-bound derived data | Endpoint/model/dimensions/preprocessing identify the vector space. Database triggers invalidate corrections and status changes; deletion cascades. Worker admission rechecks canonical state after provider calls; imports rebuild embeddings |
 | MCP TypeScript v2 | Available package versions are checked by the parent session; modern and legacy client protocol behavior must be tested using the installed code |
+| Autonomous MVP delivery with reviewed self-merges | User-confirmed on 2026-10-03: future development tasks choose and implement complete product flows, continue across increments, and may merge their own PRs after the GitHub `@codex review` loop on the final commit and required checks. Deployment, DNS, spending and publication are separate decisions. See [development plan](DEVELOPMENT_PLAN.md) |
 
 ## Open decisions and blockers
 
