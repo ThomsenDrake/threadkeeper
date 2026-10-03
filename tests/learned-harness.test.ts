@@ -54,6 +54,8 @@ test('native accounting rejects contradictory or unsafe totals while preserving 
   const invalidChatUsage: Array<NonNullable<LearnedObservation['usage']>> = [
     { prompt_tokens: 10, completion_tokens: 5, total_tokens: 999 },
     { input_tokens: 10, output_tokens: 5, total_tokens: 999 },
+    { prompt_tokens: 10, output_tokens: 5, total_tokens: 999 },
+    { input_tokens: 10, completion_tokens: 5, total_tokens: 999 },
     { prompt_tokens: 10, completion_tokens: 5, input_tokens: 10, output_tokens: 6, total_tokens: 15 },
     { prompt_tokens: 10, completion_tokens: 5, input_tokens: 11, output_tokens: 5 },
     { prompt_tokens: 10, total_tokens: 9 },
@@ -70,6 +72,36 @@ test('native accounting rejects contradictory or unsafe totals while preserving 
   for (const usage of invalidEmbeddingUsage) {
     const records = observations(); records[0].usage = usage;
     assert.throws(() => verifyLearnedObservations(records), /Embedding/);
+  }
+});
+
+test('native accounting bounds every reported token detail without summing overlapping categories or inventing absent counts', () => {
+  const primary = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 };
+  const acceptedUsage: Array<NonNullable<LearnedObservation['usage']>> = [
+    { ...primary, prompt_tokens_details: { cached_tokens: 10, audio_tokens: 10 }, completion_tokens_details: { reasoning_tokens: 5, accepted_prediction_tokens: 5, rejected_prediction_tokens: 5 } },
+    { input_tokens: 10, output_tokens: 5, total_tokens: 15, prompt_tokens_details: { cached_tokens: 10 }, completion_tokens_details: { reasoning_tokens: 5 } },
+    { ...primary, input_tokens_details: { audio_tokens: 10 }, output_tokens_details: { reasoning_tokens: 5 } },
+    { total_tokens: 15, completion_tokens_details: { reasoning_tokens: 15 } },
+    { ...primary, completion_tokens_details: {} },
+    primary,
+  ];
+  for (const usage of acceptedUsage) {
+    const records = observations(); records[5].usage = usage;
+    const original = JSON.stringify(records);
+    assert.equal(verifyLearnedObservations(records).usage_complete, true);
+    assert.equal(JSON.stringify(records), original);
+  }
+  for (const [key, parent] of [['prompt_tokens_details', 10], ['input_tokens_details', 10], ['completion_tokens_details', 5], ['output_tokens_details', 5]] as const) {
+    for (const detail of ['cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens']) {
+      const records = observations(); records[5].usage = { ...primary, [key]: { [detail]: parent + 1 } };
+      assert.throws(() => verifyLearnedObservations(records), /detail exceeds its parent/);
+    }
+  }
+  const totalOnly = observations(); totalOnly[5].usage = { total_tokens: 15, completion_tokens_details: { reasoning_tokens: 16 } };
+  assert.throws(() => verifyLearnedObservations(totalOnly), /detail exceeds its parent/);
+  for (const invalid of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const records = observations(); records[5].usage = { ...primary, completion_tokens_details: { reasoning_tokens: invalid } };
+    assert.throws(() => verifyLearnedObservations(records), /detail must be a nonnegative safe integer/);
   }
 });
 
