@@ -7,11 +7,11 @@ export async function exportDeletionLedger(db: Database, auth: Auth): Promise<De
   if (!auth.ownerId || !auth.clientId || auth.projects !== null
     || !auth.permissions.some(value => ['*', 'export'].includes(value))) throw new DomainError(403, 'owner_export_required');
   return db.transaction(async tx => {
-    await tx.query('INSERT INTO tk_owners(id) VALUES ($1) ON CONFLICT DO NOTHING', [auth.ownerId]);
     const owner = (await tx.query('SELECT snapshot_version FROM tk_owners WHERE id=$1 FOR UPDATE', [auth.ownerId])).rows[0];
+    if (!owner && !(await tx.query('SELECT id FROM tk_users WHERE id=$1', [auth.ownerId])).rows.length) throw new DomainError(404, 'owner_not_found');
     const tombstones = (await tx.query('SELECT kind,hash,deleted_at FROM tk_tombstones WHERE owner_id=$1 ORDER BY kind,hash', [auth.ownerId])).rows;
     return DeletionLedgerSchema.parse({ schema_version: 'threadkeeper.deletion-ledger.v1', owner_id: auth.ownerId,
-      exported_at: new Date().toISOString(), snapshot_version: Number(owner.snapshot_version),
+      exported_at: new Date().toISOString(), snapshot_version: Number(owner?.snapshot_version ?? 0),
       tombstones: tombstones.map(row => ({ ...row, deleted_at: new Date(row.deleted_at).toISOString() })) });
   });
 }
@@ -47,6 +47,11 @@ export async function reconcileDeletions(db: Database, input: unknown[], options
   if (new Set(ledgers.map(row => row.owner_id)).size !== ledgers.length) throw new DomainError(400, 'duplicate_ledger_owner');
   return db.transaction(async tx => {
     const owners = (await tx.query('SELECT id,snapshot_version FROM tk_owners ORDER BY id FOR UPDATE')).rows;
+    // Accounts without captured context still need their empty ledger and a
+    // password reset, but exporting that ledger never invents canonical state.
+    for (const user of (await tx.query('SELECT id FROM tk_users ORDER BY id')).rows) {
+      if (!owners.some(row => row.id === user.id)) owners.push({ id: user.id, snapshot_version: 0 });
+    }
     if (owners.length !== ledgers.length || owners.some(row => !ledgers.some(ledger => ledger.owner_id === row.id))) throw new DomainError(409, 'recovery_owner_mismatch');
     for (const owner of owners) {
       const ledger = ledgers.find(row => row.owner_id === owner.id)!;
@@ -54,6 +59,7 @@ export async function reconcileDeletions(db: Database, input: unknown[], options
     }
     const report: ReconciliationReport = { owners: owners.length, deleted_memories: 0, deleted_sources: 0, deleted_jobs: 0, revoked_clients: 0, deleted_sessions: 0 };
     for (const ledger of ledgers) {
+      await tx.query('INSERT INTO tk_owners(id) VALUES ($1) ON CONFLICT DO NOTHING', [ledger.owner_id]);
       for (const tombstone of ledger.tombstones) await tx.query(`INSERT INTO tk_tombstones(owner_id,kind,hash,deleted_at) VALUES ($1,$2,$3,$4)
         ON CONFLICT (owner_id,kind,hash) DO UPDATE SET deleted_at=LEAST(tk_tombstones.deleted_at,excluded.deleted_at)`, [ledger.owner_id, tombstone.kind, tombstone.hash, tombstone.deleted_at]);
       const records = await connectedDeletionRecords(tx, ledger.owner_id, await matchingContent(tx, ledger.owner_id));

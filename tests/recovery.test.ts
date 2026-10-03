@@ -7,6 +7,7 @@ import { memoryContent } from '../packages/core/src/hashing.ts';
 import { validateRestoreTarget } from '../deploy/restore.ts';
 import { createTestDatabase } from './helpers.ts';
 import { seedRecoveryFixture } from './recovery-fixtures.ts';
+import { bootstrap } from '../apps/api/src/auth.ts';
 
 const failure = (code: string) => (error: unknown) => error instanceof DomainError && error.code === code;
 
@@ -104,5 +105,21 @@ test('ledger export and parse preserve future-dated imported tombstone provenanc
       sources: [], memories: [], evidence: [], revisions: [], tombstones: [{ kind: 'source_content', hash: '0'.repeat(64), deleted_at: future }] });
     const ledger = await exportDeletionLedger(db, auth);
     assert.equal(parseDeletionLedger(ledger).tombstones[0].deleted_at, future);
+  } finally { await close(); }
+});
+
+test('ledger export is read-only and rejects unknown operator owners', async () => {
+  const { db, close } = await createTestDatabase();
+  try {
+    await bootstrap(db, 'empty-recovery@example.invalid', 'synthetic-empty-password');
+    const id = (await db.query('SELECT id FROM tk_users')).rows[0].id;
+    const auth = { ownerId: id, clientId: 'operator', permissions: ['export'], projects: null };
+    const ledger = await exportDeletionLedger(db, auth);
+    assert.equal(ledger.snapshot_version, 0);
+    assert.deepEqual(ledger.tombstones, []);
+    await assert.rejects(exportDeletionLedger(db, { ...auth, ownerId: 'synthetic-unknown-owner' }), failure('owner_not_found'));
+    assert.equal((await db.query('SELECT 1 FROM tk_owners')).rows.length, 0);
+    await reconcileDeletions(db, [ledger]);
+    assert.equal((await db.query('SELECT id FROM tk_owners')).rows[0].id, id, 'The known restored account can receive its empty ledger without export side effects.');
   } finally { await close(); }
 });

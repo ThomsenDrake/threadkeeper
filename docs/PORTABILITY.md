@@ -53,7 +53,7 @@ docker compose --env-file .env -f deploy/compose.yaml exec -T postgres \
 
 **An older archive can contain information forgotten after its creation.** Keep a newer deletion ledger separately from each archive. The signed-in owner can download it from Import & export or `GET /api/deletion-ledger`; client credentials cannot download it. Its strict `threadkeeper.deletion-ledger.v1` contract contains `owner_id`, `exported_at`, `snapshot_version`, and deletion kind/hash/date rows, without source text, memory statements, credentials or grants. Hashes remain private metadata. A ledger covers known deletions at export time, not unknown later deletions.
 
-With services stopped, an operator can export the final ledger directly from the current database. Use the stable owner ID from the owner download; repeat for every canonical owner in a multi-owner database. The output file must not already exist.
+With services stopped, an operator can export the final ledger directly from the current database. Use the stable owner ID from the owner download; repeat for every canonical owner and every restored account, including accounts without captured context, in a multi-owner database. The output file must not already exist.
 
 ```sh
 node --env-file=.env --import tsx deploy/deletion-ledger.ts \
@@ -81,7 +81,7 @@ node --env-file=.env.restore --import tsx deploy/restore.ts \
 node --env-file=.env.restore --import tsx deploy/recovery-status.ts
 ```
 
-Repeat `--ledger` for additional owners. Coverage must match the restored canonical owner IDs exactly; recovery does not infer an owner mapping from email. Ledger snapshots older than restored owner snapshots are rejected.
+Repeat `--ledger` for additional owners. Coverage must match the restored canonical owner and account IDs exactly; recovery does not infer an owner mapping from email. Ledger snapshots older than restored owner snapshots are rejected.
 
 The command checks the actual database name, emptiness and other connections, then holds an exclusive database advisory lock and commits a pending marker in `tk_recovery`. It streams the archive to `pg_restore` with one transaction, excludes the marker schema, and verifies that the streamed bytes match the recorded archive digest. It runs current migrations and applies incoming plus restored tombstones before any service can start. The same connected deletion graph as owner forgetting includes duplicate normalized sources, sibling interpretations and every correction/confirmation revision. Affected jobs, sources, memories, evidence, history and vectors disappear together. Reconciliation verifies the remaining canonical rows before committing completion.
 

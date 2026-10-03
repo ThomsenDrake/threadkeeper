@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { connectDatabase } from '../packages/core/src/db.ts';
-import type { Database } from '../packages/core/src/index.ts';
+import { DomainError, type Database } from '../packages/core/src/index.ts';
 import { holdRuntimeGate } from '../packages/core/src/recovery-gate.ts';
 
 export type Migration = { name: string; sql: string };
@@ -39,10 +39,18 @@ export async function migrate(db: Database, migrations?: Migration[]) {
   });
 }
 if (process.argv[1]?.endsWith('/migrate.ts')) {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error('DATABASE_URL is required');
-  const gate = await holdRuntimeGate(databaseUrl, () => { process.exit(1); });
-  const db = connectDatabase(databaseUrl);
-  try { console.info(JSON.stringify({ event: 'migrations_complete', ...await migrate(db) })); }
-  finally { await db.close(); await gate.close(); }
+  let gate: Awaited<ReturnType<typeof holdRuntimeGate>> | undefined;
+  let db: ReturnType<typeof connectDatabase> | undefined;
+  try {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) throw new DomainError(400, 'database_url_required');
+    gate = await holdRuntimeGate(databaseUrl, () => { process.exit(1); });
+    db = connectDatabase(databaseUrl);
+    console.info(JSON.stringify({ event: 'migrations_complete', ...await migrate(db) }));
+  } catch (error) {
+    const known = ['migration_sequence_invalid', 'migration_version_too_new', 'migration_history_gap', 'migration_checksum_mismatch'];
+    const code = error instanceof DomainError ? error.code : error instanceof Error && known.includes(error.message) ? error.message : 'migration_database_or_file_failed';
+    console.error(JSON.stringify({ event: 'migrations_failed', error_code: code }));
+    process.exitCode = 1;
+  } finally { await db?.close(); await gate?.close(); }
 }
