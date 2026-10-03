@@ -2,15 +2,18 @@ import express from 'express';
 import {z,ZodError} from 'zod';
 import {createMcpHandler,McpServer} from '@modelcontextprotocol/server';
 import {toNodeHandler} from '@modelcontextprotocol/node';
-import {CaptureSchema,CaptureListSchema,CaptureRetrySchema,CaptureStatusSchema,CaptureListResultSchema,CaptureSettingsSchema,CaptureSettingsUpdateSchema,SearchSchema,MemoryListSchema,MemoryListResultSchema,ImportResultSchema,CorrectSchema,ReviewSchema,DeleteSchema,SourceDeleteSchema,DeletionPreviewSchema,ExportSchema} from '../../../packages/contracts/src/index.ts';
+import {CaptureSchema,CaptureListSchema,CaptureRetrySchema,CaptureStatusSchema,CaptureListResultSchema,CaptureSettingsSchema,CaptureSettingsUpdateSchema,SearchSchema,MemoryListSchema,MemoryListResultSchema,ImportResultSchema,CorrectSchema,ReviewSchema,DeleteSchema,SourceDeleteSchema,DeletionPreviewSchema,ExportSchema,DeletionLedgerSchema} from '../../../packages/contracts/src/index.ts';
 import {createStore,DomainError,type Database,type EmbeddingProvider} from '../../../packages/core/src/index.ts';
 import {createAuth} from './auth.ts';
 import {resolve} from 'node:path';
+import {assertRecoveryReady} from '../../../packages/core/src/recovery-gate.ts';
+import {exportDeletionLedger} from '../../../packages/core/src/recovery.ts';
 
 export function createApp(db:Database,options:{origin?:string;cookieSecure?:boolean;staticDir?:string;embeddings?:EmbeddingProvider}={}){
  const app=express(),store=createStore(db,{embeddings:options.embeddings}),auth=createAuth(db);const origin=options.origin??'http://localhost:3000';const allowedHost=new URL(origin).host;
  app.disable('x-powered-by');
  app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');if(req.headers.host!==allowedHost)return res.status(403).json({error:'invalid_host'});if(req.headers.origin&&req.headers.origin!==origin)return res.status(403).json({error:'invalid_origin'});next();});
+ app.use(async(_req,_res,next)=>{await assertRecoveryReady(db);next();});
  app.get('/health',async(_req,res)=>{await db.query('SELECT 1');res.json({status:'ok'});});
  app.get('/openapi.json',(_req,res)=>res.json(openapi(origin)));
  app.use(express.json({limit:'12mb'}));
@@ -41,6 +44,7 @@ export function createApp(db:Database,options:{origin?:string;cookieSecure?:bool
  app.post('/api/clients',owner,async(req,res)=>{const input=z.object({name:z.string().min(1).max(100),permissions:z.array(z.enum(['read','capture'])).min(1),projects:z.array(z.string().min(1).max(200)).max(100).nullable().default(null)}).strict().parse(req.body);res.status(201).json(await auth.createClient(res.locals.principal.user.id,input.name,input.permissions,input.projects));});
  app.delete('/api/clients/:id',owner,async(req,res)=>{const r=await db.query('UPDATE tk_clients SET revoked_at=now() WHERE id=$1 AND user_id=$2 RETURNING id',[req.params.id,res.locals.principal.user.id]);if(!r.rows.length)return res.status(404).json({error:'not_found'});res.json({ok:true});});
  app.get('/api/export',owner,async(_req,res)=>{res.setHeader('Content-Disposition','attachment; filename="threadkeeper-export.json"');res.json(await store.export(res.locals.principal.auth));});
+ app.get('/api/deletion-ledger',owner,async(_req,res)=>{res.setHeader('Content-Disposition','attachment; filename="threadkeeper-deletion-ledger.json"');res.json(await exportDeletionLedger(db,res.locals.principal.auth));});
  app.post('/api/import',owner,async(req,res)=>res.json(await store.import(res.locals.principal.auth,ExportSchema.parse(req.body))));
  app.all('/mcp',async(req,res)=>{
  if(!/^Bearer /i.test(req.headers.authorization??''))return res.status(403).json({error:'client_token_required'});
@@ -74,6 +78,7 @@ function openapi(origin:string){
  const deletionResponse={...response,404:{description:'Target unavailable for this owner'},409:{description:'The previewed graph or target revision changed; load and confirm a new preview'}};
  const targetId=(name:string)=>[{name,in:'path',required:true,schema:{type:'string',minLength:1,maxLength:200}}];
  return {openapi:'3.1.0',info:{title:'Threadkeeper personal-context API',version:'0.1.0'},servers:[{url:origin}],security:[{clientBearer:[]}],components:{securitySchemes:{clientBearer:{type:'http',scheme:'bearer'},ownerSession:{type:'apiKey',in:'cookie',name:'tk_session'}}},paths:{
+  '/api/deletion-ledger':{get:{operationId:'profile_export_deletion_ledger',summary:'Download private deletion state for isolated recovery',description:'Owner profile session required. Contains only owner identity, snapshot/timestamp and non-content tombstones. Keep a newer ledger separately from old database backups.',security:ownerSecurity,responses:{...response,200:{description:'Versioned owner-bound deletion ledger',content:{'application/json':{schema:z.toJSONSchema(DeletionLedgerSchema)}}},503:{description:'Recovery reconciliation is incomplete'}}}},
   '/api/capture':{post:{operationId:'context_capture',summary:'Capture source-backed personal context',description:'Owner capture pause rejects all capture requests, including profile saves and idempotent replay, with HTTP 403 capture_paused. Permitted reads and previously authorized queued/retried extraction remain available.',requestBody:requestBody(CaptureSchema),responses:{...response,201:{description:'Durably stored, status complete or pending'},403:{description:'Capture paused, permission denied or project scope denied'}}}},
   '/api/settings/capture':{get:{operationId:'profile_capture_settings',summary:'Read owner-wide capture pause state',security:ownerSecurity,responses:{...response,200:{description:'Current pause state and its independent settings revision',content:{'application/json':{schema:z.toJSONSchema(CaptureSettingsSchema)}}}}},patch:{operationId:'profile_set_capture_settings',summary:'Pause or resume new captures as the signed-in owner',description:'Pause preserves saved data, permitted reads, and already authorized queued/retried extraction. It does not revoke credentials. Supply expected_version to reject a stale action; unrelated memory changes do not change this settings revision.',security:ownerSecurity,requestBody:requestBody(CaptureSettingsUpdateSchema),responses:{...response,200:{description:'Updated pause state and settings revision',content:{'application/json':{schema:z.toJSONSchema(CaptureSettingsSchema)}}},409:{description:'capture_settings_conflict: refresh before trying again'}}}},
   '/api/settings/connection':{get:{operationId:'profile_connection_settings',summary:'Read the exact configured remote MCP endpoint',security:ownerSecurity,responses:{...response,200:{description:'MCP endpoint at the configured application origin'}}}},

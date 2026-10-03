@@ -64,7 +64,7 @@ Set `POSTGRES_PASSWORD`, `BOOTSTRAP_EMAIL` and a `BOOTSTRAP_PASSWORD` of at leas
 docker compose --env-file .env -f deploy/compose.yaml up --build
 ```
 
-Open `http://localhost:3000` and sign in as the bootstrapped owner. The API serves the built profile and runs rerunnable SQL setup before listening. The worker starts after API/database readiness. PostgreSQL uses a named data volume; ports are published to localhost. Changing the bootstrap settings after an owner exists does not change that owner's password.
+Open `http://localhost:3000` and sign in as the bootstrapped owner. The API serves the built profile and applies checksum-tracked transactional migrations before listening. The worker starts after API/database readiness. PostgreSQL uses a named data volume; ports are published to localhost. Changing the bootstrap settings after an owner exists does not change that owner's password.
 
 For a host-run application against an already available PostgreSQL database, set `DATABASE_URL` in `.env`, then run these in separate terminals:
 
@@ -96,7 +96,7 @@ Before forgetting a memory or saved source, the profile shows the affected sourc
 
 Deletion removes **whole connected source events and all memories supported by them**, including revision history and intersecting extraction jobs. This is deliberately conservative and can remove sibling memories or identical normalized source copies in other projects. A removed job's other surviving sources are not automatically requeued. Capture independent facts in separate source events for precise deletion. The central demonstration uses separate deadline and preference events.
 
-The versioned export preserves remaining records, evidence and corrections, with non-content tombstones. It excludes accounts, credentials and access grants. Backup restore is not yet deletion-safe by itself: an older backup can contain forgotten data. See [portability and operations](docs/PORTABILITY.md) before restoring a database.
+The versioned export preserves remaining records, evidence and corrections, with non-content tombstones. It excludes accounts, credentials and access grants. An older backup can contain forgotten data. The isolated recovery utility reconciles a newer owner deletion ledger before permitting services to start, revokes restored credentials and resets owner passwords. See [portability and operations](docs/PORTABILITY.md) before restoring a database.
 
 Complete self-hostability with feature parity is a binding release requirement. Model/embedding endpoints are configurable, but packaging alone does not demonstrate GPU compatibility or operation without external control-plane access. Managed deployments may charge for operations and resources, never exclusive application features.
 

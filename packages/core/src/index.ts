@@ -1,4 +1,5 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { hash, canonical, normalize, sourceIdentity, sourceContent, memoryContent } from './hashing.ts';
 import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
@@ -9,6 +10,7 @@ import {
 
 export type Database = {
   query(sql: string, params?: any[]): Promise<{ rows: any[] }>;
+  exec?(sql: string): Promise<void>;
   transaction<T>(fn: (tx: Database) => Promise<T>): Promise<T>;
 };
 export type Auth = { ownerId: string; clientId: string; permissions: string[]; projects: string[] | null };
@@ -22,14 +24,6 @@ export class DomainError extends Error {
 }
 
 const uuid = () => randomUUID();
-const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-const canonical = (value: any): string => value === null || typeof value !== 'object'
-  ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(',')}]`
-    : `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
-const normalize = (value: string) => value.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US');
-const sourceIdentity = (clientId: string, eventId: string) => hash(canonical([clientId, eventId]));
-const sourceContent = (text: string) => hash(normalize(text));
-const memoryContent = (statement: string, project: string | null, subject: string) => hash(canonical([normalize(statement), project, subject]));
 const date = (value: any) => value == null ? null : new Date(value).toISOString();
 const memoryRow = (row: any) => ({
   id: row.id, project_id: row.project_id, subject: row.subject, statement: row.statement,

@@ -33,6 +33,8 @@ Priority 5 is implemented and verified on `codex/profile-scaling`, now rebased o
 
 The next unblocked implementation outcome is priority 6: deletion-aware restore, reconciliation and migration/recovery procedures. Complete priority 5's pending final-head review/merge before treating it as main.
 
+Priority 6 is implemented on `codex/deletion-aware-recovery`: owner deletion-ledger download, isolated native archive restore with startup gating, all-history graph reconciliation, password/client/session reset and checksum-tracked transactional migrations. Its synthetic PGlite/browser/native archive evidence and prerequisite integration/review state are recorded in [HANDOFF.md](HANDOFF.md). Treat it as pending until the final integrated head is reviewed and merged.
+
 ## Delivery loop
 
 1. Select the highest-value unblocked outcome and define a small observable acceptance flow. Make routine implementation and interface decisions from the existing product requirements. Ask only for consequential missing decisions or access that cannot be inferred and actually blocks the next action.

@@ -35,23 +35,67 @@ Every extraction job referring to an affected source is removed in full. Any oth
 
 Non-content tombstones prevent replay of known event identities, normalized source content and known memory statements in their scope. They do not constitute a semantic classifier able to recognize every rewritten assertion. Retained exports, database backups, provider-retained copies and already delivered client context remain separate copies; deletion in the active service does not erase them.
 
-## Backup and restore
+## Backup, deletion ledgers and isolated restore
 
-The Compose database uses the `postgres_data` named volume. Owner exports are useful portable snapshots, but they do not back up authentication, all operational state or the whole installation.
+The Compose database uses the `postgres_data` named volume. Owner exports are portable application snapshots; they exclude authentication and operational state. An operator-managed PostgreSQL backup preserves the whole installation, including password hashes and client grants. Keep archives and deletion ledgers private and apply an expiry policy to retained copies.
 
-For an operator-managed database backup, stop the worker while taking a consistent maintenance snapshot if necessary, keep the backup private and set a retention/expiry policy. A PostgreSQL custom-format example is:
+For a consistent maintenance backup, stop API and worker writes and use a compatible PostgreSQL client. A custom-format example is:
 
 ```sh
 mkdir -p backups
+docker compose --env-file .env -f deploy/compose.yaml stop api worker
 docker compose --env-file .env -f deploy/compose.yaml exec -T postgres \
-  pg_dump -U threadkeeper --format=custom threadkeeper > backups/threadkeeper.dump
+  pg_dump -U threadkeeper --format=custom --exclude-schema=tk_recovery threadkeeper \
+  > backups/threadkeeper.dump
 ```
 
-This command is documented, not executed in the development environment. `backups/` must stay out of version control. Encrypt backups according to the operator's storage policy.
+`backups/` and `.env.*` are ignored. Encrypt copies according to the operator's storage policy. The backup command above is an operator example; it is not evidence of a production backup.
 
-**An old backup may contain information deleted after its creation.** There is no automatic restore reconciliation in this starter. Restore into an isolated new database, keep the API and worker stopped, and reconcile the current deletion state before making it active. A recent export's tombstones cannot simply be imported into a nonempty restored database, because the current importer rejects that unsafe merge. A restore-safe purge/reconciliation utility and its acceptance tests remain required work.
+**An older archive can contain information forgotten after its creation.** Keep a newer deletion ledger separately from each archive. The signed-in owner can download it from Import & export or `GET /api/deletion-ledger`; client credentials cannot download it. Its strict `threadkeeper.deletion-ledger.v1` contract contains `owner_id`, `exported_at`, `snapshot_version`, and deletion kind/hash/date rows, without source text, memory statements, credentials or grants. Hashes remain private metadata. A ledger covers known deletions at export time, not unknown later deletions.
 
-Until that utility is implemented, a supported application-level migration is to export the current remaining data and import it into a fresh instance. If only an old backup survives and later tombstones are unavailable, the service cannot reconstruct the later deletion history. Do not advertise that it can.
+With services stopped, an operator can export the final ledger directly from the current database. Use the stable owner ID from the owner download; repeat for every canonical owner in a multi-owner database. The output file must not already exist.
+
+```sh
+node --env-file=.env --import tsx deploy/deletion-ledger.ts \
+  --owner OWNER_ID --output backups/deletions-newer.json
+```
+
+The supported recovery target is a **new, distinct, empty PostgreSQL database** named `tk_restore_` followed by lowercase letters, numbers or underscores (at most 63 characters in total). Keep it isolated; do not point services or other SQL clients at it while recovering. Install compatible `pg_restore` locally and create the empty database with the operator's PostgreSQL administration tools. The application container does not include PostgreSQL client binaries. `THREADKEEPER_PG_RESTORE` can select an operator-managed executable path, including a wrapper for an isolated PostgreSQL container.
+
+Create an ignored private `.env.restore` with:
+
+```dotenv
+DATABASE_URL=postgresql://OPERATOR:PRIVATE_PASSWORD@localhost:5432/threadkeeper
+RESTORE_DATABASE_URL=postgresql://OPERATOR:PRIVATE_PASSWORD@localhost:5432/tk_restore_recovery
+RESTORE_PASSWORDS_FILE=backups/restore-passwords.json
+```
+
+`DATABASE_URL` names the ordinary installation and is used only to reject an accidentally identical target; recovery never connects through it. `RESTORE_DATABASE_URL` must name the explicit target and cannot fall back to ordinary configuration. This initial flow supports the public application schema and an explicit PostgreSQL URL with optional `sslmode`; custom search paths and other URL options are rejected.
+
+In `RESTORE_PASSWORDS_FILE`, privately supply a JSON object mapping **every restored account's exact owner ID** to a new password of 12–1024 characters. Use mode 0600 and delete this file after successful promotion. This reset is mandatory because an old archive may otherwise restore an obsolete password. Passwords never enter recovery arguments or logs.
+
+```sh
+node --env-file=.env.restore --import tsx deploy/restore.ts \
+  --target-db tk_restore_recovery --backup backups/threadkeeper.dump \
+  --ledger backups/deletions-newer.json
+node --env-file=.env.restore --import tsx deploy/recovery-status.ts
+```
+
+Repeat `--ledger` for additional owners. Coverage must match the restored canonical owner IDs exactly; recovery does not infer an owner mapping from email. Ledger snapshots older than restored owner snapshots are rejected.
+
+The command checks the actual database name, emptiness and other connections, then holds an exclusive database advisory lock and commits a pending marker in `tk_recovery`. It streams the archive to `pg_restore` with one transaction, excludes the marker schema, and verifies that the streamed bytes match the recorded archive digest. It runs current migrations and applies incoming plus restored tombstones before any service can start. The same connected deletion graph as owner forgetting includes duplicate normalized sources, sibling interpretations and every correction/confirmation revision. Affected jobs, sources, memories, evidence, history and vectors disappear together. Reconciliation verifies the remaining canonical rows before committing completion.
+
+All restored client grants are revoked, sessions are cleared, and account passwords are replaced in the same completion transaction. Sign in with the new password and reconnect each client explicitly after promotion. Original client IDs remain provenance only. Remaining embeddings can be rebuilt using the same configured local or hosted embedding adapter; recovery itself calls no provider.
+
+API, worker, standalone migrations and reindexing hold shared advisory locks and reject incomplete recovery state. API readiness and HTTP/MCP routes also return `recovery_incomplete` while the marker is incomplete. Missing recovery markers allow normal fresh and legacy installations. A manual raw restore that bypasses this utility is unsupported: the application cannot infer that an arbitrary unmarked database came from an old archive.
+
+### Failures and promotion
+
+Archive, migration, owner-coverage, password-reset and reconciliation failures leave the target gated. SQL purge failures roll back all owners together. Retry with the same archive and ledgers; their digests bind the pending run. Successfully restored targets can resume reconciliation. A crash after archive commit but before the restored-phase marker is recorded creates an intentionally ambiguous target: `recovery_restore_ambiguous` requires discarding that isolated target and starting with another empty database. Do not manually mark it complete. A completed identical run returns `already_complete`.
+
+Only after the status is `complete`, point API/worker `DATABASE_URL` at the recovered target, start them, and verify health, sign-in, remaining profile records and authorized recall. Keep the old database and archive isolated under the retention policy. The newer ledger preserves forgetting; it does not reconstruct later captures, corrections, password changes or any other state absent from the old backup. Previously downloaded exports, backups, provider-retained copies and delivered client context remain separate copies.
+
+Credential-free PGlite binary-snapshot tests restore older synthetic data and prove that newer tombstones remove duplicate sources, corrected/confirmed/dismissed histories, jobs, vectors and export content, while another owner survives. Native archive execution is separately exercised by `pnpm recovery:demo`; this Docker-only harness creates disposable synthetic PostgreSQL databases and uses actual `pg_dump`/`pg_restore`, without providers or operator data.
 
 ## Self-hosted inference and embeddings
 
@@ -59,6 +103,14 @@ All application services and authentication are locally configurable. Replace `M
 
 NVIDIA's published Lightning recipes provide a starting point; no local GPU recipe has been validated by this project. Pin the runtime image digest, model revision and embedding preprocessing after the hardware run. Test that the same profile/MCP flow runs without Threadkeeper/Nebius accounts and with external control-plane access disabled after setup downloads. This is a mandatory feature-parity gate, not a paid upgrade.
 
-## Upgrade state
+## Supported upgrades
 
-The API currently applies rerunnable SQL setup files on startup. There is no versioned migration ledger or tested rollback process yet. Back up the database, validate future migrations on a copy and preserve deletion state before upgrading. Operational polish, recovery tooling and restore correctness must be delivered alongside the public service.
+SQL setup now has a checksum migration ledger (`tk_schema_migrations`). Under one transaction and advisory lock, the runner adopts the existing rerunnable setup once, then applies only pending ordered scripts. A changed recorded script, missing intermediate ledger entry or unknown future migration fails startup. Historical scripts remain unchanged; ship a new numbered migration for a schema change. Optional pgvector must be available when its initial setup runs; install it before the first migration, or use a fresh vector-enabled destination for portable import.
+
+Before upgrading, stop API/worker, retain a consistent backup and a current deletion ledger, and exercise the new revision on an isolated copy with the restore procedure above. Then run the same migration command against the intended stopped installation:
+
+```sh
+node --env-file=.env --import tsx deploy/migrate.ts
+```
+
+The API also migrates before listening. Keep worker and API on the same application revision. Migration SQL and ledger recording commit atomically; a failed upgrade preserves the prior schema and ledger. There is no automatic down-migration. If a completed upgrade must be rolled back, restore a compatible earlier application/database pair into isolation and reconcile the newest available deletion ledgers before promotion. Never rewrite a historical migration or bypass a checksum failure to force an older binary to run against a newer schema.

@@ -1,7 +1,7 @@
 import {randomBytes,randomUUID,scryptSync,timingSafeEqual,createHash} from 'node:crypto';
 import type {Database,Auth} from '../../../packages/core/src/index.ts';
 export const hash=(token:string)=>createHash('sha256').update(token).digest('hex');
-function passwordHash(password:string){const salt=randomBytes(16).toString('hex');return `${salt}:${scryptSync(password,salt,64).toString('hex')}`;}
+export function passwordHash(password:string){const salt=randomBytes(16).toString('hex');return `${salt}:${scryptSync(password,salt,64).toString('hex')}`;}
 function checkPassword(password:string,encoded:string){const [salt,h]=encoded.split(':');if(!salt||!h)return false;const expected=Buffer.from(h,'hex'),actual=scryptSync(password,salt,64);return expected.length===actual.length&&timingSafeEqual(expected,actual);}
 export async function bootstrap(db:Database,email?:string,password?:string){if(!email||!password)return;if(password.length<12)throw new Error('BOOTSTRAP_PASSWORD must contain at least 12 characters');const users=await db.query('SELECT id FROM tk_users LIMIT 1');if(users.rows.length)return;await db.query('INSERT INTO tk_users(id,email,password_hash) VALUES($1,$2,$3)',[randomUUID(),email.toLowerCase(),passwordHash(password)]);}
 export function createAuth(db:Database){return {
