@@ -4,7 +4,8 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import { MemorySchema } from '../../packages/contracts/src/index.ts';
 import { embeddingCorpus } from '../provider-evaluation-corpus.ts';
 import { assertLearnedArchiveHistory, assertLearnedDeadlineHistory, assertLearnedDeletionPreview,
-  assertLearnedExtraction, directLearnedCase, learnedDetail } from './learned-assertions.ts';
+  assertLearnedExtraction, assertLearnedRecall, directLearnedCase, learnedDetail, learnedRecallRecord } from './learned-assertions.ts';
+import { snapshotLearnedVector } from './learned-vector-evidence.ts';
 
 const project = 'synthetic-direct-learned-lifecycle';
 const corrected = 'The Lumen demo deadline is October 27, 2026.';
@@ -122,6 +123,11 @@ export async function runLearnedScenarios(options: {
     const sources = [];
     for (const sourceId of receipt.source_ids) sources.push(await tool(b, 'context_get_source', { source_id: sourceId }));
     const { deadline, preference } = assertLearnedExtraction(all, sources, project, grants[0].client.id);
+    const originalVectors = await options.sql(`SELECT memory_id,revision,provider_model,preprocessing_version,dimensions,embedding::text AS embedding
+      FROM tk_embeddings WHERE memory_id=${literal(deadline.id)}`);
+    assert.equal(originalVectors.length, 1);
+    const originalVector = snapshotLearnedVector(originalVectors[0], { memory_id: deadline.id, revision: deadline.revision,
+      statement: deadline.statement, model: embeddingCorpus.model, dimensions: 256 });
     assert.deepEqual([...completed.memory_ids].sort(), [deadline.id, preference.id].sort());
     assert.deepEqual([...completed.source_ids].sort(), sources.map(source => source.id).sort());
     const originalDeadline = learnedDetail((await http(`/api/memories/${deadline.id}`)).data);
@@ -144,7 +150,7 @@ export async function runLearnedScenarios(options: {
       const result = await recall(b, query);
       assert.equal(result.coverage.retrieval, 'postgresql_hybrid');
       assert.equal(result.coverage.semantic_search, 'enabled');
-      assert.equal(result.memories[0]?.id, target, 'Learned paraphrase should rank its relevant record first');
+      assertLearnedRecall(result.memories, [deadline, preference], target);
       const lexical = await options.sql(`SELECT id FROM tk_memories WHERE status='active' AND
         (search_vector @@ websearch_to_tsquery('english',${literal(query)}) OR position(lower(${literal(query)}) in lower(statement))>0)`);
       assert.equal(lexical.length, 0, 'The paraphrase query unexpectedly matches full-text retrieval');
@@ -156,7 +162,8 @@ export async function runLearnedScenarios(options: {
     assert.equal(changed.revision, deadline.revision + 1);
     assert.equal(changed.authoritative, true);
     assert.equal(changed.statement, corrected);
-    assertLearnedDeadlineHistory((await http(`/api/memories/${deadline.id}`)).data, originalDeadline, changed);
+    const correctedDetail = assertLearnedDeadlineHistory((await http(`/api/memories/${deadline.id}`)).data, originalDeadline, changed);
+    const correctedRecall = learnedRecallRecord(correctedDetail);
     assert.deepEqual(await tool(b, 'context_get_source', { source_id: deadlineSource.id }), { ...deadlineSource, extraction_blocked: true });
     await http(`/api/memories/${deadline.id}`, 409, { statement: deadline.statement, expected_revision: deadline.revision }, 'PATCH');
     const preview = assertLearnedDeletionPreview((await http(`/api/memories/${preference.id}/deletion-preview`)).data,
@@ -185,6 +192,7 @@ export async function runLearnedScenarios(options: {
     for (const client of [a, b]) {
       const result = await recall(client, embeddingCorpus.queries[0].text);
       assert.equal(result.coverage.retrieval, 'postgresql_hybrid');
+      assertLearnedRecall(result.memories, [correctedRecall], deadline.id);
       assert.deepEqual(result.memories.map((memory: any) => memory.statement), [corrected]);
       const memory = result.memories[0];
       assert.equal(memory.authoritative, true);
@@ -192,6 +200,7 @@ export async function runLearnedScenarios(options: {
       assert.equal(memory.evidence[0].quote, corrected);
     }
     const preferenceRecall = await recall(b, embeddingCorpus.queries[1].text);
+    assertLearnedRecall(preferenceRecall.memories, [correctedRecall]);
     assert(!preferenceRecall.memories.some((memory: any) => memory.id === preference.id || /short paragraphs/i.test(memory.statement)));
     const retained = assertLearnedDeadlineHistory((await http(`/api/memories/${deadline.id}`)).data, originalDeadline, changed);
     assert.deepEqual(await tool(b, 'context_get_source', { source_id: deadlineSource.id }), { ...deadlineSource, extraction_blocked: true });
@@ -199,13 +208,16 @@ export async function runLearnedScenarios(options: {
       { ...deadlineSource, extraction_blocked: true });
     const archive = assertLearnedArchiveHistory((await http('/api/export')).data, retained, { memory: preference, source: preferenceSource });
     assert(!JSON.stringify(archive).includes('short paragraphs'));
-    const remainingVectors = await options.sql('SELECT memory_id,revision,provider_model,dimensions FROM tk_embeddings');
+    const remainingVectors = await options.sql('SELECT memory_id,revision,provider_model,preprocessing_version,dimensions,embedding::text AS embedding FROM tk_embeddings');
     assert.equal(remainingVectors.length, 1);
     assert.equal(remainingVectors[0].memory_id, deadline.id);
     assert.equal(remainingVectors[0].revision, changed.revision);
+    const correctedVector = snapshotLearnedVector(remainingVectors[0], { memory_id: deadline.id, revision: changed.revision,
+      statement: corrected, model: embeddingCorpus.model, dimensions: 256 });
     assert.equal((await options.sql('SELECT id FROM tk_jobs')).length, 0, 'Forgotten evidence must remove the shared extraction job payload');
     checks.push('revision-checked authoritative correction, graph-preview forgetting, fresh independent hybrid recall and export/vector/job cleanup');
     return { checks, queries: learnedQueries, extraction: { accepted: 2, model: 'nvidia/Nemotron-3_5-Lightning' },
+      vector_evidence: { original: originalVector, corrected: correctedVector },
       surviving_memory: { statement: corrected, revision: changed.revision, authoritative: true }, elapsed_ms: Math.round(performance.now() - started) };
   } finally {
     options.signal.removeEventListener('abort', abortClients);

@@ -7,6 +7,7 @@ export type ProviderObservation = {
   requested_model?: string; returned_model?: string; returned_model_matches?: boolean;
   request_sha256?: string; response_sha256?: string; input_count?: number; http_status?: number;
   finish_reason?: string; usage?: NumericTokenUsage;
+  embedding_fingerprints?: import('./embedding-fingerprints.mjs').EmbeddingFingerprints;
 };
 export function numericTokenUsage(value: unknown): NumericTokenUsage | undefined;
 export function summarizeProviderObservations(records: ProviderObservation[]): {
@@ -16,6 +17,7 @@ export function summarizeProviderObservations(records: ProviderObservation[]): {
 export type ProviderObserverOptions = {
   baseUrl?: string; baseUrls?: string[]; models?: string[]; limits?: Partial<Record<'models' | 'chat/completions' | 'embeddings', number>>;
   onRecord?: (record: ProviderObservation) => void;
+  embeddingFingerprints?: boolean;
 };
 export function providerObservationConfigFromEnv(env?: NodeJS.ProcessEnv): ProviderObserverOptions;
 export function installDirectProviderObserver(options?: ProviderObserverOptions): { records: ProviderObservation[]; errors: string[]; restore(): void };

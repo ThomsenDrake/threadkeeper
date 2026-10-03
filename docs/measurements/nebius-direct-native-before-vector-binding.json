@@ -1,9 +1,9 @@
 {
   "schema_version": "threadkeeper.direct-learned-lifecycle.v1",
-  "measured_at": "2026-10-03T20:09:52.765Z",
+  "measured_at": "2026-10-03T19:40:28.492Z",
   "source": {
-    "commit": "239f4a930c4e989007880085cc73bfae5503e76b",
-    "tree": "bce7ad80e898cdf7bc488ba009380e799299e01e",
+    "commit": "c1acceddafea82d7687ed633685f273ae0ab0960",
+    "tree": "d1525e8a843e5f3951ec35c8c4c74c2694681816",
     "files": {
       ".dockerignore": "2859d93561c69b21a54342bb8f5114e3f52aeb16f70576aa060b415601e82bee",
       ".env.example": "0d31a15c43007d835bc7fdd2813a725227423b95c5002fba5e6eb9cbc3434ce7",
@@ -26,20 +26,17 @@
       "deploy/deletion-ledger.ts": "84484ac342e0a49269e8e746ffef18a00d5f2590b7fff63690592cc97f2fb791",
       "deploy/demo.ts": "b37bacc7d8c11831b9f0b23443c55e65263f9ddc2ee8898a9dc41784db34bb25",
       "deploy/dev-demo.ts": "5839230bfac5d44aba255d30b0e852d3a34baf7be6d73b60e773083d6839f270",
-      "deploy/direct-provider-observer.d.mts": "a8d7597a8c915f23853f2cb0eaac00c538f74fdac5ae5c434ac8200ec2937f53",
-      "deploy/direct-provider-observer.mjs": "03addfb7eddd5f9a50db1f926721ad3200ed3f8605a4b614918f4fd1a02a0e2b",
+      "deploy/direct-provider-observer.d.mts": "f24b140a1aeaa3297a5a47d17bee9bb6fa76899767b484135f88b58e4749fb62",
+      "deploy/direct-provider-observer.mjs": "a96d1548b9c96f0ed7ec4539c67a4d529ffb5be2a29c29cabbaf7567665501c5",
       "deploy/direct-provider-preload.mjs": "710a95a31091087cff95ca0f71e2094610754facbb594264e422138921841ae6",
-      "deploy/embedding-fingerprints.d.mts": "93758c432d67361984eba8207c5ebd26ff605733f05508db720a8c35a7ad74cf",
-      "deploy/embedding-fingerprints.mjs": "e781f0357a87dbf482c628447046f913b09bbdf83ba623b56b414e6565b92c01",
       "deploy/installed-codex-check.ts": "5d8f0964c3e5fdb805b3b8c63b6d985ee76bf238213d37a7f524271a7a807f85",
       "deploy/integration/compose.yaml": "79d0ebfcbef8bc64c5b7ec3ad01273d8cb8b3e95092d28ffae7a5c5da952ffc2",
-      "deploy/integration/learned-assertions.ts": "0c4fb9ed484526371c39c76de2dcf15e7e3f1c53bf9560d628dd747ede33590a",
-      "deploy/integration/learned-compose.yaml": "e0dc06c489dd88f27da3964e19f51e6b9ec8e0573cf22f63c2e21d528861e1ec",
-      "deploy/integration/learned-execute.ts": "52fdfad5b74a71ab2d2400263f48de5542e67f66fbeeb6552d2683cae54aed8d",
+      "deploy/integration/learned-assertions.ts": "908d53f8d5f218a0b22a24b7d46345670de824b49d7a4cb6a4c3326564334c69",
+      "deploy/integration/learned-compose.yaml": "22bfc9c4219e18af1d6ab8c614b23c16746ea4a040892d1868e9ce2af5f863de",
+      "deploy/integration/learned-execute.ts": "fbd286b377f06e05859ad991c4b1e801ccbf6bb9723fc92830ec9c60065835dd",
       "deploy/integration/learned-run.ts": "80f559c1dfb20130a0db38ce78a1d58280a062d600400b0770ad4bdd46bb9410",
-      "deploy/integration/learned-scenarios.ts": "dac58ebf19c8e2442b02a2079b94e1d920e7884d203a86eee4691fdf9158311e",
-      "deploy/integration/learned-support.ts": "a06ec09dd3224b5e825c00d3ff40e69db2e1e80b259698325ca42a7e289fafdd",
-      "deploy/integration/learned-vector-evidence.ts": "77c2e8949946179b51bfd355900ca9177b190d0cd4fc9adcd7a706ea8187cbee",
+      "deploy/integration/learned-scenarios.ts": "660fa12022880c00ca52e7c1f84503e59ef7e30a922dbea3972c93e41a407a7f",
+      "deploy/integration/learned-support.ts": "9112728dd3b8dc7ed5da0f484143a3becbd7b8b2b022f8a4a8532418f2dd6e7b",
       "deploy/integration/provider-fixture.ts": "cc750099f49648468833c5be29f4f238b5c046eca649cef1051a6cccbf5ab802",
       "deploy/integration/run.ts": "0cf8fc036483396186f650141ea7e05d83d2dcc020e7573e46746293ab7f41b6",
       "deploy/integration/scenarios.ts": "5d49f62a6a880178b8efafb30fcb832aa08fdfccc79941631c4d81c437eff0d4",
@@ -92,9 +89,8 @@
       "tests/helpers.ts": "c33162b7da83542c72d79cd8badbb06173c95034b78a4d189cf5033a7d88535a",
       "tests/hybrid-fixtures.ts": "0c47ea61ef0fd043de5e8ec7fc3944537d790c9b7bda4629796dfdfce6f8946a",
       "tests/hybrid.test.ts": "2f718e2bc71d7f58455c2471bf9eb43d516a69b75d502ac1d8f255b8aa75b346",
-      "tests/learned-acceptance.test.ts": "cf7ec853636ae4da6a934f94780a72a14aa14f3c7ffe11547d7ffd6237a6b303",
-      "tests/learned-harness.test.ts": "e2c78b65789dfbf477ee0a21d0467fb781c4135b1da3033c1d7fd48dea3a5570",
-      "tests/learned-vector-evidence.test.ts": "4fec520ea0229c360884e4f0044f5dad2ed079b8601a7b1fb710fb636b70f098",
+      "tests/learned-acceptance.test.ts": "df7543c22a4a060a72e131e7120c9f50a8510b5db639723577eb24a3b59e27d6",
+      "tests/learned-harness.test.ts": "905cd7afb4e3c1f9d14d7ea17dbd37d97cb7aff1efd7dd50733b264b04b0952c",
       "tests/migrations.test.ts": "5accccc751b25f3dbdc5c132611cc75cd76aa8bbaae2567d1b4b7da5f8ab79e2",
       "tests/profile-scaling.test.ts": "9851b3aa99c82a500b41c07ac24a763fb3065c2006b30ef60a4ddbb35b945ed5",
       "tests/provider-evaluation.test.ts": "df34e35300cd4f568fe9bc59b75b6c311ad401b6719acbef5037cbf8d596fd31",
@@ -125,8 +121,7 @@
     "compose": "2.40.3",
     "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
     "pgvector": "0.8.7",
-    "application_build_image": "sha256:1c603d643931075e82ef6b5d2b6e28d84dc28b9c3c8918299cbb73e434d52bc1",
-    "application_image": "sha256:1c603d643931075e82ef6b5d2b6e28d84dc28b9c3c8918299cbb73e434d52bc1",
+    "application_image": "sha256:117a559b5ef9bfb3ec009240ca838ae6ee01c2449f3efc91f8f02abc5a72ec6b",
     "application_repository_digests": [],
     "database_image": "sha256:151aa1c2e849e7828ed8aef2183ae15f692cbe887d2f28921d8b44b26e154d7e",
     "database_repository_digests": [
@@ -155,57 +150,26 @@
     "accepted": 2,
     "model": "nvidia/Nemotron-3_5-Lightning"
   },
-  "vector_evidence": {
-    "original": {
-      "memory_id": "a8d7e35d-9765-4884-8561-ec86c33ca6c8",
-      "revision": 1,
-      "model": "Qwen/Qwen3-Embedding-8B",
-      "dimensions": 256,
-      "preprocessing_version": "raw-statement-unit-v1",
-      "input_sha256": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
-      "stored_vector_sha256": "28e527cdbb4f21b4fe082c027057b45e63b776a03cc98dfccc961184f49f9aea"
-    },
-    "corrected": {
-      "memory_id": "a8d7e35d-9765-4884-8561-ec86c33ca6c8",
-      "revision": 2,
-      "model": "Qwen/Qwen3-Embedding-8B",
-      "dimensions": 256,
-      "preprocessing_version": "raw-statement-unit-v1",
-      "input_sha256": "8b2e155ace3d2f7555c573fe14bbd5f8f6f2821b8d6f00cea4cf92eecf18775a",
-      "stored_vector_sha256": "93f7863c842ea09d45a5d98ec071bd131896c66db7be1c29b4abf3db85f6adde"
-    }
-  },
   "surviving_memory": {
     "statement": "The Lumen demo deadline is October 27, 2026.",
     "revision": 2,
     "authoritative": true
   },
-  "elapsed_ms": 14617,
+  "elapsed_ms": 15449,
   "provider_requests": [
     {
       "event": "direct_provider_request",
       "ordinal": 1,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:43.992Z",
+      "started_at": "2026-10-03T19:40:16.772Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "b6696b8f763175a1348a3ac14ef6cc8997f32abdc90b6566e558095255acf8a7",
-      "embedding_fingerprints": {
-        "preprocessing_version": "raw-statement-unit-v1",
-        "dimensions": 256,
-        "entries": [
-          {
-            "index": 0,
-            "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "847d882f3f57caa66ce76f161cc1a8c1b55f850c8496062597f6efd1e0071941"
-          }
-        ]
-      },
+      "response_sha256": "cfa02c9cd93a78002c4a2d9c99c4caa43bc6be44e08fed2f112d981c0e83d0e3",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -214,7 +178,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 1029,
+      "elapsed_ms": 833,
       "service": "api"
     },
     {
@@ -222,25 +186,14 @@
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:45.287Z",
+      "started_at": "2026-10-03T19:40:17.804Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "2038ddb3126295b121edfc60aeda76a6a2e949c8c239838c46f3d00fbfe84db7",
-      "embedding_fingerprints": {
-        "preprocessing_version": "raw-statement-unit-v1",
-        "dimensions": 256,
-        "entries": [
-          {
-            "index": 0,
-            "input_sha256": "706fcb6b830cbc392a4264fd792a34bed7795b658e10292dd87b7e26f41b7e64",
-            "stored_vector_sha256": "8b0e2dc5c33f305b6e6a515f3894b88a4933a3eb9083b1de7ba88e4216ff2bb8"
-          }
-        ]
-      },
+      "response_sha256": "ff1a0113f1e21adde9b865d5e31f57b76e83f6eee6576ff027847a31d36631d8",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -249,7 +202,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 366,
+      "elapsed_ms": 346,
       "service": "api"
     },
     {
@@ -257,25 +210,14 @@
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:47.264Z",
+      "started_at": "2026-10-03T19:40:20.001Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "166f800d9eae5980ff21a72d8a09c4d70a4970a86eb021c74db6cc706973f33e",
-      "embedding_fingerprints": {
-        "preprocessing_version": "raw-statement-unit-v1",
-        "dimensions": 256,
-        "entries": [
-          {
-            "index": 0,
-            "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "b984b8dfb04895ab952d2a1b543331fafa6ad9b7c1b422570fc183c3236e1728"
-          }
-        ]
-      },
+      "response_sha256": "f77c5056148cc826df5b1cd70b4510d899d8a2c66dcdc44bda4b651bdd0c655e",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -284,7 +226,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 390,
+      "elapsed_ms": 449,
       "service": "api"
     },
     {
@@ -292,25 +234,14 @@
       "ordinal": 4,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:47.697Z",
+      "started_at": "2026-10-03T19:40:20.464Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "314120119255d42ea06ec97490c83b30a7df2f78ec1cee65e6444613b390df07",
-      "embedding_fingerprints": {
-        "preprocessing_version": "raw-statement-unit-v1",
-        "dimensions": 256,
-        "entries": [
-          {
-            "index": 0,
-            "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "aba95e857b4a309daf1deb21ccb0fd53ce3602aff2277fad5f9bc3839675bfe5"
-          }
-        ]
-      },
+      "response_sha256": "38c4bcbb75d353d73ac2a962a423f1601b5d75735c3602575e69f1e3bb19a355",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -319,7 +250,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 2400,
+      "elapsed_ms": 2938,
       "service": "api"
     },
     {
@@ -327,25 +258,14 @@
       "ordinal": 5,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:50.110Z",
+      "started_at": "2026-10-03T19:40:23.429Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "c5e6a46a40f3563d60e1f81970517d281cf1ee8e48719fc2768ec802fd98f7ed",
-      "embedding_fingerprints": {
-        "preprocessing_version": "raw-statement-unit-v1",
-        "dimensions": 256,
-        "entries": [
-          {
-            "index": 0,
-            "input_sha256": "706fcb6b830cbc392a4264fd792a34bed7795b658e10292dd87b7e26f41b7e64",
-            "stored_vector_sha256": "18dab609a7f348c88d03ed789f5a6dc927953c2185a05df319cbefced667fa4d"
-          }
-        ]
-      },
+      "response_sha256": "aebbf9254b39e950e6ac0f2698741bbec1b24dfe6f3024e450e769afb59c356b",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -354,7 +274,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 2224,
+      "elapsed_ms": 4598,
       "service": "api"
     },
     {
@@ -362,26 +282,26 @@
       "ordinal": 1,
       "path": "chat/completions",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:39.719Z",
+      "started_at": "2026-10-03T19:40:14.040Z",
       "sent": true,
       "requested_model": "nvidia/Nemotron-3_5-Lightning",
-      "request_sha256": "d46ed9dd00946975787007587b744716e57d58232c71ebd43dc89ebc49b5c4eb",
+      "request_sha256": "4e94764bd6c489f9788866fb6f304e9ba2a2ea0e1c31610f4add4debd38f4aad",
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "7580689737de47e20d7684e9e13fd32f7e891e2c77672627d84c41624feaa3b1",
+      "response_sha256": "5c5932d29696e63f95e6a233224fab1b96d16c0572400490e36654b719b8e518",
       "returned_model_matches": true,
       "returned_model": "nvidia/Nemotron-3_5-Lightning",
       "usage": {
         "completion_tokens": 149,
-        "prompt_tokens": 1583,
-        "total_tokens": 1732,
+        "prompt_tokens": 1581,
+        "total_tokens": 1730,
         "completion_tokens_details": {
           "reasoning_tokens": 0
         }
       },
       "finish_reason": "stop",
       "usage_status": "reported",
-      "elapsed_ms": 2830,
+      "elapsed_ms": 1517,
       "service": "worker"
     },
     {
@@ -389,30 +309,14 @@
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:42.571Z",
+      "started_at": "2026-10-03T19:40:15.585Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
-      "request_sha256": "48a0dd4c45eb093f8985e437fffba5252a0aacc0490b727b0f12c495f20fc07f",
+      "request_sha256": "6b9816358ce1e2487ed8be4442ceb3ad7ccb871b3a2f5f0e4508cb7eae9213d5",
       "input_count": 2,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "a311aca22b7c5e07f9baf6b530ed16d7882bfd305c39156ffe4cd0f3e526982a",
-      "embedding_fingerprints": {
-        "preprocessing_version": "raw-statement-unit-v1",
-        "dimensions": 256,
-        "entries": [
-          {
-            "index": 0,
-            "input_sha256": "62ff7796da575e87e172ba08a89325629486c4fc2bc4a5964a1665a904525a09",
-            "stored_vector_sha256": "1ee576f3d0e6867f24971f595a9d8caf73a0f49149492f673806af7c37515962"
-          },
-          {
-            "index": 1,
-            "input_sha256": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
-            "stored_vector_sha256": "28e527cdbb4f21b4fe082c027057b45e63b776a03cc98dfccc961184f49f9aea"
-          }
-        ]
-      },
+      "response_sha256": "a0b6bb32c4cbd7e02bcf99110827c432c8b7d9c2adea504346c43d7543854763",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -421,7 +325,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 935,
+      "elapsed_ms": 955,
       "service": "worker"
     },
     {
@@ -429,25 +333,14 @@
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T20:09:46.550Z",
+      "started_at": "2026-10-03T19:40:18.577Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b83ae344d3ca84b892d10b6224c0171056b6ef2a8339c0172a99fcc292624a2a",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "d3040b8430abbc75380fc6b084e996821b587ae3eff2c2452734fdd580701f40",
-      "embedding_fingerprints": {
-        "preprocessing_version": "raw-statement-unit-v1",
-        "dimensions": 256,
-        "entries": [
-          {
-            "index": 0,
-            "input_sha256": "8b2e155ace3d2f7555c573fe14bbd5f8f6f2821b8d6f00cea4cf92eecf18775a",
-            "stored_vector_sha256": "93f7863c842ea09d45a5d98ec071bd131896c66db7be1c29b4abf3db85f6adde"
-          }
-        ]
-      },
+      "response_sha256": "6e1c843c450264cae2218feabd03c4dcb6d4eebfb5ab7edd11e104c2e23ca65b",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -456,7 +349,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 324,
+      "elapsed_ms": 1099,
       "service": "worker"
     }
   ],
@@ -469,24 +362,13 @@
     "inference_requests_without_complete_usage": 0,
     "derived_total_tokens_request_count": 0,
     "usage": {
-      "prompt_tokens": 1677,
-      "total_tokens": 1826,
+      "prompt_tokens": 1675,
+      "total_tokens": 1824,
       "completion_tokens": 149,
       "completion_tokens_details": {
         "reasoning_tokens": 0
       }
     }
-  },
-  "vector_observation_binding": {
-    "original": {
-      "ordinal": 2,
-      "index": 1
-    },
-    "corrected": {
-      "ordinal": 3,
-      "index": 0
-    },
-    "normalized_vector_changed": true
   },
   "provider_request_count": 8,
   "cleanup": true,

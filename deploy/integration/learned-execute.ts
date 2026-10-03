@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { rm, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { runLearnedScenarios } from './learned-scenarios.ts';
-import { inspectLearnedContainerImage, parseLearnedObservations, reserveEvidence, settleLearnedCleanup, verifyLearnedObservations, verifyLearnedSnapshot, type LearnedObservation } from './learned-support.ts';
+import { verifyLearnedVectorEvidence } from './learned-vector-evidence.ts';
+import { inspectLearnedContainerImage, parseLearnedObservations, reserveEvidence, settleLearnedCleanup, verifyLearnedApplicationImages, verifyLearnedObservations, verifyLearnedSnapshot, type LearnedObservation } from './learned-support.ts';
 
 export async function runLearnedLifecycle(options: {
   root: string; directory: string; output: string; cancellation: AbortController;
@@ -20,10 +21,9 @@ for (const name of ['DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_V
 for (const name of Object.keys(dockerEnv)) if (/^(MODEL_|EMBEDDING_|POSTGRES_|BOOTSTRAP_|APP_ORIGIN$|COOKIE_SECURE$|WORKER_POLL_MS$|COMPOSE_|THREADKEEPER_)/.test(name)) delete dockerEnv[name];
 const secrets = [process.env.NEBIUS_API_KEY];
 const redact = (value: string) => secrets.reduce((text, secret) => text.replaceAll(secret, '[redacted]'), value);
-let cleaning = false;
 let stopCommand: (() => void) | undefined;
 let evidence: Awaited<ReturnType<typeof reserveEvidence>> | undefined;
-const interrupt = () => { process.exitCode = 1; cancellation.abort(); if (!cleaning) stopCommand?.(); };
+const interrupt = () => { process.exitCode = 1; cancellation.abort(); stopCommand?.(); };
 process.on('SIGINT', interrupt);
 process.on('SIGTERM', interrupt);
 process.stdout.on('error', interrupt);
@@ -87,10 +87,13 @@ try {
   console.info(`Direct learned native lifecycle: ${project}; exact Nemotron + Qwen 256; synthetic context only.`);
   const engine = await docker(['info', '--format', '{{.ServerVersion}}']);
   const composeVersion = await docker(['compose', 'version', '--short']);
-  const build = ['build', '--tag', image, '--file', 'deploy/Dockerfile'];
+  const imageIdentityFile = resolve(directory, 'application.iid');
+  const build = ['build', '--tag', image, '--iidfile', imageIdentityFile, '--file', 'deploy/Dockerfile'];
   if (process.env.CODEX_PROXY_CERT) build.push('--secret', `id=proxy_ca,src=${process.env.CODEX_PROXY_CERT}`);
   console.info('Building disposable application image.');
   await docker([...build, '.'], { timeout: 600_000 });
+  const builtImage = (await readFile(imageIdentityFile, 'utf8')).trim();
+  assert.match(builtImage, /^sha256:[0-9a-f]{64}$/, 'Build omitted its immutable image identity');
   console.info('Starting isolated PostgreSQL, API and learned-provider worker.');
   await compose(['up', '--detach', '--no-build', '--wait', '--wait-timeout', '120'], { timeout: 150_000 });
   const sql = async (query: string): Promise<any[]> => JSON.parse(await compose(['exec', '-T', 'postgres', 'psql', '-U', 'threadkeeper', '-d', 'threadkeeper', '-v', 'ON_ERROR_STOP=1', '-Atq'], {
@@ -99,7 +102,7 @@ try {
   const versions = (await sql("SELECT current_setting('server_version') AS postgres, (SELECT extversion FROM pg_extension WHERE extname='vector') AS pgvector"))[0];
   const appImage = await inspectLearnedContainerImage('api', compose, docker);
   const workerImage = await inspectLearnedContainerImage('worker', compose, docker);
-  assert.equal(workerImage.image, appImage.image, 'API and worker must run the same application image');
+  verifyLearnedApplicationImages(builtImage, appImage.image, workerImage.image);
   const dbImage = await inspectLearnedContainerImage('postgres', compose, docker);
   const runtimeNode = await compose(['exec', '-T', 'api', 'node', '--version']);
   const runtimePnpm = await compose(['exec', '-T', 'api', 'pnpm', '--version']);
@@ -111,7 +114,7 @@ try {
       transport: 'application_api_and_worker_direct_nebius_https_no_relay', synthetic_only: true,
       configuration: { model: 'nvidia/Nemotron-3_5-Lightning', base_url: 'https://api.tokenfactory.nebius.com/v1/', reasoning_effort: 'none', embedding_model: 'Qwen/Qwen3-Embedding-8B', embedding_dimensions: 256 },
       runtime: { host_node: process.versions.node, node: runtimeNode, pnpm: runtimePnpm, docker: engine, compose: composeVersion, ...versions,
-        application_image: appImage.image, application_repository_digests: appImage.repository_digests,
+        application_build_image: builtImage, application_image: appImage.image, application_repository_digests: appImage.repository_digests,
         database_image: dbImage.image, database_repository_digests: dbImage.repository_digests },
       ...flow,
     };
@@ -124,7 +127,6 @@ try {
   console.error(error instanceof assert.AssertionError || (error instanceof Error && /^(docker |Timed out:)/.test(error.message))
     ? `FAIL: ${redact(error.message)}` : 'FAIL: direct learned lifecycle or disposable runtime failed');
 } finally {
-  cleaning = true;
   const steps: Array<() => Promise<unknown>> = [];
   if (composeArgs) {
     steps.push(() => compose(['stop', '--timeout', '10', 'api', 'worker'], { cleanup: true }));
@@ -155,6 +157,7 @@ if (result && !failure && !cancellation.signal.aborted) {
   try {
     result.provider_requests = observations;
     result.provider_usage = verifyLearnedObservations(observations);
+    result.vector_observation_binding = verifyLearnedVectorEvidence(result.vector_evidence, observations);
     result.provider_request_count = observations.length;
     result.cleanup = cleanupPassed;
     result.result = 'PASS';

@@ -8,15 +8,34 @@ import { summarizeProviderObservations, type ProviderObservation } from '../dire
 /** Reserve before any billable work. Never unlink another process's replacement. */
 export async function reserveEvidence(path: string) {
   const destination = resolve(path);
-  const file = await open(destination, 'wx', 0o600);
+  const file = await open(destination, 'wx+', 0o600);
   const identity = await file.stat();
   const same = (stat: { dev: number; ino: number }) => stat.dev === identity.dev && stat.ino === identity.ino;
   return {
     async publish(serialized: string, signal: AbortSignal) {
       signal.throwIfAborted();
       assert(same(await lstat(destination)), 'Evidence reservation was replaced');
-      await file.writeFile(serialized);
+      const expected = Buffer.from(serialized);
+      await file.truncate(0);
+      let written = 0;
+      while (written < expected.length) {
+        const { bytesWritten } = await file.write(expected, written, expected.length - written, written);
+        assert(bytesWritten > 0, 'Evidence publication did not advance');
+        written += bytesWritten;
+      }
+      await file.truncate(expected.length);
       await file.sync();
+      signal.throwIfAborted();
+      assert(same(await lstat(destination)), 'Evidence reservation was replaced');
+      const actual = Buffer.alloc(expected.length + 1);
+      let read = 0;
+      while (read < actual.length) {
+        const { bytesRead } = await file.read(actual, read, actual.length - read, read);
+        if (!bytesRead) break;
+        read += bytesRead;
+      }
+      assert.equal((await file.stat()).size, expected.length, 'Evidence publication length changed');
+      assert.deepEqual(actual.subarray(0, read), expected, 'Evidence publication bytes changed');
       signal.throwIfAborted();
       assert(same(await lstat(destination)), 'Evidence reservation was replaced');
     },
@@ -50,6 +69,40 @@ export async function inspectLearnedContainerImage(service: string, compose: (ar
   return { image, repository_digests: digests as string[] };
 }
 
+export function verifyLearnedApplicationImages(builtImage: string, apiImage: string, workerImage: string) {
+  assert.match(builtImage, /^sha256:[0-9a-f]{64}$/, 'Build omitted its immutable image identity');
+  assert.equal(apiImage, builtImage, 'API image differs from the recorded archive build');
+  assert.equal(workerImage, builtImage, 'Worker image differs from the recorded archive build');
+}
+
+function verifyUsageTotals(item: ProviderObservation) {
+  const usage = item.usage;
+  if (!usage) return;
+  const count = (name: string) => {
+    const value = usage[name];
+    if (value !== undefined) assert(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0, 'Provider token count must be a nonnegative safe integer');
+    return value as number | undefined;
+  };
+  const total = count('total_tokens');
+  const prompt = count('prompt_tokens'), completion = count('completion_tokens');
+  const input = count('input_tokens'), output = count('output_tokens');
+  if (prompt !== undefined && input !== undefined) assert.equal(prompt, input, 'Provider input token counts contradict each other');
+  if (completion !== undefined && output !== undefined) assert.equal(completion, output, 'Provider output token counts contradict each other');
+  for (const [before, after] of [[prompt, completion], [input, output]]) {
+    if (before !== undefined && after !== undefined) assert(Number.isSafeInteger(before + after), 'Provider token component sum is unsafe');
+    if (item.path === 'embeddings') {
+      assert(after === undefined || after === 0, 'Embedding usage unexpectedly reports generated completion tokens');
+      if (total !== undefined && before !== undefined) assert.equal(total, before, 'Embedding total contradicts input tokens');
+    } else if (total !== undefined) {
+      if (before !== undefined && after !== undefined) assert.equal(total, before + after, 'Provider total contradicts token components');
+      else {
+        if (before !== undefined) assert(total >= before, 'Provider total is smaller than input tokens');
+        if (after !== undefined) assert(total >= after, 'Provider total is smaller than output tokens');
+      }
+    }
+  }
+}
+
 export type LearnedObservation = ProviderObservation & { service: 'api' | 'worker' };
 export function parseLearnedObservations(logs: string, service: LearnedObservation['service']): LearnedObservation[] {
   return logs.split('\n').flatMap(line => {
@@ -66,6 +119,7 @@ export function verifyLearnedObservations(observations: LearnedObservation[]) {
     const expected = item.path === 'chat/completions' ? 'nvidia/Nemotron-3_5-Lightning' : 'Qwen/Qwen3-Embedding-8B';
     assert.equal(item.requested_model, expected, 'Unexpected requested provider model');
     assert.equal(item.returned_model_matches, true, 'Provider returned model identity was not verified');
+    verifyUsageTotals(item);
   }
   const api = observations.filter(item => item.service === 'api');
   const worker = observations.filter(item => item.service === 'worker');
