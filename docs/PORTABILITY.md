@@ -1,8 +1,8 @@
 # Portability and operations
 
-## Export v1
+## Export v2 and legacy v1 import
 
-The owner profile downloads JSON with `schema_version:"threadkeeper.export.v1"` and:
+The owner profile downloads JSON with `schema_version:"threadkeeper.export.v2"` and:
 
 | Field | Contents |
 | --- | --- |
@@ -10,12 +10,16 @@ The owner profile downloads JSON with `schema_version:"threadkeeper.export.v1"` 
 | `sources` | Stable source/event/client identifiers, scope, original text and author/origin/capture labels, dates, checksum and extraction block state |
 | `memories` | Remaining current records, kind, scope, origin/status, revision, authority, dates and extractor identity |
 | `evidence` | Exact quotations linking source IDs to individual memory revisions |
-| `revisions` | Remaining memory correction history and editor-client identifiers |
+| `revisions` | Statement, kind, attribution, status, effective date, provider and editor for each revision |
 | `tombstones` | Non-content deletion identities/hashes and deletion dates |
 
 The export excludes credentials, sessions, passwords, client grants, jobs and embedding indexes. A client ID in provenance is historical metadata, not an active access grant. Embeddings are rebuildable. The optional worker or `pnpm reindex` regenerates current embeddings after import using the destination embedding configuration. Full-text retrieval is immediately available.
 
 ## Import behavior
+
+Current exports require a kind on every revision and use `threadkeeper.export.v2`. Older application versions do not understand v2; upgrade the destination before importing. Do not strip revision kinds or relabel a v2 file as v1: that would discard the owner's classification history.
+
+The importer also accepts the original strict `threadkeeper.export.v1` format, whose revisions contain no kind. Before kind correction existed, a memory's kind never changed; the importer therefore assigns its recorded memory kind to each legacy revision. That normalization happens only for v1. V2 rejects missing revision kinds, and both formats must match current records and any already stored history. Reimporting an older v1 snapshot cannot undo a subsequent kind correction. Missing legacy provider identities remain unknown until a compatible import supplies them.
 
 Import through the signed-in owner's Portability screen or `POST /api/import`. The authenticated destination owner becomes the owner; imported provenance keeps its original IDs. The server validates schema version, duplicates, checksums, quotations, attribution, scopes, revision sequences and authoritative correction/confirmation evidence in a transaction. Confirmed and dismissed candidate histories remain distinct from their original model interpretations. Revision provider identities are optional in older v1 bundles; missing identities remain unknown, rather than being reconstructed. Active inferred/proposed records cannot bypass explicit confirmation through import.
 
@@ -25,7 +29,7 @@ Fresh-database synthetic round-trip assertions preserve remaining sources, evide
 
 ## Correction and deletion limits
 
-Corrections preserve prior revisions as superseded history, add direct user correction evidence and block old supporting sources from extraction. Current retrieval returns the corrected revision. The current reconciliation prevents exact obsolete statements from being reintroduced; robust semantic conflict detection is incomplete.
+Corrections can change the statement, kind and effective date. Omitted kind/effective date retains its current value. Candidate edit-and-confirm supports the same fields; plain confirmation retains them and dismissal cannot change them. Each accepted change creates a revision, even when only kind changes. Prior statements, kinds and provider identities remain in superseded history; the owner supplies separate correction/confirmation evidence and old supporting sources are blocked from extraction. No model approval is required. The original admission identity remains stable across correction and export/import. Revision changes invalidate vectors and indexing attempts before fresh indexing; reclassifying content cannot bypass deletion tombstones. Current retrieval returns the corrected revision. The current reconciliation prevents exact obsolete statements from being reintroduced; robust semantic conflict detection is incomplete.
 
 Forgetting starts with an owner-only preview of the complete removal impact. Memory confirmation requires its observed revision and the preview hash; source confirmation requires the preview hash. The server recomputes the graph under the owner lock and rejects a changed impact with HTTP 409 before creating tombstones or deleting anything. The hash binds the owner, target, source content/identities, current memories, complete revisions/evidence and affected job membership. Unrelated owner changes and transient job progress do not invalidate an unchanged impact.
 
@@ -106,6 +110,8 @@ NVIDIA's published Lightning recipes provide a starting point; no local GPU reci
 ## Supported upgrades
 
 SQL setup now has a checksum migration ledger (`tk_schema_migrations`). Under one transaction and advisory lock, the runner adopts the existing rerunnable setup once, then applies only pending ordered scripts. A changed recorded script, missing intermediate ledger entry or unknown future migration fails startup. Historical scripts remain unchanged; ship a new numbered migration for a schema change. Optional pgvector must be available when its initial setup runs; install it before the first migration, or use a fresh vector-enabled destination for portable import.
+
+Migration `008_revision_kind.sql` backfills earlier revision kinds from the memory because prior application versions kept kind immutable. It preserves known revision kinds on rerun. New writes require revision kinds, so older binaries are not compatible with this upgraded schema.
 
 Before upgrading, stop API/worker, retain a consistent backup and a current deletion ledger, and exercise the new revision on an isolated copy with the restore procedure above. Then run the same migration command against the intended stopped installation:
 
