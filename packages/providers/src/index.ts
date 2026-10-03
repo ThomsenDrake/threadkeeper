@@ -231,6 +231,31 @@ effective_at means when a fact or preference STARTS being true. It is not a due 
 Final content check: omit dialogue-only records, including rephrasings such as "The user asked about the risks" or "The user wants to know whether that is easier". Describing the act of asking does not turn a question into a durable fact. When an assistant proposal is followed only by a clarification question, return the assistant proposal alone; do not create a user fact from the question. Preserve an explicit date-only start in the statement even though effective_at must be null, so the interpretation does not lose when the preference starts.
 Do not include markdown, thinking, commentary, tools, or any properties outside the supplied output schema.`;
 
+const FULL_EFFECTIVE_TIMESTAMP = String.raw`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})`;
+const LITERAL_EFFECTIVE_PREFIX = new RegExp(String.raw`^(?:Starting|Effective)\s+(?:at|from)\s+(${FULL_EFFECTIVE_TIMESTAMP}),\s+(.+)$`, 'i');
+
+function omittedLiteralEffectiveTime(memory: ExplicitMemory, source: SourceEvent, origin: ExplicitMemory['origin']): boolean {
+  if (memory.effective_at || source.author_role !== 'user'
+    || !['user_explicit', 'user_confirmed'].includes(source.origin)
+    || !['user_explicit', 'user_confirmed'].includes(origin)) return false;
+  const quote = memory.quote.trim();
+  // A substring can hide surrounding negation, quotation or hypothetical text.
+  // This deliberately narrow check requires the complete source event.
+  if (quote !== source.text.trim() || /[\r\n]/.test(quote)) return false;
+  const match = LITERAL_EFFECTIVE_PREFIX.exec(quote);
+  if (!match || !ExplicitMemorySchema.shape.effective_at.safeParse(match[1]).success
+    || quote.match(new RegExp(FULL_EFFECTIVE_TIMESTAMP, 'g'))?.length !== 1) return false;
+  const assertion = (value: string) => value.trim().replace(/\.$/, '').trimEnd();
+  const remainder = assertion(match[2]);
+  // Do not assign a qualifier to one part of a compound, a deadline, or an
+  // ambiguous clause. Paraphrases and unsupported wording remain unclassified.
+  if (!remainder || /[.!?;,:()[\]{}"'`“”‘’&|/]/.test(remainder)
+    || /\b(?:and|or|but|plus|then|if|when|unless|until|before|after|except|although|while|because|assuming|maybe|perhaps|may|would|could|might|should|not|never|no|due|deadline|expires?|ends?|ending)\b/i.test(remainder)) return false;
+  // Exact literal agreement establishes which assertion lost the qualifier.
+  // Reject omission for bounded repair; never manufacture the timestamp value.
+  return remainder === assertion(memory.statement);
+}
+
 function parseExtraction(content: string, input: ExtractionInput): ExplicitMemory[] {
   let object: unknown;
   try { object = JSON.parse(content); } catch { throw new ProviderError('extraction_invalid_json'); }
@@ -266,6 +291,7 @@ function parseExtraction(content: string, input: ExtractionInput): ExplicitMemor
         origin = source.origin;
       }
     }
+    if (omittedLiteralEffectiveTime(memory, source, origin)) throw new ProviderError('extraction_missing_effective_timestamp');
     return { ...memory, origin };
   });
 }

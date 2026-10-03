@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { ExplicitMemory, SourceEvent } from '../packages/contracts/src/index.ts';
 import {
   OpenAICompatibleEmbeddingProvider,
   OpenAICompatibleProvider,
@@ -184,6 +185,104 @@ test('date-only or invented effective timestamps require repair instead of admis
   await withFakeEndpoint(async (baseUrl) => {
     await assert.rejects(new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [event] }), error => error instanceof ProviderError && error.code === 'extraction_unsupported_effective_timestamp');
   }, [completion(JSON.stringify({ memories: [{ ...memory, effective_at: '2026-10-20T00:00:00Z' }] }))]);
+});
+
+test('literal direct-user start qualifiers missing their timestamp receive one repair without automatic assignment', async () => {
+  for (const sample of [
+    { prefix: 'Starting at', timestamp: '2032-03-04T05:06:07Z', statement: 'I work remotely on Tuesdays.', kind: 'fact' as const, origin: 'user_explicit' as const },
+    { prefix: 'Starting from', timestamp: '2035-12-08T09:10:11-03:00', statement: 'I use the west entrance.', kind: 'fact' as const, origin: 'user_explicit' as const },
+    { prefix: 'Effective from', timestamp: '2034-06-18T08:30:00.125+02:00', statement: 'I prefer morning briefings.', kind: 'preference' as const, origin: 'user_confirmed' as const },
+  ]) {
+    const source: SourceEvent = { ...event, origin: sample.origin, text: `${sample.prefix} ${sample.timestamp}, ${sample.statement}` };
+    const candidate = { ...memory, statement: sample.statement, kind: sample.kind, origin: sample.origin, quote: source.text };
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+      assert.equal(requests.length, 2, 'A missing field must cause repair, never silent timestamp assignment.');
+      assert.equal(result.memories[0].effective_at, sample.timestamp);
+      assert.equal(result.memories[0].origin, sample.origin);
+      assert.equal(result.memories[0].quote, source.text);
+      assert.equal(result.memories[0].statement, sample.statement);
+      assert.equal(requests[1].body.response_format, undefined);
+      const repair = (requests[1].body.messages as Array<{ content: string }>).at(-1)!.content;
+      assert(repair.includes('extraction_missing_effective_timestamp'));
+      assert(!repair.includes(sample.timestamp), 'Repair diagnostics must not copy source content.');
+      assert.deepEqual(result.usage, { prompt_tokens: 20, completion_tokens: 40, total_tokens: 60 });
+    }, [completion(JSON.stringify({ memories: [candidate] })), completion(JSON.stringify({ memories: [{ ...candidate, effective_at: sample.timestamp }] }))]);
+  }
+});
+
+test('repeated literal effective-time omissions reject the whole extraction after two attempts', async () => {
+  const timestamp = '2033-09-12T14:15:16-04:00';
+  const source = { ...event, id: 'timed-source', text: `Effective at ${timestamp}, I use the north office.` };
+  const candidate = { ...memory, source_event_id: source.id, statement: '  I use the north office  ', kind: 'fact', quote: source.text };
+  const snapshot = structuredClone(source);
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    await assert.rejects(new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [event, source] }), error => {
+      assert(error instanceof ProviderError);
+      assert.equal(error.code, 'extraction_missing_effective_timestamp');
+      assert.equal(error.message, 'extraction_missing_effective_timestamp');
+      return true;
+    });
+    assert.equal(requests.length, 2, 'The existing two-attempt limit applies to repeated omission.');
+    assert.deepEqual(source, snapshot, 'Source evidence remains unchanged after failed extraction.');
+  }, [completion(JSON.stringify({ memories: [memory, candidate] }))]);
+});
+
+test('supplied literal effective timestamps and source attribution remain unchanged', async () => {
+  for (const prefix of ['Starting from', 'Effective at']) {
+    const timestamp = '2031-08-09T10:11:12+05:30';
+    const source = { ...event, text: `${prefix} ${timestamp}, I prefer quiet mornings.` };
+    const candidate = { ...memory, statement: 'I prefer quiet mornings.', quote: source.text, effective_at: timestamp, origin: 'user_confirmed' };
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+      assert.equal(requests.length, 1);
+      assert.equal(result.memories[0].effective_at, timestamp);
+      assert.equal(result.memories[0].origin, 'user_explicit', 'The model cannot turn a source statement into user confirmation.');
+    }, [completion(JSON.stringify({ memories: [candidate] }))]);
+  }
+});
+
+test('literal effective-time validation skips ambiguous associations and preserves unknown dates', async () => {
+  const timestamp = '2032-03-04T05:06:07Z';
+  const statement = 'I prefer morning briefings.';
+  const qualified = `Starting at ${timestamp}, ${statement}`;
+  const cases: Array<{ name: string; text: string; statement: string; quote?: string; source?: Partial<SourceEvent>; origin?: ExplicitMemory['origin'] }> = [
+    { name: 'paraphrase', text: qualified, statement: 'Prefers morning briefings.' },
+    { name: 'interior whitespace difference', text: qualified.replace('morning briefings', 'morning  briefings'), statement },
+    { name: 'retained statement qualifier', text: qualified, statement: qualified },
+    { name: 'hidden negative example context', text: `Do not use this example: ${qualified}`, quote: qualified, statement },
+    { name: 'hidden hypothetical context', text: `If approved, the draft says: ${qualified}`, quote: qualified, statement },
+    { name: 'date-only start', text: `Starting on March 4, 2032, ${statement}`, statement },
+    { name: 'timezone omitted', text: `Starting at 2032-03-04T05:06:07, ${statement}`, statement },
+    { name: 'invalid calendar date', text: `Starting at 2032-02-31T05:06:07Z, ${statement}`, statement },
+    { name: 'deadline', text: `The review is due at ${timestamp}.`, statement: `The review is due at ${timestamp}.` },
+    { name: 'qualified deadline', text: `Starting at ${timestamp}, The review deadline is Friday.`, statement: 'The review deadline is Friday.' },
+    { name: 'unrelated compound assertion', text: `${qualified} The review deadline is Friday.`, statement: 'The review deadline is Friday.' },
+    { name: 'multiple sentences', text: `${qualified} I work remotely.`, statement: `${statement} I work remotely.` },
+    { name: 'conjoined assertions', text: `Starting at ${timestamp}, I prefer morning briefings and I work remotely.`, statement: 'I prefer morning briefings and I work remotely.' },
+    { name: 'semicolon', text: `Starting at ${timestamp}, I prefer morning briefings; I work remotely.`, statement: 'I prefer morning briefings; I work remotely.' },
+    { name: 'conditional', text: `Starting at ${timestamp}, if approved I prefer morning briefings.`, statement: 'if approved I prefer morning briefings.' },
+    { name: 'negation', text: `Starting at ${timestamp}, I do not prefer morning briefings.`, statement: 'I do not prefer morning briefings.' },
+    { name: 'modal', text: `Starting at ${timestamp}, I might prefer morning briefings.`, statement: 'I might prefer morning briefings.' },
+    { name: 'tentative permission', text: `Starting at ${timestamp}, I may prefer morning briefings.`, statement: 'I may prefer morning briefings.' },
+    { name: 'quoted assertion', text: `Starting at ${timestamp}, \`I prefer morning briefings.\``, statement: '`I prefer morning briefings.`' },
+    { name: 'multiple timestamps', text: `Starting at ${timestamp}, I prefer briefings until 2033-03-04T05:06:07Z.`, statement: 'I prefer briefings until 2033-03-04T05:06:07Z.' },
+    { name: 'multiline', text: `Starting at ${timestamp},\n${statement}`, statement },
+    { name: 'assistant source', text: qualified, statement, source: { author_role: 'assistant', origin: 'assistant_proposed' } },
+    { name: 'agent report', text: qualified, statement, source: { author_role: 'assistant', origin: 'agent_reported' } },
+    { name: 'inferred interpretation', text: qualified, statement, origin: 'inferred' },
+  ];
+  for (const sample of cases) {
+    const source: SourceEvent = { ...event, ...sample.source, text: sample.text };
+    const candidate = { ...memory, statement: sample.statement, quote: sample.quote ?? source.text, origin: sample.origin ?? 'user_explicit' };
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+      assert.equal(requests.length, 1, sample.name);
+      assert.equal(result.memories[0].effective_at, undefined, sample.name);
+      assert.equal(result.memories[0].statement, sample.statement, sample.name);
+      assert.equal(result.memories[0].quote, candidate.quote, sample.name);
+    }, [completion(JSON.stringify({ memories: [candidate] }))]);
+  }
 });
 
 test('embedding vectors are validated, ordered by response indices, and dimension changes fail', async () => {
