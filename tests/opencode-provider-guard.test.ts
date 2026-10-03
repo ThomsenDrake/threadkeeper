@@ -145,6 +145,15 @@ test('OpenCode stream evidence preserves malformed usage and model contradiction
     sse({ input_tokens: 10, output_tokens: 5, total_tokens: 14 }),
     sse({ prompt_tokens: 15, total_tokens: 14 }),
     sse({ output_tokens: 15, total_tokens: 14 }),
+    sse({ prompt_tokens: 10, output_tokens: 5, total_tokens: 14 }),
+    sse({ input_tokens: 10, completion_tokens: 5, total_tokens: 14 }),
+    sse({ prompt_tokens: 10, completion_tokens: 5, total_tokens: 15,
+      completion_tokens_details: { reasoning_tokens: 99 } }),
+    sse({ total_tokens: 14, completion_tokens_details: { reasoning_tokens: 15 } }),
+    sse({ ...usage, output_tokens_details: { audio_tokens: 5 } }),
+    sse({ ...usage, input_tokens_details: { cached_tokens: 11 } }),
+    sse({ ...usage, prompt_tokens_details: { audio_tokens: 11 } }),
+    sse({ ...usage, completion_tokens_details: { prompt_tokens_details: { audio_tokens: 5 } } }),
     sse({ ...usage, completion_tokens_details: { reasoning_tokens: 'sensitive-value' } }),
     payload({ model, usage: { ...usage, prompt_tokens: null } }) + sse(),
     payload({ model, usage: { ...usage, prompt_tokens: 11, total_tokens: 15 } }) + sse(),
@@ -163,6 +172,34 @@ test('OpenCode stream evidence preserves malformed usage and model contradiction
       else assert.equal(records.at(-1)?.usage_invalid, true);
     } finally { await h.close(); }
   }
+});
+
+test('shared strict chat usage predicate bounds every recognized detail independently and reconciles count families', () => {
+  const complete = OpenCodeProviderGuard.usageIsComplete;
+  const base = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 };
+  assert.equal(complete(base), true);
+  assert.equal(complete({ ...base, input_tokens: 10, output_tokens: 5 }), true);
+  assert.equal(complete({ ...base, completion_tokens_details: { reasoning_tokens: 4, audio_tokens: 4 } }), true,
+    'overlapping detail categories must not be summed');
+  assert.equal(complete({ ...base, prompt_tokens_details: null,
+    completion_tokens_details: { reasoning_tokens: null, audio_tokens: 5 } }), true);
+  const counts = ['prompt_tokens', 'completion_tokens', 'total_tokens', 'input_tokens', 'output_tokens',
+    'cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens'];
+  for (const [details, parent] of Object.entries({
+    prompt_tokens_details: 10, input_tokens_details: 10, completion_tokens_details: 5, output_tokens_details: 5,
+  })) {
+    for (const count of counts) {
+      assert.equal(complete({ ...base, [details]: { [count]: parent } }), true, `${details}.${count} at parent`);
+      assert.equal(complete({ ...base, [details]: { [count]: parent + 1 } }), false, `${details}.${count} exceeds parent`);
+    }
+  }
+  for (const value of [undefined, null, [], {}, { total_tokens: 15 }, { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+    { ...base, total_tokens: '15' }, { ...base, total_tokens: null },
+    { ...base, input_tokens: 11 }, { ...base, output_tokens: 6 },
+    { ...base, completion_tokens_details: { reasoning_tokens: '99' } },
+    { ...base, completion_tokens_details: { output_tokens_details: { reasoning_tokens: 6 } } },
+    { prompt_tokens: 10, output_tokens: 6, total_tokens: 15 },
+  ]) assert.equal(complete(value), false);
 });
 
 test('OpenCode stream evidence requires DONE, exact model, readable bounded events and clean completion', async () => {

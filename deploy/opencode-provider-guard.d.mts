@@ -17,4 +17,6 @@ export type OpenCodeGuardConfig = {
 type Hook = { config(config: OpenCodeGuardConfig): void };
 export const OpenCodeProviderGuard: (() => Promise<Hook>) & {
   createForTest(options: { apiKey: string; logPath: string; originalFetch: typeof globalThis.fetch }): Hook & { close(): void; block(): void };
+  /** Strict chat usage: prompt, completion and total counts with consistent aliases and bounded details. */
+  usageIsComplete(value: unknown): boolean;
 };

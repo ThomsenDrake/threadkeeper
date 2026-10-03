@@ -52,12 +52,36 @@ function usageConsistent(usage) {
   const input = usage.input_tokens, output = usage.output_tokens, total = usage.total_tokens;
   if (prompt !== undefined && input !== undefined && prompt !== input) return false;
   if (completion !== undefined && output !== undefined && completion !== output) return false;
-  for (const [left, right] of [[prompt, completion], [input, output]]) {
-    if (left !== undefined && right !== undefined
-      && (!Number.isSafeInteger(left + right) || (total !== undefined && left + right !== total))) return false;
-    if (total !== undefined && ((left !== undefined && left > total) || (right !== undefined && right > total))) return false;
+  const before = prompt ?? input, after = completion ?? output;
+  if (before !== undefined && after !== undefined
+    && (!Number.isSafeInteger(before + after) || (total !== undefined && before + after !== total))) return false;
+  if (total !== undefined && ((before !== undefined && before > total) || (after !== undefined && after > total))) return false;
+  // Breakdown categories can overlap. Bound each independently, using the
+  // matching alias or reported total when that category's parent is unknown.
+  const parents = {
+    prompt_tokens_details: prompt ?? input ?? total,
+    input_tokens_details: input ?? prompt ?? total,
+    completion_tokens_details: completion ?? output ?? total,
+    output_tokens_details: output ?? completion ?? total,
+  };
+  function boundedDetails(details, parent) {
+    for (const [key, value] of Object.entries(details)) {
+      if (COUNTS.has(key) && parent !== undefined && value > parent) return false;
+      if (DETAILS.has(key) && !boundedDetails(value, parent)) return false;
+    }
+    return true;
+  }
+  for (const [key, parent] of Object.entries(parents)) {
+    if (usage[key] !== undefined && !boundedDetails(usage[key], parent)) return false;
   }
   return true;
+}
+
+// Strict chat accounting shared by streaming host and nonstream application
+// observations. Embedding/total-only envelopes intentionally remain incomplete.
+function usageIsComplete(value) {
+  const result = inspectUsage(value);
+  return !!result.usage && !result.invalid && usageComplete(result.usage) && usageConsistent(result.usage);
 }
 
 function scanner() {
@@ -121,7 +145,7 @@ function scanner() {
       return { done_seen: done, usage_status: unreadable ? 'unreadable' : usage ? 'reported' : 'absent',
         ...(usage ? { usage } : {}), ...(invalid ? { usage_invalid: true } : {}),
         ...(modelSeen ? { returned_model_matches: !modelInvalid } : {}),
-        valid: !unreadable && done && modelSeen && !modelInvalid && !invalid && usageComplete(usage) };
+        valid: !unreadable && done && modelSeen && !modelInvalid && !invalid && usageIsComplete(usage) };
     },
   };
 }
@@ -280,4 +304,4 @@ export const OpenCodeProviderGuard = Object.assign(async () => {
     logPath: process.env.TK_OPENCODE_GUARD_LOG, originalFetch: globalThis.fetch.bind(globalThis) });
   globalThis[ACTIVE] = guard;
   return { config: guard.config };
-}, { createForTest: createGuard });
+}, { createForTest: createGuard, usageIsComplete });
