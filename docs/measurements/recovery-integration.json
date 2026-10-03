@@ -1,7 +1,7 @@
 {
-  "recorded_at": "2026-10-03T14:00:17.326393+00:00",
+  "recorded_at": "2026-10-03T14:14:09.103404+00:00",
   "command": "pnpm integration",
-  "working_tree_note": "Final profile/forgetting/recovery application tree. Subsequent change only tightened isolated restore-target large-object checks; API/worker application code remained unchanged.",
+  "working_tree_note": "Recovery rebased onto final profile pagination-consistency fix cf482056. The only recovery follow-up code change adjusts HTTP test instrumentation to include existing readiness lookups; production recovery code is unchanged.",
   "result": "PASS",
   "evidence": "native-full-stack-synthetic-provider",
   "versions": {
@@ -21,8 +21,29 @@
     "correction and deletion during in-flight source extraction",
     "fresh final context, keyless fixture identity and client revocation",
     "native migrations rerun",
-    "native-enabled hybrid, capture recovery, candidate review, client control, forgetting and profile pagination/import regressions (53 tests)"
+    "native-enabled hybrid, capture recovery, candidate review, client control, forgetting and profile pagination/import regressions (54 tests)"
   ],
+  "combined_validation": {
+    "command": "pnpm check",
+    "tests": 108,
+    "passed": 108,
+    "failed": 0,
+    "typecheck": "PASS",
+    "build": "PASS",
+    "demos": "Both full-text and synthetic hybrid lifecycle/export-import paths passed.",
+    "initial_run": {
+      "tests": 108,
+      "passed": 107,
+      "failed": 1,
+      "cause": "HTTP test expected three authentication queries, while recovery middleware also performed exactly three readiness catalog lookups. Assertion now explicitly allows those six queries with zero content retrieval, transactions or provider calls."
+    }
+  },
+  "previous_checkpoint": {
+    "recorded_at": "2026-10-03T14:00:17.326393+00:00",
+    "tests": 107,
+    "native_regressions": 53,
+    "note": "Initial integrated checkpoint preceded isolated large-object/literal-prefix guard follow-ups and the prerequisite paging admission fix."
+  },
   "cleanup": "Disposable containers, network, volume, image and credentials removed.",
   "limitations": [
     "Synthetic HTTP provider output; no learned-model quality, installed MCP host, GPU inference, deployment or operator data.",

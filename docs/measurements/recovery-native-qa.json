@@ -67,5 +67,6 @@
       "status": "fixed",
       "issue": "SQL wildcard pg_% wrongly excluded legitimate pgx_private schemas; literal reserved-prefix matching now rejects those fresh and prepared targets, with actual native table regressions."
     }
-  ]
+  ],
+  "subsequent_integration": "After this archive checkpoint, final profile cf482056 added required later-page pagination guards and one admission-boundary test. Recovery implementation is unchanged; core/index.ts only gains a validation-order comment. Recorded hashes describe this actual archive run. Subsequent combined108 checks and native11 stages/54 regressions passed separately; this archive harness was not repeated for that paging change."
 }
