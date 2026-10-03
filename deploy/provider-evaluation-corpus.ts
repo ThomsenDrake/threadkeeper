@@ -51,7 +51,10 @@ export const evaluationCorpus: EvaluationCase[] = [
   ], expected: [{ pattern: 'Harbor.*review|review.*Harbor', origin: 'user_explicit', kind: 'fact', effective_at: null }] },
   { id: 'effective-date-only', events: [
     event('effective-date-only-user', 'Starting on February 4, 2027, I prefer afternoon meetings.'),
-  ], expected: [{ pattern: 'afternoon', origin: 'user_explicit', kind: 'preference', effective_at: null }] },
+  ], expected: [
+    { pattern: 'afternoon', origin: 'user_explicit', kind: 'preference', effective_at: null },
+    { pattern: 'February 4|2027-02-04|4 February', origin: 'user_explicit', kind: 'preference', effective_at: null },
+  ] },
   { id: 'excluded', events: [
     event('excluded-user', 'Hello. My neighbor Morgan likes purple umbrellas. Here is an invented demonstration API secret: SYNTHETIC-DO-NOT-STORE-KEY-12345. These are not durable facts about me.'),
   ], expected: [], empty: true },
