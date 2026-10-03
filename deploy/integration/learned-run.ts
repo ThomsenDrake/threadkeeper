@@ -7,6 +7,7 @@ import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runLearnedScenarios } from './learned-scenarios.ts';
+import { summarizeProviderObservations, type ProviderObservation } from '../direct-provider-observer.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 assert.equal(process.versions.node.split('.')[0], '24', 'Use Node 24');
@@ -70,7 +71,7 @@ const composeArgs = ['compose', '--project-name', project, '--env-file', envFile
 const compose = (args: string[], options: Parameters<typeof docker>[1] = {}) => docker([...composeArgs, ...args], options);
 let failure: unknown;
 let result: Record<string, unknown> | undefined;
-let observations: any[] = [];
+let observations: ProviderObservation[] = [];
 let cleanupPassed = false;
 try {
   const ca = process.env.CODEX_PROXY_CERT ?? '/etc/ssl/certs/ca-certificates.crt';
@@ -133,11 +134,14 @@ try {
 if (result && !failure && !cancellation.signal.aborted) {
   try {
     assert(observations.length > 0, 'Provider request observations missing');
+    assert(observations.every(item => item.sent && item.http_status === 200), 'A provider request failed or exceeded its budget');
     const chat = observations.filter(item => item.path === 'chat/completions');
     const embeddings = observations.filter(item => item.path === 'embeddings');
     assert(chat.length >= 1 && chat.length <= 2, 'Unexpected extraction request count');
     assert(embeddings.length >= 2 && embeddings.length <= 12, 'Unexpected embedding request count');
     result.provider_requests = observations;
+    result.provider_usage = summarizeProviderObservations(observations);
+    assert((result.provider_usage as { usage_complete: boolean }).usage_complete, 'Provider usage accounting incomplete');
     result.provider_request_count = observations.length;
     result.cleanup = cleanupPassed;
     result.result = 'PASS';
