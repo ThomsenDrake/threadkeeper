@@ -1,6 +1,6 @@
 # Threadkeeper MVP
 
-Status: private MVP development. The core owner/client product flows are implemented and development priorities 1–5 are merged. Priority 6 operational recovery awaits final review/merge; external release validation remains separately tracked in [HANDOFF.md](HANDOFF.md). Product requirements come from Drake's request and the attached Threadkeep development brief.
+Status: private MVP development. All six owner/client development outcomes are implemented and merged at feature-delivery main `31befe4`. External release validation and publication decisions remain open, with actual evidence and next steps in [HANDOFF.md](HANDOFF.md). Product requirements come from Drake's request and the attached Threadkeep development brief.
 
 Threadkeeper owns portable personal context for existing chatbots and coding agents. Its profile is the user's control surface. The domain is `threadkeep.si`; the tagline is “Switch agents. Keep the thread.” A general assistant, task manager, and automatic access to every client's conversations are outside scope.
 
@@ -41,7 +41,7 @@ Explicit entries can exercise the memory lifecycle before model extraction is av
 
 The first gate is the central demonstration through real MCP transport and profile HTTP operations. Add focused checks for scope isolation, misattribution, invalid evidence, duplicate capture, concurrent edits, source injection, pending-job deletion and export/import fidelity.
 
-The release gate additionally requires independent existing chatbot/coding-agent integrations, measured provider quality/usage/latency, a fresh-instance import, backup/restore respecting deletion, and the full self-hosted GPU inference flow without Threadkeeper or Nebius accounts. Container configuration alone does not pass that gate.
+The release gate additionally requires independent existing chatbot/coding-agent integrations, measured provider quality/usage/latency, a fresh-instance import, backup/restore respecting deletion, and the full self-hosted GPU inference flow without Threadkeeper or Nebius accounts. Fresh-instance import and isolated native deletion-aware restore have recorded synthetic acceptance evidence. Learned-provider quality, installed intended hosts and the complete local GPU flow remain open, with missing access and executable next steps in [HANDOFF.md](HANDOFF.md). Container configuration alone does not pass that gate.
 
 ## Existing implementation and infrastructure
 
