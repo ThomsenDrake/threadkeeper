@@ -25,12 +25,35 @@ test('paraphrased dialogue records fail even without the forbidden word', () => 
 });
 
 test('timestamped deadlines must retain the complete value in the same statement', () => {
-  for (const statement of ['The Harbor review has a due date.', 'The Harbor review is due on January 14, 2027.', 'The Harbor review is due at 2027-01-14T17:30:00+01:00.']) {
+  for (const statement of ['The Harbor review has a due date.', 'The Harbor review is due on January 14, 2027.', 'The Harbor review is due at 2027-01-14T17:30:00+01:00.',
+    'The Harbor review starts at 2027-01-14T16:30:00+01:00 and is due later.',
+    'The Harbor review is due later; the Aurora review is due at 2027-01-14T16:30:00+01:00.']) {
     const values = memories('deadline-timestamp'); values[0].statement = statement;
     assert(!evaluateMemoryRubric(item('deadline-timestamp'), values).rubric_passed);
   }
   const utc = memories('deadline-timestamp'); utc[0].statement = 'The Harbor review is due at 2027-01-14T15:30:00Z.';
   assert(evaluateMemoryRubric(item('deadline-timestamp'), utc).rubric_passed);
+});
+
+test('whole-statement templates reject swapped relationships and unrelated appended clauses', () => {
+  const corruptions: Array<[string, RegExp, string]> = [
+    ['direct', /Lumen/, 'The Lumen demo deadline is later; the Aurora deadline is October 20, 2026.'],
+    ['compound', /Juniper/, 'The Juniper launch is later; the Aurora launch is May 18, 2027.'],
+    ['compound', /numbered lists/, 'I prefer numbered lists for shopping and prose for incident summaries.'],
+    ['report', /42/, 'The build agent reports that the synthetic integration suite passed 2 tests and another suite passed 42 tests.'],
+    ['confirmed', /bullet/, 'I prefer bullet lists for shopping and prose for weekly status reports.'],
+    ['effective', /Monday/, 'I prefer weekly status reports on Tuesdays and exercise on Mondays.'],
+    ['effective-date-only', /afternoon/, 'I prefer afternoon meetings. My holiday starts on February 4, 2027.'],
+  ];
+  for (const [id, target, statement] of corruptions) {
+    const values = memories(id); values.find(value => target.test(value.statement))!.statement = statement;
+    assert(!evaluateMemoryRubric(item(id), values).rubric_passed, statement);
+  }
+  for (const entry of evaluationCorpus.filter(value => value.expected.length)) {
+    assert(entry.expected.every(expected => expected.statement_patterns?.length), entry.id);
+    const values = memories(entry.id); values[0].statement += ' Another unsupported fact is true.';
+    assert(!evaluateMemoryRubric(entry, values).rubric_passed, entry.id);
+  }
 });
 
 test('date-only clauses stay together and conflicting assertions stay separate', () => {
