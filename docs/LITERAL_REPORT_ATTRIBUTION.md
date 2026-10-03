@@ -1,0 +1,17 @@
+# Literal report-attribution completeness
+
+This increment is explicitly stacked on the assertion-kind work in PR #19, starting at `81c1159c5694e70434aadbe9bfa0c777380ec95a`. The separate seven-case live probe lost the named reporter from one statement and quote while correctly preserving structured `agent_reported` provenance. Its score and evidence will remain unchanged. This guard addresses only a literal loss of reporting context; it does not fix general extraction quality, omitted assertions or kind classification.
+
+The [predeclared synthetic controls](../tests/fixtures/literal-report-controls.ts) use unrelated reporter names and assertions. They are frozen before implementation. Planned behavior is a sanitized `extraction_missing_report_attribution` error through the existing maximum of two extraction attempts. Code must never fill attribution, change kind/origin/status or rewrite either statement or source evidence.
+
+The proposed envelope is deliberately syntactic, not a semantic proof that a statement is positive or true:
+
+- Original source role is `assistant`, source origin and normalized extracted origin are both `agent_reported`.
+- The complete trimmed source is one line: a bounded reporter followed by literal ` reports: "`, one inner assertion, its closing ASCII double quote, and optionally one final period. Exactly one quote pair is allowed; surrounding context is outside scope.
+- A reporter is either one to three capitalized ASCII name tokens or `The` plus one/two ASCII descriptor tokens and a role noun (`agent`, `monitor`, `worker`, `service`, `reviewer`, `tool`). Reporter text is at most 80 characters, with single spaces. Pronouns, indefinite/unnamed speakers and detected negative, hypothetical or compound cues are excluded. This recognizes a limited name/description shape, not real identity.
+- The inner assertion is at most 4,000 characters. After trimming and removing one trailing period, only ASCII letters, digits, spaces and hyphens are allowed. Detected negative, hypothetical, compound and nested-report cues are excluded. Non-ASCII text, apostrophes, abbreviations, extra sentences, other punctuation and ambiguous cases are deliberately left unchanged.
+- The extracted statement must equal that entire inner assertion after only trimming and removing one terminal period. The exact evidence quote must equal either the complete inner assertion or the complete source after trimming. An arbitrary partial quote cannot establish that the same complete assertion lost its reporting context.
+
+Controlled responses must show successful second-attempt repair with retained attributed text and unchanged source input, and rejection of the entire extraction after two omissions, including a batch with another valid memory. Already attributed statements and all predeclared ambiguity/source/paraphrase controls must remain unchanged. The guard does not generally validate reporter names, paraphrases or model-supplied attribution. Source-owned origin checks and existing evidence validation remain authoritative.
+
+No live inference or broad quality improvement is claimed for this increment. Implementation, independent review and focused checks are pending; full checks and demos will run in the coordinating task's runtime window. Existing failed observations, final-head GitHub review requirements and deployment/GPU/publication boundaries remain intact.
