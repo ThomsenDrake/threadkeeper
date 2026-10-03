@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { embeddingResponseFingerprints } from './embedding-fingerprints.mjs';
 
 // Development-only observation of the application's original direct fetch.
 // No request is relayed. Never retain headers, prompts, response text or errors.
@@ -27,6 +28,7 @@ export function providerObservationConfigFromEnv(env = process.env) {
     baseUrls: [...new Set([modelBase, env.EMBEDDING_BASE_URL || modelBase, env.THREADKEEPER_PROVIDER_OBSERVATIONS_BASE_URL].filter(Boolean))],
     models: [...new Set([env.MODEL_ID || DEFAULT_MODELS[0], env.EMBEDDING_MODEL, ...DEFAULT_MODELS].filter(Boolean))],
     limits: { 'chat/completions': limit('THREADKEEPER_PROVIDER_CHAT_LIMIT'), embeddings: limit('THREADKEEPER_PROVIDER_EMBEDDING_LIMIT') },
+    embeddingFingerprints: env.THREADKEEPER_PROVIDER_EMBEDDING_FINGERPRINTS === '1',
   };
 }
 
@@ -148,6 +150,10 @@ export function installDirectProviderObserver(options = {}) {
       let payload;
       try { payload = JSON.parse(text); } catch { /* No raw body is retained. */ }
       if (payload && typeof payload === 'object') {
+        if (options.embeddingFingerprints && path === 'embeddings' && response.ok) {
+          const fingerprints = embeddingResponseFingerprints(request, payload);
+          if (fingerprints) record.embedding_fingerprints = fingerprints;
+        }
         if (typeof payload.model === 'string') {
           record.returned_model_matches = payload.model === request?.model;
           if (models.has(payload.model)) record.returned_model = payload.model;
