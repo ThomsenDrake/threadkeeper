@@ -13,19 +13,19 @@ export const evaluationCorpus: EvaluationCase[] = [
     event('direct-deadline', 'The Lumen demo deadline is October 20, 2026.'),
     event('direct-preference', 'I prefer short paragraphs when writing project updates.'),
   ], expected: [
-    { source_event_id: 'direct-deadline', pattern: 'October 20|2026-10-20|20 October', origin: 'user_explicit', kind: 'fact', effective_at: null },
+    { source_event_id: 'direct-deadline', pattern: '\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b', origin: 'user_explicit', kind: 'fact', effective_at: null },
     { source_event_id: 'direct-preference', pattern: 'short paragraphs', origin: 'user_explicit', kind: 'preference', effective_at: null },
   ] },
   { id: 'compound', events: [
     event('compound-user', 'The Juniper launch is May 18, 2027. I prefer numbered lists for incident summaries.'),
   ], expected: [
-    { source_event_id: 'compound-user', pattern: 'May 18|2027-05-18|18 May', origin: 'user_explicit', kind: 'fact', effective_at: null },
+    { source_event_id: 'compound-user', pattern: '\\b(?:May 18,? 2027|2027-05-18|18 May,? 2027)\\b', origin: 'user_explicit', kind: 'fact', effective_at: null },
     { source_event_id: 'compound-user', pattern: 'numbered lists', origin: 'user_explicit', kind: 'preference', effective_at: null },
   ] },
   { id: 'proposal', events: [
     event('proposal-assistant', 'I suggest moving the Lumen demo deadline to November 3, 2026.', 'assistant_proposed', 'assistant'),
     event('proposal-question', 'What tradeoffs would that change have?'),
-  ], expected: [{ source_event_id: 'proposal-assistant', pattern: 'November 3|2026-11-03|3 November', origin: 'assistant_proposed' }], forbidden: ['tradeoffs'] },
+  ], expected: [{ source_event_id: 'proposal-assistant', pattern: '\\b(?:November 3,? 2026|2026-11-03|3 November,? 2026)\\b', origin: 'assistant_proposed' }], forbidden: ['tradeoffs'] },
   { id: 'report', events: [
     event('report-agent', 'The build agent reports that the synthetic integration suite passed 42 tests.', 'agent_reported', 'assistant'),
   ], expected: [{ source_event_id: 'report-agent', pattern: '42.*tests|tests.*42', origin: 'agent_reported' }] },
@@ -40,8 +40,8 @@ export const evaluationCorpus: EvaluationCase[] = [
     event('conflict-first', 'The Meridian deadline is October 20, 2026.'),
     event('conflict-second', 'The Meridian deadline is October 27, 2026.'),
   ], expected: [
-    { source_event_id: 'conflict-first', pattern: 'October 20|2026-10-20|20 October', origin: 'user_explicit', effective_at: null },
-    { source_event_id: 'conflict-second', pattern: 'October 27|2026-10-27|27 October', origin: 'user_explicit', effective_at: null },
+    { source_event_id: 'conflict-first', pattern: '\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b', origin: 'user_explicit', effective_at: null },
+    { source_event_id: 'conflict-second', pattern: '\\b(?:October 27,? 2026|2026-10-27|27 October,? 2026)\\b', origin: 'user_explicit', effective_at: null },
   ] },
   { id: 'effective', events: [
     event('effective-user', 'Starting at 2026-11-01T09:00:00Z, I prefer weekly status reports on Mondays.'),
@@ -52,7 +52,7 @@ export const evaluationCorpus: EvaluationCase[] = [
   { id: 'effective-date-only', events: [
     event('effective-date-only-user', 'Starting on February 4, 2027, I prefer afternoon meetings.'),
   ], expected: [
-    { source_event_id: 'effective-date-only-user', pattern: 'afternoon', and_patterns: ['February 4|2027-02-04|4 February'], origin: 'user_explicit', kind: 'preference', effective_at: null },
+    { source_event_id: 'effective-date-only-user', pattern: 'afternoon', and_patterns: ['\\b(?:February 4,? 2027|2027-02-04|4 February,? 2027)\\b'], origin: 'user_explicit', kind: 'preference', effective_at: null },
   ] },
   { id: 'excluded', events: [
     event('excluded-user', 'Hello. My neighbor Morgan likes purple umbrellas. Here is an invented demonstration API secret: SYNTHETIC-DO-NOT-STORE-KEY-12345. These are not durable facts about me.'),
