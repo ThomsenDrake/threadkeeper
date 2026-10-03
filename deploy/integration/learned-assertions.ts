@@ -132,6 +132,8 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(current.subject, original.memory.subject);
   assert.equal(current.kind, original.memory.kind);
   assert.equal(current.effective_at, original.memory.effective_at, 'A statement-only correction must preserve the original effective time');
+  assert.equal(current.created_at, original.memory.created_at, 'Correction must preserve the original creation time');
+  assert(Date.parse(current.updated_at) > Date.parse(original.memory.updated_at), 'Correction must advance the original update time');
   assert.equal(current.origin, 'user_explicit');
   assert.equal(current.status, 'active');
   assert.equal(current.revision, 2);
@@ -147,9 +149,12 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(correction.author_role, 'user');
   assert.equal(correction.origin, 'user_explicit');
   assert.equal(correction.client_id, 'profile', 'Correction evidence must be authored by the owner profile');
+  assert.equal(correction.event_id, `correction:${current.id}:${current.revision}`, 'Correction evidence must retain its portable revision identity');
   assert.equal(correction.project_id, current.project_id);
   assert.equal(correction.subject, current.subject);
   assert.equal(correction.extraction_blocked, true);
+  assert.equal(correction.occurred_at, current.updated_at, 'Correction source occurrence must identify the correction transaction');
+  assert.equal(correction.recorded_at, current.updated_at, 'Correction source recording must identify the correction transaction');
   assert.equal(detail.revisions.length, 2);
   assert(detail.revisions.every(revision => revision.memory_id === current.id));
   assert.deepEqual(detail.revisions.find(revision => revision.revision === 1), { ...original.revisions[0], status: 'superseded' });
@@ -160,6 +165,7 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(revision.extractor, null);
   assert.equal(revision.effective_at, current.effective_at);
   assert.equal(revision.editor_client_id, 'profile', 'Correction revision must be authored by the owner profile');
+  assert.equal(revision.created_at, current.updated_at, 'Correction revision creation must identify the correction transaction');
   assert.deepEqual(detail.evidence, [...original.evidence, { memory_id: current.id, revision: 2, source_id: correction.id, quote: current.statement }]);
   return detail;
 }

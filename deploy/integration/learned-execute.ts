@@ -6,11 +6,13 @@ import { createServer } from 'node:net';
 import { resolve } from 'node:path';
 import { runLearnedScenarios } from './learned-scenarios.ts';
 import { verifyLearnedVectorEvidence } from './learned-vector-evidence.ts';
+import { verifyLearnedExtractionEvidence } from './learned-extraction-evidence.ts';
 import { inspectLearnedContainerImage, parseLearnedObservations, reserveEvidence, settleLearnedCleanup, verifyLearnedApplicationImages, verifyLearnedObservations, verifyLearnedSnapshot, type LearnedObservation } from './learned-support.ts';
 
 export async function runLearnedLifecycle(options: {
   root: string; directory: string; output: string; cancellation: AbortController;
   source: { commit: string; tree: string; files: Record<string, string> };
+  host_dependencies?: Record<string, string>;
 }) {
 const { root, directory, source, output, cancellation } = options;
 assert.equal(process.versions.node.split('.')[0], '24', 'Use Node 24');
@@ -22,8 +24,13 @@ for (const name of Object.keys(dockerEnv)) if (/^(MODEL_|EMBEDDING_|POSTGRES_|BO
 const secrets = [process.env.NEBIUS_API_KEY];
 const redact = (value: string) => secrets.reduce((text, secret) => text.replaceAll(secret, '[redacted]'), value);
 let stopCommand: (() => void) | undefined;
+let cancelledCleanupDeadline: number | undefined;
 let evidence: Awaited<ReturnType<typeof reserveEvidence>> | undefined;
-const interrupt = () => { process.exitCode = 1; cancellation.abort(); stopCommand?.(); };
+const interrupt = () => {
+  process.exitCode = 1;
+  cancelledCleanupDeadline ??= Date.now() + 8000;
+  cancellation.abort(); stopCommand?.();
+};
 process.on('SIGINT', interrupt);
 process.on('SIGTERM', interrupt);
 process.stdout.on('error', interrupt);
@@ -35,15 +42,24 @@ process.on('exit', code => {
 });
 async function docker(args: string[], options: { input?: string; cleanup?: boolean; timeout?: number } = {}) {
   if (!options.cleanup) cancellation.signal.throwIfAborted();
+  if (options.cleanup && cancellation.signal.aborted) {
+    cancelledCleanupDeadline ??= Date.now() + 8000;
+    if (Date.now() >= cancelledCleanupDeadline) throw new Error('Cancelled Docker cleanup budget exhausted');
+  }
   return await new Promise<string>((resolveRun, reject) => {
     const running = spawn('docker', ['--host=unix:///var/run/docker.sock', ...args], { cwd: root, env: dockerEnv, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '', stderr = '';
     let timedOut = false;
     let inputFailed = false;
     let force: NodeJS.Timeout | undefined;
-    const stop = () => { running.kill('SIGTERM'); force ??= setTimeout(() => running.kill('SIGKILL'), 5000); };
+    const stop = () => {
+      running.kill('SIGTERM');
+      const grace = cancellation.signal.aborted ? Math.max(0, Math.min(250, (cancelledCleanupDeadline ?? Date.now()) - Date.now())) : 5000;
+      force ??= setTimeout(() => running.kill('SIGKILL'), grace);
+    };
     stopCommand = stop;
-    const timer = setTimeout(() => { timedOut = true; stop(); }, options.timeout ?? 120_000);
+    const remaining = options.cleanup && cancellation.signal.aborted ? Math.min(2000, cancelledCleanupDeadline! - Date.now()) : options.timeout ?? 120_000;
+    const timer = setTimeout(() => { timedOut = true; stop(); }, Math.max(0, remaining));
     running.stdout.on('data', data => { stdout += String(data); });
     running.stderr.on('data', data => { stderr = (stderr + String(data)).slice(-6000); });
     running.stdin.on('error', () => { inputFailed = true; stop(); });
@@ -74,6 +90,7 @@ try {
   cancellation.signal.throwIfAborted();
   await verifyLearnedSnapshot(root, source);
   evidence = await reserveEvidence(output);
+  if (process.send) await new Promise<void>((resolveSend, reject) => process.send!({ event: 'evidence_reserved', ...evidence!.identity }, (error: Error | null) => error ? reject(error) : resolveSend()));
   const envFile = resolve(directory, '.env');
   const password = randomBytes(32).toString('hex'), dbPassword = randomBytes(32).toString('hex');
   secrets.push(password, dbPassword);
@@ -113,7 +130,7 @@ try {
     result = { schema_version: 'threadkeeper.direct-learned-lifecycle.v1', measured_at: new Date().toISOString(), source,
       transport: 'application_api_and_worker_direct_nebius_https_no_relay', synthetic_only: true,
       configuration: { model: 'nvidia/Nemotron-3_5-Lightning', base_url: 'https://api.tokenfactory.nebius.com/v1/', reasoning_effort: 'none', embedding_model: 'Qwen/Qwen3-Embedding-8B', embedding_dimensions: 256 },
-      runtime: { host_node: process.versions.node, node: runtimeNode, pnpm: runtimePnpm, docker: engine, compose: composeVersion, ...versions,
+      runtime: { host_node: process.versions.node, host_dependencies: options.host_dependencies, node: runtimeNode, pnpm: runtimePnpm, docker: engine, compose: composeVersion, ...versions,
         application_build_image: builtImage, application_image: appImage.image, application_repository_digests: appImage.repository_digests,
         database_image: dbImage.image, database_repository_digests: dbImage.repository_digests },
       ...flow,
@@ -158,6 +175,7 @@ if (result && !failure && !cancellation.signal.aborted) {
     result.provider_requests = observations;
     result.provider_usage = verifyLearnedObservations(observations);
     result.vector_observation_binding = verifyLearnedVectorEvidence(result.vector_evidence, observations);
+    result.extraction_observation_binding = verifyLearnedExtractionEvidence(result.extraction_evidence, observations);
     result.provider_request_count = observations.length;
     result.cleanup = cleanupPassed;
     result.result = 'PASS';

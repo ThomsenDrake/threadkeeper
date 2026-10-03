@@ -16,6 +16,13 @@ async function fixture(t: TestContext) {
   await store.processJob({ async extract() { return { model: 'nvidia/Nemotron-3_5-Lightning', memories: directLearnedCase.events.map((event, index) => ({
     statement: event.text, quote: event.text, source_event_id: event.id, origin: event.origin, kind: index === 0 ? 'fact' as const : 'preference' as const,
   })) }; } });
+  // Seed an earlier admission checkpoint before reading the baseline. The
+  // correction tests must prove time advancement without depending on a tick
+  // between two fast local transactions or adding a wall-clock sleep.
+  const admittedAt = new Date(Date.now() - 60_000).toISOString();
+  await database.db.query('UPDATE tk_memories SET created_at=$1,updated_at=$1 WHERE owner_id=$2', [admittedAt, owner.ownerId]);
+  await database.db.query('UPDATE tk_revisions SET created_at=$1 WHERE memory_id IN (SELECT id FROM tk_memories WHERE owner_id=$2)', [admittedAt, owner.ownerId]);
+  await database.db.query('UPDATE tk_sources SET recorded_at=$1 WHERE owner_id=$2', [admittedAt, owner.ownerId]);
   const memories = (await store.list(owner, { project_id: project })).memories;
   const sources = await Promise.all(receipt.source_ids.map((id: string) => store.getSource(writer, id)));
   const learned = assertLearnedExtraction(memories, sources, project, writer.clientId);
@@ -126,6 +133,10 @@ test('native preview and history assertions detect misleading impact and lost or
     value => { value.evidence = value.evidence.filter(evidence => evidence.revision !== 1); },
     value => { value.evidence[0].quote = changed.statement; },
     value => { value.sources.find(source => source.capture_method === 'profile_correction')!.checksum = '0'.repeat(64); },
+    value => { value.sources.find(source => source.capture_method === 'profile_correction')!.event_id = 'wrong-correction-event'; },
+    value => { value.sources.find(source => source.capture_method === 'profile_correction')!.occurred_at = original.memory.updated_at; },
+    value => { value.sources.find(source => source.capture_method === 'profile_correction')!.recorded_at = original.memory.updated_at; },
+    value => { value.revisions.find(revision => revision.revision === 2)!.created_at = original.memory.updated_at; },
   ];
   for (const corrupt of historyCorruptions) {
     const bad = structuredClone(detail); corrupt(bad);
@@ -136,6 +147,19 @@ test('native preview and history assertions detect misleading impact and lost or
   wrongTime.revisions.find(revision => revision.revision === 2)!.effective_at = wrongChanged.effective_at;
   assert.throws(() => assertLearnedDeadlineHistory(wrongTime, original, wrongChanged),
     'Mutually consistent changed/detail timestamps must not replace the original effective time');
+  const wrongCreated = structuredClone(detail), wrongCreatedResponse = structuredClone(changed);
+  wrongCreatedResponse.created_at = wrongCreated.memory.created_at = detail.memory.updated_at;
+  assert.throws(() => assertLearnedDeadlineHistory(wrongCreated, original, wrongCreatedResponse),
+    'A matching PATCH/detail creation-time rewrite must not replace the original checkpoint');
+  for (const updatedAt of [original.memory.updated_at, new Date(Date.parse(original.memory.updated_at) - 1_000).toISOString()]) {
+    const wrongUpdated = structuredClone(detail), wrongUpdatedResponse = structuredClone(changed);
+    wrongUpdatedResponse.updated_at = wrongUpdated.memory.updated_at = updatedAt;
+    const correction = wrongUpdated.sources.find(source => source.capture_method === 'profile_correction')!;
+    correction.occurred_at = correction.recorded_at = updatedAt;
+    wrongUpdated.revisions.find(revision => revision.revision === 2)!.created_at = updatedAt;
+    assert.throws(() => assertLearnedDeadlineHistory(wrongUpdated, original, wrongUpdatedResponse),
+      'Consistent correction timestamps must still advance the independently captured original checkpoint');
+  }
   for (const changeSource of [true, false]) {
     const wrongEditor = structuredClone(detail);
     wrongEditor.revisions.find(revision => revision.revision === 2)!.editor_client_id = writer.clientId;
@@ -145,6 +169,17 @@ test('native preview and history assertions detect misleading impact and lost or
   }
   const forgotten = { memory: preference, source: preferenceSource };
   const archive = assertLearnedArchiveHistory(await store.export(owner), detail, forgotten);
+  // Exercise the portability contract itself in addition to the acceptance
+  // assertions: a shape-valid wrong correction identity must fail import.
+  const importedDatabase = await createTestDatabase(); t.after(() => importedDatabase.close());
+  const importedStore = createStore(importedDatabase.db), importedOwner = { ...owner, ownerId: randomUUID() };
+  const wrongIdentity = structuredClone(archive);
+  wrongIdentity.sources.find(source => source.capture_method === 'profile_correction')!.event_id = 'wrong-correction-event';
+  await assert.rejects(importedStore.import(importedOwner, wrongIdentity),
+    error => error instanceof DomainError && error.code === 'invalid_authority');
+  await importedStore.import(importedOwner, archive);
+  const importedArchive = await importedStore.export(importedOwner);
+  assertLearnedArchiveHistory(importedArchive, detail, forgotten);
   for (const collection of ['sources', 'revisions', 'evidence'] as const) {
     const bad = structuredClone(archive); bad[collection] = [];
     assert.throws(() => assertLearnedArchiveHistory(bad, detail, forgotten), `Export must retain ${collection}`);

@@ -6,6 +6,7 @@ import { embeddingCorpus } from '../provider-evaluation-corpus.ts';
 import { assertLearnedArchiveHistory, assertLearnedDeadlineHistory, assertLearnedDeletionPreview,
   assertLearnedExtraction, assertLearnedRecall, directLearnedCase, learnedDetail, learnedRecallRecord } from './learned-assertions.ts';
 import { snapshotLearnedVector } from './learned-vector-evidence.ts';
+import { snapshotLearnedExtraction } from './learned-extraction-evidence.ts';
 
 const project = 'synthetic-direct-learned-lifecycle';
 const corrected = 'The Lumen demo deadline is October 27, 2026.';
@@ -123,6 +124,7 @@ export async function runLearnedScenarios(options: {
     const sources = [];
     for (const sourceId of receipt.source_ids) sources.push(await tool(b, 'context_get_source', { source_id: sourceId }));
     const { deadline, preference } = assertLearnedExtraction(all, sources, project, grants[0].client.id);
+    const extractionEvidence = snapshotLearnedExtraction(all, sources, { project_id: project, subject: 'self' });
     const originalVectors = await options.sql(`SELECT memory_id,revision,provider_model,preprocessing_version,dimensions,embedding::text AS embedding
       FROM tk_embeddings WHERE memory_id=${literal(deadline.id)}`);
     assert.equal(originalVectors.length, 1);
@@ -217,6 +219,7 @@ export async function runLearnedScenarios(options: {
     assert.equal((await options.sql('SELECT id FROM tk_jobs')).length, 0, 'Forgotten evidence must remove the shared extraction job payload');
     checks.push('revision-checked authoritative correction, graph-preview forgetting, fresh independent hybrid recall and export/vector/job cleanup');
     return { checks, queries: learnedQueries, extraction: { accepted: 2, model: 'nvidia/Nemotron-3_5-Lightning' },
+      extraction_evidence: extractionEvidence,
       vector_evidence: { original: originalVector, corrected: correctedVector },
       surviving_memory: { statement: corrected, revision: changed.revision, authoritative: true }, elapsed_ms: Math.round(performance.now() - started) };
   } finally {

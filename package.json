@@ -21,7 +21,7 @@
     "provider:check": "node --import tsx deploy/provider-check.ts",
     "demo": "node --import tsx deploy/demo.ts",
     "integration": "node --import tsx deploy/integration/run.ts",
-    "integration:learned": "node --import tsx deploy/integration/learned-run.ts",
+    "integration:learned": "node deploy/integration/learned-run.mjs",
     "dev:demo": "node --import tsx deploy/dev-demo.ts"
   },
   "dependencies": {

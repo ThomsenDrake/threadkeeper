@@ -12,6 +12,7 @@ export async function reserveEvidence(path: string) {
   const identity = await file.stat();
   const same = (stat: { dev: number; ino: number }) => stat.dev === identity.dev && stat.ino === identity.ino;
   return {
+    identity: { path: destination, dev: identity.dev, ino: identity.ino },
     async publish(serialized: string, signal: AbortSignal) {
       signal.throwIfAborted();
       assert(same(await lstat(destination)), 'Evidence reservation was replaced');
@@ -119,6 +120,7 @@ export function verifyLearnedObservations(observations: LearnedObservation[]) {
     const expected = item.path === 'chat/completions' ? 'nvidia/Nemotron-3_5-Lightning' : 'Qwen/Qwen3-Embedding-8B';
     assert.equal(item.requested_model, expected, 'Unexpected requested provider model');
     assert.equal(item.returned_model_matches, true, 'Provider returned model identity was not verified');
+    assert(item.usage_invalid !== true, 'Provider reported invalid raw usage counts');
     verifyUsageTotals(item);
   }
   const api = observations.filter(item => item.service === 'api');
