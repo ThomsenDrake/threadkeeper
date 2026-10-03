@@ -1,6 +1,14 @@
 # Threadkeeper handoff
 
-## Current state — 2026-10-03 full-stack milestone
+## Autonomous development direction — 2026-10-03
+
+The user now authorizes future broad development tasks to choose and deliver complete MVP product flows, run the GitHub `@codex review` loop, merge their own qualifying PRs, and continue to the next unblocked outcome. Follow [AGENTS.md](../AGENTS.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for final-head review/check requirements, the product backlog and existing deployment/DNS/spending/publication boundaries. A narrower explicit request still controls its task.
+
+This guidance change is documentation only. `git diff --check` and relative Markdown link checks passed, and an independent local review found no remaining blocking issue. Application, demo, native PostgreSQL/pgvector and browser checks were not rerun for these documentation edits; the results below belong to the earlier hybrid and full-stack implementations. External Codex review and merge status are recorded on the guidance PR.
+
+Hybrid recall is merged in PR #1. [PR #2](https://github.com/ThomsenDrake/threadkeeper/pull/2), containing full-stack integration and extraction attempt fencing, merged while this guidance was under review. This branch includes that main update (`b6b11ef`), and its evidence is retained below. Do not duplicate those changes. The next default product flow is scoped capture/job status and owner-controlled retry across HTTP/MCP and the profile. Missing real-provider credentials or GPU/installed-host access should block only dependent checks while independent product work continues.
+
+## Full-stack integration evidence — 2026-10-03
 
 Continued fetched `origin/main` **`3f412ea`**, including merged PR #1, on
 `codex/self-hosted-stack`. Read AGENTS.md, README.md, MVP_BRIEF.md, DECISIONS.md,
@@ -178,7 +186,7 @@ Native tests use explicit `THREADKEEPER_NATIVE_TEST_URL`, require pgvector insta
 - Full self-hosted GPU inference/embedding feature parity and installed chatbot/coding-agent integrations remain release gates. No hosted account, feature gate, license check or telemetry requirement was added.
 - OSS license remains undecided; choose one before public release. A previously reported GitGuardian notification has not been resolved by this work; original hardcoded localhost DB fallbacks were removed on main, but their historical incident details were not retrieved.
 
-Next increment should measure real embedding preprocessing/quality with synthetic data, validate the full application containers and actual installed MCP hosts, then address operational retry/restore gaps. Preserve explicit client-invoked capture/recall, authoritative profile corrections and deletion behavior. Rerun the checks/demo and relevant native/browser tests after behavioral changes; record results instead of treating configuration as proof.
+Continue product development using [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), beginning with observable capture progress and safe retry unless current code or dependencies change that priority. Full application container validation is now recorded in the full-stack evidence above. Real embedding quality and installed MCP hosts remain verification work; run access-dependent checks when their configuration is available. Preserve explicit client-invoked capture/recall, authoritative profile corrections and deletion behavior. Rerun the checks/demo and relevant native/browser tests after behavioral changes; record results instead of treating configuration as proof.
 
 ## Review follow-up — 2026-10-03
 

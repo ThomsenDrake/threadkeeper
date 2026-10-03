@@ -100,6 +100,7 @@ Complete self-hostability with feature parity is a binding release requirement. 
 
 ## Continue development
 
+- [Autonomous MVP development and product priorities](docs/DEVELOPMENT_PLAN.md)
 - [Codex Cloud setup](docs/CODEX_CLOUD.md)
 - [Compact MVP brief](docs/MVP_BRIEF.md)
 - [Decisions and blockers](docs/DECISIONS.md)
