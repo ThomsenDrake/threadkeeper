@@ -62,10 +62,10 @@ async function command(executable, args, options) {
   });
 }
 
-export async function installLearnedDependencies(snapshotRoot, signal) {
+export async function installLearnedDependencies(snapshotRoot, signal, cacheContext = process.cwd()) {
   const manifest = JSON.parse(await readFile(resolve(snapshotRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.packageManager, 'pnpm@11.25.0', 'Private host installation requires pnpm 11.25.0');
-  let executable = 'corepack', prefix = ['pnpm'];
+  let executable = 'corepack', prefix = ['pnpm@11.25.0'];
   let version;
   try { version = await command(executable, [...prefix, '--version'], { cwd: snapshotRoot, signal }); }
   catch (error) {
@@ -74,9 +74,14 @@ export async function installLearnedDependencies(snapshotRoot, signal) {
     version = await command(executable, ['--version'], { cwd: snapshotRoot, signal });
   }
   assert.equal(version, '11.25.0', 'Private host installation requires pnpm 11.25.0');
+  // Pnpm normally selects a same-filesystem store. Reuse the invocation
+  // project's configured cache even when /tmp is a separate filesystem;
+  // copying package contents deliberately permits that boundary.
+  const store = await command(executable, [...prefix, 'store', 'path'], { cwd: cacheContext, signal });
+  assert(store && resolve(store) === store, 'Expected an absolute configured package store');
   const lock = await readFile(resolve(snapshotRoot, 'pnpm-lock.yaml'));
   await command(executable, [...prefix, 'install', '--offline', '--frozen-lockfile', '--ignore-scripts',
-    '--package-import-method=copy', '--config.verify-store-integrity=true', '--config.manage-package-manager-versions=false'], { cwd: snapshotRoot, signal });
+    '--store-dir', store, '--package-import-method=copy', '--config.verify-store-integrity=true', '--config.manage-package-manager-versions=false'], { cwd: snapshotRoot, signal });
   assert.deepEqual(await readFile(resolve(snapshotRoot, 'pnpm-lock.yaml')), lock, 'Private installation changed the archived lockfile');
   const require = createRequire(resolve(snapshotRoot, 'package.json'));
   const loader = await realpath(require.resolve('tsx'));
@@ -117,7 +122,7 @@ async function main() {
     directory = await mkdtemp(resolve(tmpdir(), 'threadkeeper-learned-'));
     const snapshotRoot = resolve(directory, 'source');
     const source = await archiveLearnedSource(root, snapshotRoot);
-    const installation = await installLearnedDependencies(snapshotRoot, cancellation.signal);
+    const installation = await installLearnedDependencies(snapshotRoot, cancellation.signal, root);
     const manifestPath = resolve(directory, 'validation.json');
     await writeFile(manifestPath, JSON.stringify({ root: snapshotRoot, directory, source, output, host_dependencies: installation.evidence }), { mode: 0o600 });
     await runLearnedChild(snapshotRoot, manifestPath, installation, cancellation.signal, message => {
