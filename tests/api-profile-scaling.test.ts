@@ -3,13 +3,20 @@ import { test } from 'node:test';
 import { createApp } from '../apps/api/src/app.ts';
 import { bootstrap } from '../apps/api/src/auth.ts';
 import { createTestDatabase } from './helpers.ts';
+import { syntheticEmbeddings } from './hybrid-fixtures.ts';
+import type { Database } from '../packages/core/src/index.ts';
 
 // This suite owns a port distinct from the earlier HTTP suites.
 const base = 'http://127.0.0.1:3192';
 test('authenticated owner browsing reaches older pages, exposes recovery guards, preserves recall limits and reports atomic import outcomes', async t => {
   const database = await createTestDatabase({ vector: true });
   await bootstrap(database.db, 'archive@example.invalid', 'synthetic-archive-password');
-  const { app, store } = createApp(database.db, { origin: base });
+  const embeddings = syntheticEmbeddings(); const queries: string[] = []; let transactions = 0;
+  const observedDatabase: Database = {
+    async query(sql, params) { queries.push(sql); return database.db.query(sql, params); },
+    async transaction(callback) { transactions++; return database.db.transaction(callback); },
+  };
+  const { app, store } = createApp(observedDatabase, { origin: base, embeddings });
   const server = app.listen(3192, '127.0.0.1');
   t.after(async () => { await new Promise<void>((resolve, reject) => server.close(cause => cause ? reject(cause) : resolve())); await database.close(); });
   await new Promise<void>(resolve => server.once('listening', resolve));
@@ -32,16 +39,32 @@ test('authenticated owner browsing reaches older pages, exposes recovery guards,
   }
   const first = await request('/api/memories?limit=50'); assert.equal(first.status, 200); assert.equal(first.data.total_count, 132); assert.equal(first.data.next_offset, 50);
   const pageQuery = `&snapshot_version=${first.data.snapshot_version}&ranking_version=${first.data.ranking_version}`;
+  queries.length = 0; transactions = 0;
+  for (const incompleteGuards of ['', `&snapshot_version=${first.data.snapshot_version}`, `&ranking_version=${first.data.ranking_version}`]) {
+    const invalid = await request('/api/memories?query=archive&offset=50' + incompleteGuards);
+    assert.equal(invalid.status, 400); assert.equal(invalid.data.error, 'validation');
+    assert(invalid.data.issues.some((issue: { path: string[] }) => issue.path[0] === (incompleteGuards.includes('snapshot_version') ? 'ranking_version' : 'snapshot_version')));
+  }
+  assert.equal(transactions, 0); assert.equal(embeddings.calls.length, 0);
+  assert.equal(queries.length, 3); assert(queries.every(sql => sql.includes('FROM tk_sessions')), 'Only authentication queries run before an invalid owner page is rejected.');
+  for (const firstPageGuards of ['', `&snapshot_version=${first.data.snapshot_version}`, `&ranking_version=${first.data.ranking_version}`, pageQuery]) {
+    const initial = await request('/api/memories?offset=0&limit=50' + firstPageGuards);
+    assert.equal(initial.status, 200); assert.deepEqual(initial.data.memories, first.data.memories);
+  }
   const second = await request('/api/memories?limit=50&offset=50' + pageQuery);
   const third = await request('/api/memories?limit=50&offset=100' + pageQuery);
   assert.equal(second.status, 200); assert.equal(third.status, 200); assert.equal(third.data.next_offset, null);
   assert.equal(new Set([...first.data.memories, ...second.data.memories, ...third.data.memories].map(memory => memory.id)).size, 132);
+  for (const staleGuards of [`&snapshot_version=${first.data.snapshot_version + 1}&ranking_version=${first.data.ranking_version}`, `&snapshot_version=${first.data.snapshot_version}&ranking_version=${'a'.repeat(64)}`]) {
+    const stale = await request('/api/memories?offset=50' + staleGuards); assert.equal(stale.status, 409); assert.equal(stale.data.error, 'memory_list_changed');
+  }
   assert.equal((await request('/api/memories?project_id=atlas')).data.total_count, 66);
   for (const query of ['offset=-1', 'offset=100001', 'offset=invalid', 'limit=101', 'ranking_version=invalid', 'snapshot_version=-1', 'unknown_cursor=1']) assert.equal((await request('/api/memories?' + query)).status, 400);
   const client = await request('/api/clients', { body: { name: 'Synthetic archive reader', permissions: ['read'], projects: ['atlas'] } });
   assert.equal(client.status, 201);
   assert.equal((await request('/api/memories?offset=100', { token: client.data.token })).status, 403);
   assert.equal((await request('/api/context/search?offset=10', { token: client.data.token })).status, 400);
+  assert.equal((await request('/api/context/search?offset=10' + pageQuery, { token: client.data.token })).status, 400);
   assert.equal((await request('/api/context/search?limit=100', { token: client.data.token })).data.memories.length, 100);
   assert.equal((await request('/api/context/search?project_id=atlas&limit=100', { token: client.data.token })).data.memories.length, 66);
   assert.equal((await request('/api/context/search?project_id=private', { token: client.data.token })).status, 403);
@@ -64,6 +87,11 @@ test('authenticated owner browsing reaches older pages, exposes recovery guards,
   assert.equal((await request('/api/import', { body: beforeImport.data })).status, 200, 'A failed import does not prevent recovery with a valid bundle.');
   const openapi = (await request('/openapi.json')).data;
   assert.deepEqual(openapi.paths['/api/memories'].get.security, [{ ownerSession: [] }]);
-  assert(openapi.paths['/api/memories'].get.parameters.some((parameter: { name: string }) => parameter.name === 'ranking_version'));
+  const listOperation = openapi.paths['/api/memories'].get;
+  for (const guard of ['snapshot_version', 'ranking_version']) {
+    assert.match(listOperation.parameters.find((parameter: { name: string }) => parameter.name === guard).schema.description, /Required when offset is greater than 0/);
+  }
+  assert.match(listOperation.description, /Both snapshot_version and ranking_version are required whenever offset is greater than 0/);
+  assert.match(listOperation.responses['400'].description, /missing consistency guard/);
   assert(openapi.paths['/api/import'].post.responses['200'].content['application/json'].schema.properties.imported_sources);
 });

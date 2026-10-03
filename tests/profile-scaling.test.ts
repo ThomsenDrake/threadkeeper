@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { test } from 'node:test';
-import { createStore, DomainError, type Auth } from '../packages/core/src/index.ts';
+import { createStore, DomainError, type Auth, type Database } from '../packages/core/src/index.ts';
 import { createTestDatabase } from './helpers.ts';
 import { syntheticEmbeddings } from './hybrid-fixtures.ts';
 import type { CaptureInput } from '../packages/contracts/src/index.ts';
@@ -25,6 +25,22 @@ async function save(store: ReturnType<typeof createStore>, auth: Auth, statement
   return store.capture(auth, input);
 }
 
+test('later owner pages require both consistency guards before any provider or database work', async () => {
+  const embeddings = syntheticEmbeddings(); const calls = { query: 0, transaction: 0 };
+  const database: Database = {
+    async query() { calls.query++; throw new Error('Unexpected database query for an invalid page.'); },
+    async transaction() { calls.transaction++; throw new Error('Unexpected transaction for an invalid page.'); },
+  };
+  const store = createStore(database, { embeddings }); const auth = owner();
+  for (const offset of [1, '1', 100_000]) {
+    for (const guards of [{}, { snapshot_version: 0 }, { ranking_version: 'a'.repeat(64) }]) {
+      await assert.rejects(store.list(auth, { query: 'Synthetic nonempty semantic query', offset, ...guards }), error(400, 'invalid_input'));
+    }
+  }
+  await assert.rejects(store.search(auth, { query: 'Synthetic nonempty semantic query', offset: 1, snapshot_version: 0, ranking_version: 'a'.repeat(64) }), error(400, 'invalid_input'));
+  assert.deepEqual(calls, { query: 0, transaction: 0 }); assert.equal(embeddings.calls.length, 0);
+});
+
 test('owner pages reach a realistic mixed collection with stable ties, truthful totals and scoped filters; older records remain editable and forgettable', async t => {
   const db = await createTestDatabase({ vector: true }); t.after(() => db.close());
   const store = createStore(db.db); const auth = owner();
@@ -41,29 +57,36 @@ test('owner pages reach a realistic mixed collection with stable ties, truthful 
   await db.db.query('UPDATE tk_memories SET updated_at=$1 WHERE owner_id=$2', ['2026-10-01T00:00:00Z', auth.ownerId]);
   const first = await store.list(auth, { limit: 50 });
   assert.equal(first.total_count, 144); assert.equal(first.next_offset, 50);
-  const second = await store.list(auth, { limit: 50, offset: first.next_offset, snapshot_version: first.snapshot_version, ranking_version: first.ranking_version });
-  const third = await store.list(auth, { limit: 50, offset: second.next_offset, snapshot_version: first.snapshot_version, ranking_version: first.ranking_version });
+  const guards = { snapshot_version: first.snapshot_version, ranking_version: first.ranking_version };
+  for (const firstPageGuards of [{}, { snapshot_version: first.snapshot_version }, { ranking_version: first.ranking_version }, guards]) {
+    assert.deepEqual((await store.list(auth, { offset: 0, limit: 50, ...firstPageGuards })).memories, first.memories);
+  }
+  const second = await store.list(auth, { limit: 50, offset: first.next_offset, ...guards });
+  const third = await store.list(auth, { limit: 50, offset: second.next_offset, ...guards });
   assert.equal(third.next_offset, null); assert.equal(third.memories.length, 44);
   const ids = [...first.memories, ...second.memories, ...third.memories].map(memory => memory.id);
   assert.equal(new Set(ids).size, 144); assert.deepEqual(ids, expected.map(item => item.id).sort());
-  assert.equal((await store.list(auth, { offset: 100_000 })).total_count, 144);
-  assert.deepEqual((await store.list(auth, { offset: 100_000 })).memories, []);
+  const beyondEnd = await store.list(auth, { offset: 100_000, ...guards });
+  assert.equal(beyondEnd.total_count, 144); assert.deepEqual(beyondEnd.memories, []);
+  await assert.rejects(store.list(auth, { offset: 50, snapshot_version: first.snapshot_version + 1, ranking_version: first.ranking_version }), error(409, 'memory_list_changed'));
+  await assert.rejects(store.list(auth, { offset: 50, snapshot_version: first.snapshot_version, ranking_version: 'a'.repeat(64) }), error(409, 'memory_list_changed'));
   for (const filters of [
     { project_id: 'atlas' }, { project_id: null }, { subject: 'Alex' }, { source: 'synthetic-client' }, { status: 'candidate' },
     { query: 'common context', project_id: 'atlas', subject: 'Alex', source: 'profile', status: 'active' },
   ]) {
     const matches = expected.filter(item => (filters.project_id === undefined || item.project === filters.project_id)
       && (!filters.subject || item.subject === filters.subject) && (!filters.source || item.source === filters.source) && (!filters.status || item.status === filters.status));
-    let offset: number | null = 0; const found: string[] = [];
+    let offset: number | null = 0; const found: string[] = []; let pageGuards: typeof guards | undefined;
     while (offset !== null) {
-      const page = await store.list(auth, { ...filters, limit: 7, offset });
+      const page = await store.list(auth, { ...filters, limit: 7, offset, ...pageGuards });
+      pageGuards = { snapshot_version: page.snapshot_version, ranking_version: page.ranking_version! };
       assert.equal(page.total_count, matches.length); found.push(...page.memories.map(memory => memory.id)); offset = page.next_offset!;
     }
     assert.deepEqual(found.sort(), matches.map(item => item.id).sort());
   }
   const scoped = { ...auth, projects: ['atlas'] };
   assert.equal((await store.list(scoped, { limit: 100 })).total_count, 96);
-  await assert.rejects(store.list(scoped, { project_id: 'private', offset: 50 }), error(403, 'scope_denied'));
+  await assert.rejects(store.list(scoped, { project_id: 'private', offset: 50, ...guards }), error(403, 'scope_denied'));
   await assert.rejects(store.list({ ...auth, permissions: [] }, { offset: 100 }), error(403, 'permission_denied'));
   const old = third.memories.find(memory => memory.status === 'active')!;
   const detail = await store.detail(auth, old.id); assert.equal(detail.sources.length, 1);

@@ -280,6 +280,8 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
 
   async function select(auth: Auth, raw: unknown, defaultsActive: boolean) {
     permission(auth, 'read');
+    // Require both consistency guards on later owner pages before database or
+    // provider work. Bounded client recall still validates its own offset-free schema.
     const filters = parsed(MemoryListSchema, defaultsActive ? parsed(SearchSchema, raw) : raw);
     if (filters.project_id !== undefined) projectAllowed(auth, filters.project_id);
     const params: any[] = [];

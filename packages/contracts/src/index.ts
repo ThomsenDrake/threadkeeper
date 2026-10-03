@@ -48,12 +48,18 @@ export const SearchSchema = z.object({
   status: MemoryStatusSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 }).strict();
-// Owner browsing is separate from bounded client recall. A snapshot guard lets
-// the profile recover when canonical writes move records between pages.
+// Owner browsing is separate from bounded client recall. Later pages require
+// both guards so canonical writes and ranking changes cannot silently move rows.
 export const MemoryListSchema = SearchSchema.extend({
-  offset: z.coerce.number().int().min(0).max(100_000).default(0),
-  snapshot_version: z.coerce.number().int().min(0).optional(),
-  ranking_version: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  offset: z.coerce.number().int().min(0).max(100_000).default(0).describe('Both consistency guards are required when offset is greater than 0.'),
+  snapshot_version: z.coerce.number().int().min(0).optional().describe('Required when offset is greater than 0; use the snapshot_version returned by the first page.'),
+  ranking_version: z.string().regex(/^[a-f0-9]{64}$/).optional().describe('Required when offset is greater than 0; use the ranking_version returned by the first page.'),
+}).superRefine((input, ctx) => {
+  if (input.offset > 0) {
+    for (const guard of ['snapshot_version', 'ranking_version'] as const) {
+      if (input[guard] === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [guard], message: 'Required for pages after offset 0.' });
+    }
+  }
 });
 export const CorrectSchema = z.object({
   statement: z.string().min(1).max(4_000),
