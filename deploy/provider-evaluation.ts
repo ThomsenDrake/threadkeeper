@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { installDirectProviderObserver, summarizeProviderObservations } from './direct-provider-observer.mjs';
+import { installDirectProviderObserver, providerObservationConfigFromEnv, summarizeProviderObservations } from './direct-provider-observer.mjs';
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
@@ -93,7 +93,7 @@ if (mode !== '--live') {
   config.maxOutputTokens = 4096;
 }
 const provider = new OpenAICompatibleProvider(config);
-if (mode === '--live') observer = installDirectProviderObserver({ baseUrl: config.baseUrl, models: [config.modelId] });
+if (mode === '--live') observer = installDirectProviderObserver({ ...providerObservationConfigFromEnv(), baseUrls: [config.baseUrl], models: [config.modelId] });
 const database = databaseResource = await createTestDatabase();
   await bootstrap(database.db, 'provider-evaluation@example.invalid', 'synthetic-provider-password-123');
   appServer = createServer();
@@ -148,9 +148,12 @@ const database = databaseResource = await createTestDatabase();
       ...(await http(`/api/context/search?project_id=${encodeURIComponent(project)}&limit=100&status=candidate`, { token: reader.token })).data.memories,
     ];
     assert(active.every(memory => !['assistant_proposed', 'inferred'].includes(memory.origin)), 'Unconfirmed candidates must not enter default recall');
-    const statements = (memories: any[]) => memories.map(memory => memory.statement).sort();
-    assert.deepEqual(statements(first), statements(canonical));
-    assert.deepEqual(statements(independentHttp), statements(canonical));
+    const records = (memories: any[]) => memories.map(memory => ({
+      ...memory,
+      evidence: memory.evidence.map((value: any) => ({ ...value })).sort((a: any, b: any) => a.source_id.localeCompare(b.source_id)),
+    })).sort((a, b) => a.id.localeCompare(b.id));
+    assert.deepEqual(records(first), records(canonical));
+    assert.deepEqual(records(independentHttp), records(canonical));
     const sourceRows = (await database.db.query('SELECT id,event_id,text FROM tk_sources WHERE id=ANY($1::text[])', [canonical.flatMap(memory => memory.evidence.map((evidence: any) => evidence.source_id))])).rows;
     const sourceById = new Map(sourceRows.map(source => [source.id, source]));
     const memories = canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status,

@@ -1,7 +1,7 @@
 import type { EvaluationCase } from './provider-evaluation-corpus.ts';
 
 export type EvaluationMemory = {
-  statement: string; kind: string; origin: string; effective_at: string | null;
+  statement: string; kind: string; origin: string; status?: string; effective_at: string | null;
   evidence: Array<{ event_id?: string; quote: string }>;
 };
 
@@ -11,9 +11,12 @@ export type EvaluationMemory = {
 // paraphrased or attributed to another event.
 export function evaluateMemoryRubric(item: EvaluationCase, memories: EvaluationMemory[]) {
   const candidates = item.expected.map(expected => memories.flatMap((memory, index) => {
-    const matches = [expected.pattern, ...(expected.and_patterns ?? [])].every(pattern => new RegExp(pattern, 'i').test(memory.statement))
+    const patterns = [expected.pattern, ...(expected.and_patterns ?? [])];
+    const matches = patterns.every(pattern => new RegExp(pattern, 'i').test(memory.statement))
+      && (expected.status === undefined || memory.status === expected.status)
       && memory.origin === expected.origin && (!expected.kind || memory.kind === expected.kind)
       && memory.evidence.length === 1 && memory.evidence[0].event_id === expected.source_event_id
+      && [...patterns, ...(expected.quote_patterns ?? [])].every(pattern => new RegExp(pattern, 'i').test(memory.evidence[0].quote))
       && (expected.effective_at === undefined || (expected.effective_at === null ? memory.effective_at === null
         : typeof memory.effective_at === 'string' && Date.parse(memory.effective_at) === Date.parse(expected.effective_at)));
     return matches ? [index] : [];
