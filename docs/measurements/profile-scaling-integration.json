@@ -1,0 +1,31 @@
+{
+  "result": "PASS",
+  "evidence": "native-full-stack-synthetic-provider",
+  "versions": {
+    "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
+    "pgvector": "0.8.7"
+  },
+  "checks": [
+    "profile and two independently authenticated MCP clients",
+    "worker HTTP extraction and native pgvector hybrid recall",
+    "explicit owner confirmation and dismissal preserve original provenance through independent recall",
+    "authoritative profile correction and complete preference deletion",
+    "owner capture pause rejects new saves and replay while authorized recall and queued extraction continue",
+    "owner, project, source and client permission isolation",
+    "embedding HTTP failure, model and dimension validation with recovery",
+    "live capture failure, owner retry and independent recall preserve source and job identity",
+    "correction and deletion during in-flight embedding processing",
+    "correction and deletion during in-flight source extraction",
+    "fresh final context, keyless fixture identity and client revocation",
+    "native migrations rerun",
+    "native-enabled hybrid, capture recovery, candidate review, client control, forgetting and profile pagination/import regressions (53 tests)"
+  ],
+  "recorded_at": "2026-10-03T13:49:44.618985+00:00",
+  "application_image": "sha256:6173deb722bf98eb277dca00bd9a570c9094f513d5b879a76103d0c799c6aa48",
+  "cleanup": "Disposable containers, network, volume, image and credentials removed.",
+  "new_profile_fixtures": "All new profile pagination/import HTTP/core fixtures opt into isolated native schemas via vector:true; explicit no-extension fallback tests elsewhere remain PGlite.",
+  "limits": [
+    "Synthetic provider HTTP responses do not establish learned extraction/retrieval quality, installed MCP host behavior or GPU inference.",
+    "Exact owner ranking is functionally checked on 125/144-record synthetic collections; sustained large-archive throughput is unmeasured."
+  ]
+}

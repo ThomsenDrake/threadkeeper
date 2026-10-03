@@ -15,6 +15,8 @@ type Revision = { revision: number; statement: string; origin: string; status: s
 type Detail = { memory: Memory; sources: Source[]; evidence?: Evidence[]; revisions: Revision[] };
 type Client = { id: string; name: string; permissions: string[]; projects: string[] | null; created_at?: string; last_used_at?: string | null; revoked_at?: string | null };
 type CaptureSettings = { paused: boolean; version: number };
+type MemoryPage = { memories: Memory[]; next_offset: number | null; total_count: number; snapshot_version: number; ranking_version: string };
+type ImportResult = { imported_sources: number; existing_sources: number; skipped_sources: number; imported_memories: number; existing_memories: number; skipped_memories: number; tombstone_excluded_sources: number; tombstone_excluded_memories: number; evidence_excluded_memories: number; imported_tombstones: number; existing_tombstones: number };
 type CaptureStatus = {
   capture_id: string; client_id: string; project_id: string | null; subject: string; created_at: string;
   status: 'saved' | 'pending' | 'processing' | 'complete' | 'failed' | 'cancelled';
@@ -74,6 +76,13 @@ const errorMessages: Record<string, string> = {
   capture_not_found: 'This capture is no longer available.',
   source_not_found: 'This source is no longer available. It may have been forgotten.',
   memory_not_found: 'This memory is no longer available. Refresh to see the current records.',
+  memory_list_changed: 'Your context or search order changed while browsing. Refresh the list before loading more records.',
+  payload_too_large: 'This import exceeds the 12 MiB request limit. Choose a smaller valid export.',
+  fresh_import_required: 'This export includes deletion history that is new to this deployment. Import it into a fresh instance. This import was rolled back.',
+  import_source_conflict: 'A source in this export differs from an existing source. This import was rolled back; no records were imported.',
+  import_memory_conflict: 'A memory in this export differs from its current version here. This import was rolled back; no records were imported.',
+  import_revision_conflict: 'Revision history in this export conflicts with existing history. This import was rolled back; no records were imported.',
+  import_evidence_conflict: 'Source evidence in this export conflicts with existing evidence. This import was rolled back; no records were imported.',
   attempt_conflict: 'This extraction attempt has changed. Refresh its status before retrying.',
   retry_unavailable: 'This capture can no longer be retried. Its current status has been refreshed.',
   revision_conflict: 'This memory has changed. Refresh its current revision before reviewing again.',
@@ -220,6 +229,15 @@ export default function App() {
   const [filters, setFilters] = useState({ query: '', subject: '', project_id: '', source: '', status: 'active' });
   const [busy, setBusy] = useState(false);
   const [listLoading, setListLoading] = useState(false);
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listNeedsRefresh, setListNeedsRefresh] = useState(false);
+  const [nextMemoryOffset, setNextMemoryOffset] = useState<number | null>(null);
+  const [memoryTotal, setMemoryTotal] = useState<number | null>(null);
+  const [memorySnapshot, setMemorySnapshot] = useState<number | null>(null);
+  const [memoryRanking, setMemoryRanking] = useState<string | null>(null);
+  const [memoryViewKey, setMemoryViewKey] = useState('');
+  const [memoryFocusId, setMemoryFocusId] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [selected, setSelected] = useState<Detail | null>(null);
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null);
@@ -245,6 +263,11 @@ export default function App() {
   const [importText, setImportText] = useState('');
   const [importName, setImportName] = useState('');
   const [importBusy, setImportBusy] = useState(false);
+  const [importReading, setImportReading] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importFileInput = useRef<HTMLInputElement>(null);
+  const importSelection = useRef(0);
   const [pendingRevocation, setPendingRevocation] = useState<string | null>(null);
   const [loginError, setLoginError] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
@@ -264,6 +287,7 @@ export default function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [sourceRefreshVersion, setSourceRefreshVersion] = useState(0);
   const authGeneration = useRef(0);
+  const memoryRequest = useRef<AbortController | null>(null);
   const detailRequest = useRef(0);
   const memoryPanel = useRef<HTMLElement>(null);
   const deletionRequest = useRef(0);
@@ -315,6 +339,9 @@ export default function App() {
     setUser(null); setSelected(null); setMemories([]); setClients([]); setToken(null); setModal(null);
     setClientsError(null); setClientsLoading(false); setCaptureSettings(null); setCaptureSettingsError(null); setCaptureSettingsLoading(true); setCaptureSettingsBusy(false);
     setMcpEndpoint(null); setConnectionError(null); setConnectionLoading(true); setWalkthroughAuthorized(false);
+    memoryRequest.current?.abort(); setListLoading(false); setMoreLoading(false); setListError(null); setListNeedsRefresh(false);
+    setMemoryTotal(null); setMemorySnapshot(null); setMemoryRanking(null); setNextMemoryOffset(null); setMemoryViewKey('');
+    importSelection.current++; setImportText(''); setImportName(''); setImportResult(null); setImportError(null); setImportBusy(false); setImportReading(false);
     setCaptures([]); setCaptureReceipt(null); setCapturePages(1); setNextCaptureOffset(null);
     setCapturesUpdatedAt(null); setCapturesError(null); setCapturesLoading(false); setRetryingCapture(null);
     setSourceId(null); setSource(null); setSourceError(null); setSourceLoading(false);
@@ -334,6 +361,11 @@ export default function App() {
   const openClient = () => { setClientScope('all'); setModal('client'); };
   const closeMemoryRef = useRef(closeMemory);
   closeMemoryRef.current = closeMemory;
+  const viewKey = JSON.stringify([filters, refreshVersion]);
+  const viewCurrent = memoryViewKey === viewKey;
+  const visibleMemories = viewCurrent ? memories : [];
+  const visibleTotal = viewCurrent ? memoryTotal : null;
+  const loadingMemories = listLoading || !viewCurrent;
 
   useEffect(() => {
     if (!selectedMemoryId) return;
@@ -400,17 +432,54 @@ export default function App() {
   useEffect(() => {
     if (!user || page !== 'memories') return;
     const controller = new AbortController();
+    memoryRequest.current = controller;
+    setMemories([]); setMemoryViewKey(viewKey); setMemoryTotal(null); setMemorySnapshot(null); setMemoryRanking(null);
+    setNextMemoryOffset(null); setListError(null); setListNeedsRefresh(false); setListLoading(true); setMoreLoading(false); setMemoryFocusId(null);
     const timeout = setTimeout(() => {
-      setListLoading(true);
-      const query = new URLSearchParams([...Object.entries(filters).filter(([,value]) => value), ['limit', '100']]);
-      api<{ memories: Memory[] }>(`/memories?${query}`, { signal: controller.signal }).then(result => {
-        if (!controller.signal.aborted) setMemories(result.memories.filter(memory => !forgottenMemoryIds.current.has(memory.id)));
+      const query = new URLSearchParams([...Object.entries(filters).filter(([,value]) => value), ['limit', '50']]);
+      api<MemoryPage>(`/memories?${query}`, { signal: controller.signal }).then(result => {
+        if (controller.signal.aborted) return;
+        setMemories(result.memories.filter(memory => !forgottenMemoryIds.current.has(memory.id))); setNextMemoryOffset(result.next_offset); setMemoryTotal(result.total_count);
+        setMemorySnapshot(result.snapshot_version); setMemoryRanking(result.ranking_version);
       }).catch(error => {
-        if (error instanceof Error && error.name !== 'AbortError') informError(error);
+        if (controller.signal.aborted) return;
+        setListError(error instanceof Error ? error.message : 'Unable to load memories.');
+        if (error instanceof ApiError && error.status === 401) informError(error);
       }).finally(() => { if (!controller.signal.aborted) setListLoading(false); });
     }, 150);
-    return () => { clearTimeout(timeout); controller.abort(); };
+    return () => { clearTimeout(timeout); controller.abort(); memoryRequest.current?.abort(); };
   }, [user, page, filters, refreshVersion]);
+
+  useEffect(() => {
+    if (!memoryFocusId || moreLoading || !viewCurrent) return;
+    // A later interaction (including opening provenance) owns focus. Only move
+    // it if it is still at pagination or fell to body when that control ended.
+    if (document.activeElement === document.body || document.activeElement?.closest('.memory-pagination')) {
+      document.querySelector<HTMLElement>(`.memory-row[data-memory-id="${CSS.escape(memoryFocusId)}"]`)?.focus();
+    }
+    setMemoryFocusId(null);
+  }, [memoryFocusId, moreLoading, viewCurrent]);
+
+  async function loadMoreMemories() {
+    if (nextMemoryOffset === null || memorySnapshot === null || memoryRanking === null || moreLoading || loadingMemories || listNeedsRefresh || !viewCurrent) return;
+    const controller = new AbortController();
+    const moveFocus = !!document.activeElement?.closest('.memory-pagination');
+    memoryRequest.current = controller;
+    setMoreLoading(true); setListError(null);
+    const query = new URLSearchParams([...Object.entries(filters).filter(([, value]) => value), ['limit', '50'], ['offset', String(nextMemoryOffset)], ['snapshot_version', String(memorySnapshot)], ['ranking_version', memoryRanking]]);
+    try {
+      const result = await api<MemoryPage>(`/memories?${query}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      setMemories(current => [...new Map([...current, ...result.memories].filter(memory => !forgottenMemoryIds.current.has(memory.id)).map(memory => [memory.id, memory])).values()]);
+      setNextMemoryOffset(result.next_offset); setMemoryTotal(result.total_count);
+      if (moveFocus && result.memories.length > 0 && (document.activeElement === document.body || document.activeElement?.closest('.memory-pagination'))) setMemoryFocusId(result.memories[0].id);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setListError(error instanceof Error ? error.message : 'Unable to load more memories.');
+      setListNeedsRefresh(error instanceof ApiError && error.status === 409);
+      if (error instanceof ApiError && error.status === 401) informError(error);
+    } finally { if (!controller.signal.aborted) setMoreLoading(false); }
+  }
 
   useEffect(() => {
     if (!user || page !== 'captures') return;
@@ -710,13 +779,39 @@ export default function App() {
   }
 
   async function importBundle() {
-    setImportBusy(true);
+    setImportBusy(true); setImportError(null); setImportResult(null);
+    const generation = authGeneration.current;
     try {
       const bundle = JSON.parse(importText);
-      await api('/import', { method: 'POST', body: JSON.stringify(bundle) });
+      const body = JSON.stringify(bundle);
+      if (new Blob([body]).size > 12 * 1024 * 1024) throw new Error(errorMessages.payload_too_large);
+      const result = await api<ImportResult>('/import', { method: 'POST', body });
+      if (generation !== authGeneration.current) return;
+      setImportResult(result);
       setImportText(''); setImportName(''); refresh();
-      setNotice({ type: 'success', text: 'Import completed. Review the restored memories and sources. Client grants are not restored.' });
-    } catch (error) { informError(error); } finally { setImportBusy(false); }
+      if (importFileInput.current) importFileInput.current.value = '';
+    } catch (error) {
+      if (generation !== authGeneration.current) return;
+      setImportError(error instanceof SyntaxError ? 'This file is not valid JSON. Choose a Threadkeeper JSON export and try again. No records were imported.'
+        : error instanceof ApiError && error.status === 400 ? 'This export failed validation. No records were imported. Choose a complete, unmodified Threadkeeper export.'
+        : error instanceof ApiError && error.status >= 500 || error instanceof TypeError ? 'The service could not finish this import. Refresh your records before retrying; no completed outcome was received.'
+        : error instanceof Error ? error.message : 'The import did not complete. Try again.');
+      if (error instanceof ApiError && error.status === 401) informError(error);
+    } finally { if (generation === authGeneration.current) setImportBusy(false); }
+  }
+
+  async function chooseImport(file?: File) {
+    const selection = ++importSelection.current;
+    const generation = authGeneration.current;
+    setImportText(''); setImportName(''); setImportError(null); setImportResult(null);
+    setImportReading(false);
+    if (!file) return;
+    if (file.size > 12 * 1024 * 1024) { setImportError(errorMessages.payload_too_large); if (importFileInput.current) importFileInput.current.value = ''; return; }
+    setImportReading(true);
+    const current = () => selection === importSelection.current && generation === authGeneration.current;
+    try { const text = await file.text(); if (current()) { setImportText(text); setImportName(file.name); } }
+    catch { if (current()) setImportError('This file could not be read. Choose it again or select another export.'); }
+    finally { if (current()) setImportReading(false); }
   }
 
   const clientName = (id: string | null) => !id || id === 'profile' ? 'Profile' : clients.find(client => client.id === id)?.name || id;
@@ -736,7 +831,7 @@ export default function App() {
   </div>;
 
   return <div className="app-shell">
-    <aside className="sidebar"><Brand /><div className="workspace-label">PERSONAL CONTEXT</div><nav aria-label="Main navigation">{(['memories', 'captures', 'connections', 'portability'] as Page[]).map(item => <button key={item} className={`nav-item ${page === item ? 'selected' : ''}`} aria-current={page === item ? 'page' : undefined} onClick={() => { setPage(item); closeMemory(); closeSource(); }}><Icon name={item} />{pageLabels[item]}{item === 'memories' && <span className="nav-count">{memories.length}</span>}</button>)}</nav>
+    <aside className="sidebar"><Brand /><div className="workspace-label">PERSONAL CONTEXT</div><nav aria-label="Main navigation">{(['memories', 'captures', 'connections', 'portability'] as Page[]).map(item => <button key={item} className={`nav-item ${page === item ? 'selected' : ''}`} aria-current={page === item ? 'page' : undefined} onClick={() => { setPage(item); closeMemory(); closeSource(); }}><Icon name={item} />{pageLabels[item]}{item === 'memories' && visibleTotal !== null && <span className="nav-count" title="Matches in the current memory view">{visibleTotal}</span>}</button>)}</nav>
       <div className="sidebar-note"><span className="status-dot" />You own the memory.<p>Connected clients request context. You decide what stays.</p></div>
       <div className="account"><div className="avatar">{user.email[0].toUpperCase()}</div><div><span className="account-label">Local account</span><span className="account-email" title={user.email}>{user.email}</span></div><button className="signout" onClick={async () => { try { await api('/auth/logout', { method: 'POST' }); clearOwnerState(); } catch (error) { informError(error); } }}>Sign out</button></div>
     </aside>
@@ -749,15 +844,18 @@ export default function App() {
         {notice && <div className={`notice ${notice.type}`} role={notice.type === 'error' ? 'alert' : 'status'}><span>{notice.text}</span><button className="icon-button" onClick={() => setNotice(null)} aria-label="Dismiss notification"><Icon name="close" /></button></div>}
         <div className={`capture-control-banner ${captureSettings?.paused ? 'capture-control-paused' : ''}`} role="status"><span>{captureSettingsLoading ? 'Checking capture controls…' : captureSettingsError ? 'Capture controls unavailable. New profile captures are disabled until refreshed.' : captureSettings?.paused ? 'New captures are paused for all clients and this profile. Existing memories remain available.' : 'New captures are enabled. Each client still needs your authorization and capture permission.'}</span>{page !== 'connections' && <button className="text-button" onClick={() => setPage('connections')}>Capture controls</button>}</div>
         {page === 'memories' && <>
-          <div className="summary-strip"><div><span className="summary-number">{memories.length}</span><span>Memories shown</span></div><div><span className="summary-number">{activeClients.length}</span><span>Active credentials</span></div><button className="summary-review" aria-pressed={filters.status === 'candidate'} onClick={() => { closeMemory(); setFilters(current => ({ ...current, status: 'candidate' })); }}><Icon name="check" />Needs review</button></div>
+          <div className="summary-strip"><div><span className="summary-number">{visibleMemories.length}</span><span>Loaded{visibleTotal !== null ? ` of ${visibleTotal} matches` : listError ? ' · matches unavailable' : ' · loading matches'}</span></div><div><span className="summary-number">{activeClients.length}</span><span>Active credentials</span></div><button className="summary-review" aria-pressed={filters.status === 'candidate'} onClick={() => { closeMemory(); setFilters(current => ({ ...current, status: 'candidate' })); }}><Icon name="check" />Needs review</button></div>
           {filters.status === 'candidate' && <div className="review-intro"><div><h2>Your review makes the decision.</h2><p>Confirm a candidate with your own evidence, edit and confirm it, or dismiss it while keeping its history. Unconfirmed candidates stay outside fresh default recall.</p></div><button className="text-button" onClick={() => setFilters(current => ({ ...current, status: 'active' }))}>View active memories</button></div>}
-          <section className="memory-panel" aria-label="Memories">
+          <div className="memory-toolbar"><p>Counts apply to your current filters.</p><button className="button secondary" disabled={loadingMemories || moreLoading} onClick={refresh}>Refresh memories</button></div>
+          <section className="memory-panel" aria-label="Memories" aria-busy={loadingMemories || moreLoading}>
             <div className="filter-bar"><label className="search-field"><Icon name="search" /><span className="sr-only">Search memories</span><input type="search" value={filters.query} onChange={event => setFilters({ ...filters, query: event.target.value })} placeholder="Search your memories…" /></label><label><span>Subject</span><input value={filters.subject} onChange={event => setFilters({ ...filters, subject: event.target.value })} placeholder="All subjects" /></label><label><span>Project</span><input value={filters.project_id} onChange={event => setFilters({ ...filters, project_id: event.target.value })} placeholder="All projects" /></label><label><span>Source</span><select aria-label="Source" value={filters.source} onChange={event => setFilters({ ...filters, source: event.target.value })}><option value="">All sources</option><option value="profile">Profile</option>{clients.map(client => <option key={client.id} value={client.id}>{client.name}{client.revoked_at ? ' (revoked)' : ''}</option>)}</select></label><label><span>Status</span><select aria-label="Status" value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}><option value="">All statuses</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
             <div className="list-heading"><span>MEMORY</span><span>CLASSIFICATION</span><span>UPDATED</span><span /></div>
-            {listLoading && <div className="list-progress" role="status">Searching…</div>}
-            {!listLoading && memories.length === 0 && <div className="empty-state"><span className="empty-icon"><Icon name="memories" /></span><h3>{filters.status === 'candidate' ? 'No candidates match this view.' : Object.entries(filters).some(([key, value]) => value && key !== 'status') || filters.status !== 'active' ? 'No matching memories.' : 'A fresh thread starts here.'}</h3><p>{filters.status === 'candidate' ? 'Reviewable proposals and model inferences appear here. Check your filters to see candidates in another scope.' : 'Save a direct statement here, or let a connected client capture context you approve.'}</p>{filters.status === 'candidate' ? <button className="button secondary" onClick={() => setFilters(current => ({ ...current, status: 'active' }))}>View active memories</button> : <button className="button secondary" onClick={openCapture} disabled={captureUnavailable}>Add your first memory</button>}</div>}
-            <div className="memory-list">{memories.map(memory => <button key={memory.id} className={`memory-row ${selected?.memory.id === memory.id ? 'row-selected' : ''}`} onClick={() => openMemory(memory)}><div className="memory-statement"><div className="memory-meta"><span>{kindLabels[memory.kind] || memory.kind}</span><span className="meta-dot">·</span><span>{memory.project_id || 'Personal'}</span><span className="meta-dot">·</span><span>{memory.subject}</span></div><p>{memory.statement}</p></div><div className="classification"><span className={`badge origin-${memory.origin}`}>{originLabels[memory.origin] || memory.origin}</span>{memory.status !== 'active' && <span className={`badge status-${memory.status}`}>{statusLabels[memory.status] || memory.status}</span>}</div><div className="updated"><span>{new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(memory.updated_at || memory.created_at))}</span><small>Revision {memory.revision}</small></div><Icon name="arrow" /></button>)}</div>
-          </section><p className="memory-footer">{memories.length === 100 ? "Showing the first 100 matches. Refine your filters to narrow the results. " : ""}Sources are preserved separately from interpretations. Inferences are always labeled.</p>
+            {loadingMemories && <div className="list-progress" role="status">Loading matching memories…</div>}
+            {viewCurrent && listError && <div className="list-error" role="alert"><p>{listError}{visibleMemories.length > 0 && " The displayed records are from the last successful request."}</p><button className="button secondary" disabled={moreLoading || loadingMemories} onClick={visibleMemories.length > 0 && !listNeedsRefresh ? loadMoreMemories : refresh}>{listNeedsRefresh ? "Refresh memories" : "Try again"}</button></div>}
+            {!loadingMemories && !listError && visibleMemories.length === 0 && <div className="empty-state"><span className="empty-icon"><Icon name="memories" /></span><h3>{filters.status === 'candidate' ? 'No candidates match this view.' : Object.entries(filters).some(([key, value]) => value && key !== 'status') || filters.status !== 'active' ? 'No matching memories.' : 'A fresh thread starts here.'}</h3><p>{filters.status === 'candidate' ? 'Reviewable proposals and model inferences appear here. Check your filters to see candidates in another scope.' : 'Save a direct statement here, or let a connected client capture context you approve.'}</p>{filters.status === 'candidate' ? <button className="button secondary" onClick={() => setFilters(current => ({ ...current, status: 'active' }))}>View active memories</button> : <button className="button secondary" onClick={openCapture} disabled={captureUnavailable}>Add your first memory</button>}</div>}
+            <div className="memory-list">{visibleMemories.map(memory => <button key={memory.id} data-memory-id={memory.id} className={`memory-row ${selected?.memory.id === memory.id ? 'row-selected' : ''}`} onClick={() => openMemory(memory)}><div className="memory-statement"><div className="memory-meta"><span>{kindLabels[memory.kind] || memory.kind}</span><span className="meta-dot">·</span><span>{memory.project_id || 'Personal'}</span><span className="meta-dot">·</span><span>{memory.subject}</span></div><p>{memory.statement}</p></div><div className="classification"><span className={`badge origin-${memory.origin}`}>{originLabels[memory.origin] || memory.origin}</span>{memory.status !== 'active' && <span className={`badge status-${memory.status}`}>{statusLabels[memory.status] || memory.status}</span>}</div><div className="updated"><span>{new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(memory.updated_at || memory.created_at))}</span><small>Revision {memory.revision}</small></div><Icon name="arrow" /></button>)}</div>
+            {viewCurrent && visibleTotal !== null && <div className="memory-pagination"><p role="status">{moreLoading ? 'Loading more memories…' : `${visibleMemories.length} loaded of ${visibleTotal} matching memories`}{!moreLoading && nextMemoryOffset === null && visibleTotal > 0 ? ' · All matches loaded' : ''}</p>{nextMemoryOffset !== null && !listNeedsRefresh && <button className="button secondary" disabled={loadingMemories || moreLoading} onClick={loadMoreMemories}>{moreLoading ? 'Loading…' : 'Load more memories'}</button>}</div>}
+          </section><p className="memory-footer">Sources are preserved separately from interpretations. Inferences are always labeled.</p>
         </>}
         {page === 'captures' && <>
           {captureReceipt && <section className="capture-receipt" aria-label="Last save receipt"><h2>Last save receipt</h2><p>{captureReceipt.status === 'pending' ? 'Source stored; extraction was pending when this save was accepted.' : 'Your statement and source were saved when this request was accepted.'} Live status appears below.</p><div><span>{readableDate(captureReceipt.received_at)}</span><code>{captureReceipt.capture_id}</code></div></section>}
@@ -799,7 +897,7 @@ export default function App() {
           <details className="client-instructions walkthrough"><summary>Try your first authorized capture and recall</summary><ol><li><h3>Choose permissions and connect.</h3><p>Create Client A with recall and capture access. Connect it using the endpoint above. For an independent recall, give Client B a separate recall credential. This example uses global / personal scope (<code>project_id: null</code>), which is included in restricted project scopes too.</p></li><li><h3>Authorize one synthetic save.</h3><p>Tell Client A: “For this synthetic test, remember: use short paragraphs in my writing.” This walkthrough only copies arguments; your client sends the request after you authorize it.</p><label className="check-label"><input type="checkbox" checked={walkthroughAuthorized} onChange={event => setWalkthroughAuthorized(event.target.checked)} /><span>I authorize saving this synthetic preference.</span></label><p className="fine-print">Call <code>context_capture</code> with these arguments. Keep the same idempotency key and event ID for an unchanged retry; use new IDs for a different source.</p><CopyValue label="Capture arguments" value={walkthroughCapture} rows={10} disabled={!walkthroughAuthorized || captureUnavailable} />{captureSettings?.paused && <p className="fine-print">Resume new captures above before trying this save.</p>}</li><li><h3>Recall from an independent client.</h3><p>After the direct save completes, ask Client B to call <code>context_search</code> with these arguments. A recall credential can read this authorized scope while new captures are paused.</p><CopyValue label="Recall arguments" value={walkthroughRecall} rows={6} /><p className="fine-print">HTTP alternatives use <code>POST /api/capture</code> with the capture JSON and <code>GET /api/context/search?query=short%20paragraphs</code>, both with <code>Authorization: Bearer TOKEN</code>. The GET searches permitted scopes, including projects; use MCP’s <code>project_id: null</code> for a global-only search.</p></li><li><h3>Check saved evidence and control access.</h3><p>Open Captures to inspect the source and current memory. Omitting <code>explicit_memories</code> saves source evidence for extraction: <code>pending</code> is a queued save, not a completed memory. Follow live status with <code>context_capture_status</code> using the returned capture ID. A source-only <code>saved</code> state has no extraction job; completed extraction can admit zero memories.</p><p>Pause new captures and verify a new save is rejected while recall still works. Resume to allow authorized captures again. Revoking a credential rejects its future requests and retains already saved context. Previously delivered client copies remain outside Threadkeeper’s control.</p></li></ol></details>
           <div className="client-instructions"><span className="eyebrow">CLIENT INSTRUCTIONS</span><h3>Give your client a clear memory contract.</h3><ul><li>Recall prior context when it could change an answer, decision, or action. Skip recall when that context is already visible.</li><li>Capture explicit requests to remember, durable user statements, confirmed decisions, and corrections, following the user’s capture policy.</li><li>Send minimal relevant evidence with roles and source boundaries. Label summaries as client-reported. Silence does not confirm an assistant proposal.</li><li>Fresh retrieval respects corrections, deletion, project scopes, capture permissions and revoked access.</li></ul></div>
         </section>}
-        {page === 'portability' && <><div className="portability-grid"><section className="portability-card"><span className="small-icon"><Icon name="portability" /></span><h2>Export your memory</h2><p>A versioned JSON bundle preserves sources, memories, evidence, scope labels, and correction history. Credentials are excluded.</p><button className="button primary" onClick={downloadExport} disabled={exportBusy}>{exportBusy ? 'Preparing export…' : 'Download JSON export'}</button><p className="muted fine-print">An export is a copy of your personal context. Future deletions cannot remove copies you already downloaded.</p></section><section className="portability-card"><span className="small-icon"><Icon name="memories" /></span><h2>Import an export</h2><p>Restore a Threadkeeper bundle here. Imported client grants are not enabled, and validation checks source references and versions.</p><label className="file-picker"><input type="file" accept=".json,application/json" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; try { setImportText(await file.text()); setImportName(file.name); } catch (error) { informError(error); } }} /><span>{importName || 'Choose a JSON export'}</span></label><button className="button secondary" disabled={!importText || importBusy} onClick={importBundle}>{importBusy ? 'Validating import…' : 'Validate & import'}</button></section></div><div className="info-card"><Icon name="lock" /><div><h3>Your deployment, your controls.</h3><p>Your operator controls authentication, inference endpoints, data storage, and resource limits. Managed hosting will share the same application features as self-hosting.</p></div></div></>}
+        {page === 'portability' && <><div className="portability-grid"><section className="portability-card"><span className="small-icon"><Icon name="portability" /></span><h2>Export your memory</h2><p>A versioned JSON bundle preserves sources, memories, evidence, scope labels, and correction history. Credentials are excluded.</p><button className="button primary" onClick={downloadExport} disabled={exportBusy}>{exportBusy ? 'Preparing export…' : 'Download JSON export'}</button><p className="muted fine-print">An export is a copy of your personal context. Future deletions cannot remove copies you already downloaded.</p></section><section className="portability-card"><span className="small-icon"><Icon name="memories" /></span><h2>Import an export</h2><p>Restore a Threadkeeper bundle here. Imported client grants are not enabled, and validation checks source references and versions.</p><label className="file-picker"><input ref={importFileInput} type="file" accept=".json,application/json" disabled={importBusy} onChange={event => { void chooseImport(event.target.files?.[0]); }} /><span>{importReading ? 'Reading export…' : importName || 'Choose a JSON export'}</span></label><p className="muted fine-print">Maximum JSON request: 12 MiB. Existing matching records are kept. Forgotten sources and memories are excluded.</p><button className="button secondary" disabled={!importText || importBusy || importReading} onClick={importBundle}>{importBusy ? 'Validating import…' : importError && importText ? 'Retry import' : 'Validate & import'}</button>{importError && <p className="field-error" role="alert">{importError}</p>}{importResult && <section className="import-result" aria-label="Import result" role="status"><h3>Import completed</h3><dl><div><dt>Sources</dt><dd>{importResult.imported_sources} new · {importResult.existing_sources} already present · {importResult.skipped_sources} excluded</dd></div><div><dt>Memories</dt><dd>{importResult.imported_memories} new · {importResult.existing_memories} already present · {importResult.skipped_memories} excluded</dd></div></dl>{(importResult.tombstone_excluded_sources > 0 || importResult.skipped_memories > 0) && <p>{importResult.tombstone_excluded_sources} sources excluded by deletion history. {importResult.tombstone_excluded_memories} memories excluded by deletion history; {importResult.evidence_excluded_memories} memories excluded because supporting evidence was forgotten.</p>}<p>Deletion markers: {importResult.imported_tombstones} new · {importResult.existing_tombstones} already present. Client credentials and access grants were not restored.</p><button className="text-button" onClick={() => setPage('memories')}>Review memories</button></section>}</section></div><div className="info-card"><Icon name="lock" /><div><h3>Your deployment, your controls.</h3><p>Your operator controls authentication, inference endpoints, data storage, and resource limits. Managed hosting will share the same application features as self-hosting.</p></div></div></>}
       </div>
     </main>
     {(selected || detailLoading || detailError) && <div className="detail-backdrop" onMouseDown={event => { if (event.currentTarget === event.target) closeMemory(); }}><aside className="detail-panel" role="dialog" aria-modal="true" aria-label="Memory details" ref={memoryPanel}><div className="detail-top"><span className="eyebrow">MEMORY DETAILS</span><button className="icon-button" onClick={closeMemory} aria-label="Close memory details"><Icon name="close" /></button></div>
