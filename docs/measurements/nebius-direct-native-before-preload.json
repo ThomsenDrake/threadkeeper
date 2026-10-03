@@ -1,9 +1,9 @@
 {
   "schema_version": "threadkeeper.direct-learned-lifecycle.v1",
-  "measured_at": "2026-10-03T18:15:43.188Z",
+  "measured_at": "2026-10-03T17:22:29.541Z",
   "source": {
-    "commit": "1be04840b5b3c56f40356f6742f1795ba479e42e",
-    "tree": "16e4886bdefea61db42e85d6325cf78c96ff2761",
+    "commit": "cebfb172ce73f26c4611f31169cb8615b9057c91",
+    "tree": "693880935d4be1e639d56ee525b1ec70abf8f094",
     "files": {
       ".dockerignore": "2859d93561c69b21a54342bb8f5114e3f52aeb16f70576aa060b415601e82bee",
       ".env.example": "0d31a15c43007d835bc7fdd2813a725227423b95c5002fba5e6eb9cbc3434ce7",
@@ -26,12 +26,11 @@
       "deploy/deletion-ledger.ts": "84484ac342e0a49269e8e746ffef18a00d5f2590b7fff63690592cc97f2fb791",
       "deploy/demo.ts": "b37bacc7d8c11831b9f0b23443c55e65263f9ddc2ee8898a9dc41784db34bb25",
       "deploy/dev-demo.ts": "5839230bfac5d44aba255d30b0e852d3a34baf7be6d73b60e773083d6839f270",
-      "deploy/direct-provider-observer.d.mts": "f24b140a1aeaa3297a5a47d17bee9bb6fa76899767b484135f88b58e4749fb62",
-      "deploy/direct-provider-observer.mjs": "a96d1548b9c96f0ed7ec4539c67a4d529ffb5be2a29c29cabbaf7567665501c5",
-      "deploy/direct-provider-preload.mjs": "710a95a31091087cff95ca0f71e2094610754facbb594264e422138921841ae6",
+      "deploy/direct-provider-observer.d.mts": "51ad1ae3112771454734d78d0665bf08a3dab1e7efcbfdedaab977f291f94691",
+      "deploy/direct-provider-observer.mjs": "3117f02b8dc8b2936e3f7fdb26c788027c6b2d1f0256216edc4b759e53f1dc56",
       "deploy/installed-codex-check.ts": "5d8f0964c3e5fdb805b3b8c63b6d985ee76bf238213d37a7f524271a7a807f85",
       "deploy/integration/compose.yaml": "79d0ebfcbef8bc64c5b7ec3ad01273d8cb8b3e95092d28ffae7a5c5da952ffc2",
-      "deploy/integration/learned-compose.yaml": "22bfc9c4219e18af1d6ab8c614b23c16746ea4a040892d1868e9ce2af5f863de",
+      "deploy/integration/learned-compose.yaml": "04769625730d62ff718d27baa47f10093b25c68aeac8f524c55969dec3697eba",
       "deploy/integration/learned-run.ts": "c034b74505e3f6391025094c4ca0e1feb1f4c452e5333f4520a59223e953da12",
       "deploy/integration/learned-scenarios.ts": "5f6ef0261be572b76629807848561544a5e26dde49980e803cf8e4eaa20db180",
       "deploy/integration/provider-fixture.ts": "cc750099f49648468833c5be29f4f238b5c046eca649cef1051a6cccbf5ab802",
@@ -45,12 +44,10 @@
       "deploy/migrations/005_candidate_review.sql": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee",
       "deploy/migrations/006_client_control.sql": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8",
       "deploy/migrations/007_embedding_attempts.sql": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3",
-      "deploy/provider-check.ts": "3a23d79822aedfffc3ddad67f8b45c4aaf5a267f9ec4f04fd8803df542d615bc",
+      "deploy/provider-check.ts": "dca8981f24274a40466479c0d747906b9a58bef67589b47b0dd4e7de7bb30276",
       "deploy/provider-embedding-evaluation.ts": "08556dc2667bff2abeea7527f39de19f7f012b8fe7ba527d8fbde77a728f05f5",
-      "deploy/provider-evaluation-corpus.ts": "7c2ea0dc2d8531d78044d6b3ab82ed524b3a2d378a27dbba2c574c726892c75c",
-      "deploy/provider-evaluation-rubric.ts": "4e7e1a55a2e3a41638dcaae7b2896b2f6b13d5a6034d8628a8e26f8ba308cb68",
-      "deploy/provider-evaluation.ts": "a2b69ffe7ef609db55e3c9a7f64d8de80db91d7a7b79cb7e75a44d8fbcdb79c0",
-      "deploy/provider-probe-rubric.ts": "9861970a1c63045062426f008186c86a7c11d0f8a47a72f2fac9649831c71722",
+      "deploy/provider-evaluation-corpus.ts": "b23decb38de302faeacc8b0c925a7769dc7a6735d5eb484712b47e5493410d2b",
+      "deploy/provider-evaluation.ts": "75911b90bfb67c39876144087bb33afd59f054fa4f9b2579d1f4fa2c4159945e",
       "deploy/recovery-demo.ts": "017fba5c470ee154917cf76e03e8a81a971d3eaab48e8e37262a840a0a0c19ea",
       "deploy/recovery-status.ts": "52063aeb8b5c5b46dbb6d64a12dad6b1f59578eb9ec8f65830f7f20fc9c48648",
       "deploy/reindex.ts": "f150d8a730697a6ea42dd882f12ad4ea222e6b3aeeed31364a083b44792f3dba",
@@ -88,10 +85,8 @@
       "tests/hybrid.test.ts": "2f718e2bc71d7f58455c2471bf9eb43d516a69b75d502ac1d8f255b8aa75b346",
       "tests/migrations.test.ts": "5accccc751b25f3dbdc5c132611cc75cd76aa8bbaae2567d1b4b7da5f8ab79e2",
       "tests/profile-scaling.test.ts": "9851b3aa99c82a500b41c07ac24a763fb3065c2006b30ef60a4ddbb35b945ed5",
-      "tests/provider-evaluation.test.ts": "b84aba471630c2f903c3696ae566725d886e8e4914c6aac788837d2f67200a4e",
       "tests/provider-fixture.test.ts": "4e2ae9cfece6eac8b01abfe7fd07fab1d9a19c914fc2241fa9cae2429679f06c",
-      "tests/provider-observer.test.ts": "3e58c671bc16900831aee9caacd1ac57517ce6df8cadd6b558f49b0dcbe4db13",
-      "tests/provider-probe.test.ts": "9de840b97fe47c66f9ed26c756a77cd436f635e47466f6f3f73b485591b7fb90",
+      "tests/provider-observer.test.ts": "1509b970fe24d102738afb7adb292beac3127e67ccb047dcfa60acedf8183c04",
       "tests/providers.test.ts": "63273d47d4f5abce80f2c26c3cdec701646c41a02a5e8fc63d23aaf43c806c1b",
       "tests/recovery-fixtures.ts": "e581fc33b8b5d0d9da9d657aedd03c4f1edf3a85dc58eb40644b52253d98036d",
       "tests/recovery.test.ts": "1a90322945ed0fb8fc10348879778808dfda03dce15ffbbb0cdeb59e84311f00",
@@ -116,7 +111,7 @@
     "compose": "2.40.3",
     "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
     "pgvector": "0.8.7",
-    "application_image": "sha256:fcb3d724f74cbf796769597a99315193302370bc18373ae87e09b597cd4a3c6d",
+    "application_image": "sha256:9fa6fcd4890d0956a39e9e0eb9fa2efe5c14adac0df163ff597a17d32bd09694",
     "database_image": "pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d"
   },
   "checks": [
@@ -146,47 +141,47 @@
     "revision": 2,
     "authoritative": true
   },
-  "elapsed_ms": 8311,
+  "elapsed_ms": 69350,
   "provider_requests": [
     {
       "event": "direct_provider_request",
       "ordinal": 1,
       "path": "chat/completions",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:35.856Z",
+      "started_at": "2026-10-03T17:21:20.756Z",
       "sent": true,
       "requested_model": "nvidia/Nemotron-3_5-Lightning",
-      "request_sha256": "a71d2f7c86fb138df6f6a950f1df96b9192511831fc846c9b0080371deba3864",
+      "request_sha256": "b42c58dbd950ffe638df8ec8b0a6e53f5e133f11a67c35d8ae577b13c92aac67",
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "b5c99e1dc4e240d5e489073028a485337a585a248c515b958cece792322df1a4",
+      "response_sha256": "368107345c04a8d31c6eb1c81cc01c778adefd3328427a713825f5e5a742cce5",
       "returned_model_matches": true,
       "returned_model": "nvidia/Nemotron-3_5-Lightning",
       "usage": {
         "completion_tokens": 149,
-        "prompt_tokens": 1589,
-        "total_tokens": 1738,
+        "prompt_tokens": 1581,
+        "total_tokens": 1730,
         "completion_tokens_details": {
           "reasoning_tokens": 0
         }
       },
       "finish_reason": "stop",
       "usage_status": "reported",
-      "elapsed_ms": 1515
+      "elapsed_ms": 1527
     },
     {
       "event": "direct_provider_request",
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:37.435Z",
+      "started_at": "2026-10-03T17:21:22.311Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "48a0dd4c45eb093f8985e437fffba5252a0aacc0490b727b0f12c495f20fc07f",
       "input_count": 2,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "0df4668a33dc70b4f51dc0695d5e86b3ef706364bb35134b25d8427d93a6efb9",
+      "response_sha256": "11a4f0f6d773c44e8a298c2a7f92ec613faf2ce2d5f2f1369538b1902a3db320",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -195,21 +190,21 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 348
+      "elapsed_ms": 2691
     },
     {
       "event": "direct_provider_request",
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:40.861Z",
+      "started_at": "2026-10-03T17:21:32.045Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b83ae344d3ca84b892d10b6224c0171056b6ef2a8339c0172a99fcc292624a2a",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "e58a76feb179dfc90bff3aff5d67724f07e6d87bc118d4ed433c85a231d085f2",
+      "response_sha256": "eb349e49ffecd75f81b1894a50ca9da762ad58659995e846e4f39915e7ff27ff",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -218,21 +213,21 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 386
+      "elapsed_ms": 2128
     },
     {
       "event": "direct_provider_request",
       "ordinal": 1,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:38.010Z",
+      "started_at": "2026-10-03T17:21:25.225Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "1e9127efe26f7f9e0f9e56599f328eff0061eb3f4685f81034d19b71c3e5917f",
+      "response_sha256": "c7232bb98663786772294075aab645564738fae5623d9755c63d39377c8630ae",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -241,21 +236,21 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 347
+      "elapsed_ms": 538
     },
     {
       "event": "direct_provider_request",
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:38.841Z",
+      "started_at": "2026-10-03T17:21:25.966Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "b0e8f7a9e0f4a00c29facf4cf604a818714c6622254fd13e3c0285de1d4cfe9d",
+      "response_sha256": "8fa80e08be6e7285e02dc8dde2e65c2885c1f54a362f179f89c81ebf3cbd0570",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -264,21 +259,21 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 649
+      "elapsed_ms": 5784
     },
     {
       "event": "direct_provider_request",
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:41.683Z",
+      "started_at": "2026-10-03T17:21:34.348Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "0ad5e9e178c6023be6d83c7d73895846b722a4f66e829e36e0d62cc6095858da",
+      "response_sha256": "c5e10007f1abe4ebc0b039ac7789b0fe2cbe954349a8671dcb6ec787f6de841b",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -287,21 +282,21 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 293
+      "elapsed_ms": 12464
     },
     {
       "event": "direct_provider_request",
       "ordinal": 4,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:42.007Z",
+      "started_at": "2026-10-03T17:21:46.829Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "027f68d8641788f461345ca0115715f1b788060f69656e1c0fb6815dcdbc926d",
+      "response_sha256": "ca14a69bc4fc0664bd2ecb2d23d87e9178a64db03ef40b20ca9036c62fe9f468",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -310,21 +305,21 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 277
+      "elapsed_ms": 21431
     },
     {
       "event": "direct_provider_request",
       "ordinal": 5,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T18:15:42.305Z",
+      "started_at": "2026-10-03T17:22:08.277Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "4c92f48a07c38f060e5fa20305ef143aae332b5f00a25b6210f4b7120a4eb352",
+      "response_sha256": "e19ec6a213a5e35805ac756a6d1fed19855a8647bb506a4a0cadb1bc09d45642",
       "returned_model_matches": true,
       "returned_model": "Qwen/Qwen3-Embedding-8B",
       "usage": {
@@ -333,7 +328,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 290
+      "elapsed_ms": 20907
     }
   ],
   "provider_usage": {
@@ -343,11 +338,10 @@
     "usage_complete": true,
     "inference_requests_without_usage": 0,
     "inference_requests_without_complete_usage": 0,
-    "derived_total_tokens_request_count": 0,
     "usage": {
       "completion_tokens": 149,
-      "prompt_tokens": 1683,
-      "total_tokens": 1832,
+      "prompt_tokens": 1675,
+      "total_tokens": 1824,
       "completion_tokens_details": {
         "reasoning_tokens": 0
       }
