@@ -4,7 +4,7 @@ The worker calls the configured OpenAI-compatible HTTP endpoint directly. It doe
 
 The extractor receives only the authorized source events in one capture job. It produces candidates with one exact source quote each. Shared Zod schemas check the shape; code checks source IDs, exact quotations, subject, and direct-user attribution. Agent reports remain agent reports, assistant proposals cannot become direct user statements, and the model cannot invent user confirmation. Database code owns authorization, corrections, revisions, and deletion. Exact quote validation establishes the quoted text exists; semantic support still requires evaluation.
 
-Extraction has at most two requests: one attempt and one repair. The default requests `json_object` and validates locally. Set `MODEL_JSON_OBJECT=false` for prompt-only local endpoints. Strict JSON schema is an optional capability via `MODEL_STRUCTURED_OUTPUT=true`. A rejected format or invalid output receives one prompt-only repair using the same model. Truncated output is rejected. No reasoning-control parameter is sent to Nebius.
+Extraction has at most two requests: one attempt and one repair. The default requests `json_object` and validates locally. Set `MODEL_JSON_OBJECT=false` for prompt-only local endpoints. Strict JSON schema is an optional capability via `MODEL_STRUCTURED_OUTPUT=true`. A rejected format or invalid output receives one prompt-only repair using the same model. Truncated output is rejected. Reasoning control is omitted by default; the bounded synthetic Nebius evaluations explicitly select `MODEL_REASONING_EFFORT=none`.
 
 | Variable | Default or behavior |
 | --- | --- |
@@ -14,6 +14,7 @@ Extraction has at most two requests: one attempt and one repair. The default req
 | `NEBIUS_API_KEY` | Fallback only for the official Nebius hostname |
 | `MODEL_TIMEOUT_MS` | 60000 per request; maximum 300000 |
 | `MODEL_MAX_OUTPUT_TOKENS` | 4096; maximum 32768 |
+| `MODEL_REASONING_EFFORT` | Omitted by default; optional `none`, `minimal`, `low`, `medium`, `high`, or `xhigh` sent on initial and repair requests |
 | `MODEL_JSON_OBJECT` | Enabled unless `false` |
 | `MODEL_STRUCTURED_OUTPUT` | Disabled unless `true` |
 | `MODEL_MAX_EVENTS` | 32; upper bound 32 |
