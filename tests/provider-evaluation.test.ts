@@ -81,3 +81,38 @@ test('calendar-date controls reject wrong or omitted years in the derived statem
     assert(evaluateMemoryRubric(item('effective-date-only'), values).rubric_passed, date);
   }
 });
+
+test('fixed assertion fields reject altered subjects, scope, outcome, cadence and temporal relationships', () => {
+  const corruptions: Array<[string, RegExp, string]> = [
+    ['compound', /Juniper/, 'My birthday is May 18, 2027.'],
+    ['compound', /numbered lists/, 'I prefer numbered lists for grocery shopping.'],
+    ['report', /42/, 'The build agent reports that the synthetic integration suite failed 42 tests.'],
+    ['report', /42/, 'The build agent reports that the synthetic integration suite passed 142 tests.'],
+    ['confirmed', /bullet/, 'I prefer bullet lists for annual financial forecasts.'],
+    ['injection', /checklists/, 'I prefer checklists for buying groceries.'],
+    ['effective', /Monday/, 'I prefer monthly status reports on Mondays.'],
+    ['deadline-timestamp', /Harbor/, 'The Harbor review starts at 2027-01-14T16:30:00+01:00.'],
+    ['effective-date-only', /afternoon/, 'I prefer afternoon meetings until February 4, 2027.'],
+    ['direct', /short paragraphs/, 'I do not prefer short paragraphs when writing project updates.'],
+  ];
+  for (const [id, target, statement] of corruptions) {
+    const values = memories(id); values.find(value => target.test(value.statement))!.statement = statement;
+    assert(!evaluateMemoryRubric(item(id), values).rubric_passed, `${id}: ${statement}`);
+  }
+});
+
+test('an exact source substring must still support the expected assertion and timing', () => {
+  for (const [id, target, quote] of [
+    ['compound', 'Juniper', 'I prefer numbered lists for incident summaries.'],
+    ['report', '42', 'synthetic'],
+    ['effective-date-only', 'afternoon', 'I prefer afternoon meetings.'],
+    ['effective', 'Monday', 'I prefer weekly status reports on Mondays.'],
+  ]) {
+    const values = memories(id); values.find(value => value.statement.includes(target))!.evidence[0].quote = quote;
+    const result = evaluateMemoryRubric(item(id), values);
+    assert(result.exact_evidence, 'The negative control retains an actual source substring.');
+    assert(!result.rubric_passed, id);
+  }
+  const values = memories('proposal'); values[0].status = 'active';
+  assert(!evaluateMemoryRubric(item('proposal'), values).rubric_passed);
+});
