@@ -16,6 +16,12 @@ export const evaluationCorpus: EvaluationCase[] = [
     { pattern: 'October 20|2026-10-20|20 October', origin: 'user_explicit', kind: 'fact', effective_at: null },
     { pattern: 'short paragraphs', origin: 'user_explicit', kind: 'preference', effective_at: null },
   ] },
+  { id: 'compound', events: [
+    event('compound-user', 'The Lumen demo deadline is October 20, 2026. I prefer short paragraphs when writing project updates.'),
+  ], expected: [
+    { pattern: 'October 20|2026-10-20|20 October', origin: 'user_explicit', kind: 'fact', effective_at: null },
+    { pattern: 'short paragraphs', origin: 'user_explicit', kind: 'preference', effective_at: null },
+  ] },
   { id: 'proposal', events: [
     event('proposal-assistant', 'I suggest moving the Lumen demo deadline to November 3, 2026.', 'assistant_proposed', 'assistant'),
     event('proposal-question', 'What tradeoffs would that change have?'),
@@ -40,6 +46,12 @@ export const evaluationCorpus: EvaluationCase[] = [
   { id: 'effective', events: [
     event('effective-user', 'Starting at 2026-11-01T09:00:00Z, I prefer weekly status reports on Mondays.'),
   ], expected: [{ pattern: 'Monday', origin: 'user_explicit', kind: 'preference', effective_at: '2026-11-01T09:00:00Z' }] },
+  { id: 'deadline-timestamp', events: [
+    event('deadline-timestamp-user', 'The Harbor review is due at 2027-01-14T16:30:00+01:00.'),
+  ], expected: [{ pattern: 'Harbor.*review|review.*Harbor', origin: 'user_explicit', kind: 'fact', effective_at: null }] },
+  { id: 'effective-date-only', events: [
+    event('effective-date-only-user', 'Starting on February 4, 2027, I prefer afternoon meetings.'),
+  ], expected: [{ pattern: 'afternoon', origin: 'user_explicit', kind: 'preference', effective_at: null }] },
   { id: 'excluded', events: [
     event('excluded-user', 'Hello. My neighbor Morgan likes purple umbrellas. Here is an invented demonstration API secret: SYNTHETIC-DO-NOT-STORE-KEY-12345. These are not durable facts about me.'),
   ], expected: [], empty: true },
