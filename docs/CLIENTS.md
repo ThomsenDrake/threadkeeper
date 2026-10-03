@@ -10,7 +10,7 @@ MCP clients decide when to invoke capture and recall. Threadkeeper stores and re
 4. Save the displayed token securely. It is shown once, and the database stores its hash.
 5. Copy the exact **Remote MCP endpoint** from Connections. It is the operator-configured application origin with `/mcp`, for example `http://localhost:3000/mcp` locally. Send `Authorization: Bearer TOKEN`; the one-time token dialog can copy the token and connection JSON. Tokens remain in that transient dialog and are cleared when it closes or you sign out. Store them securely in the client's own configuration.
 
-Client-specific configuration varies. The tested clients are two independent official TypeScript SDK instances using Streamable HTTP and modern protocol negotiation. No installed chatbot or coding-agent host is claimed as tested yet. Some clients cannot send arbitrary headers and will require a supported authentication flow before integration.
+Client-specific configuration varies. Two independent official TypeScript SDK instances use Streamable HTTP and modern protocol negotiation. The installed Codex acceptance check below exercises the host's actual MCP transport through explicit tool invocations; it does not establish autonomous model tool selection. Installed ChatGPT/Claude hosts remain untested. Some clients cannot send arbitrary headers and will require a supported authentication flow before integration.
 
 Revocation blocks future requests with the credential. Authorization is checked when a request is admitted; revocation does not cancel an already running request, including an in-flight query-embedding call. It retains previously captured memory and cannot remove copies already delivered to the client's conversation. Owner-only corrections, deletion, full export/import and grant management are performed through the signed-in profile rather than default agent tools.
 
@@ -65,6 +65,36 @@ The one-time token dialog supplies a concrete version of this generic connection
 ```
 
 Use Streamable HTTP transport. Hosts use different configuration wrappers; place these endpoint/header values in that host's supported remote MCP configuration. This object is not a claim that a particular ChatGPT/Codex configuration file has been installed. An SDK connection uses `new StreamableHTTPClientTransport(new URL(config.url), {requestInit:{headers:config.headers}})`. Some hosts cannot send arbitrary headers; they need a supported authentication flow before they can connect.
+
+## Installed Codex connection
+
+Codex supports this endpoint with a bearer token obtained from an environment variable. Make the one-time credential available as `THREADKEEPER_TOKEN` through your secure client environment, then substitute the exact endpoint copied from Connections:
+
+```sh
+codex mcp add threadkeeper --url http://localhost:3000/mcp --bearer-token-env-var THREADKEEPER_TOKEN
+```
+
+Its equivalent Codex configuration is:
+
+```toml
+[mcp_servers.threadkeeper]
+url = "http://localhost:3000/mcp"
+bearer_token_env_var = "THREADKEEPER_TOKEN"
+```
+
+The token must be available to the process launching Codex. Keep it out of committed configuration and shell command history. Use a separate scoped credential for each client, and follow the explicit capture/recall instructions below; connecting still does not grant automatic transcript access.
+
+For a credential-free developer acceptance check with an already installed Codex binary, run:
+
+```sh
+node --import tsx deploy/installed-codex-check.ts
+```
+
+The check creates two isolated temporary Codex homes, separate synthetic credentials, a fresh in-memory PGlite API and ephemeral host threads. It invokes the actual Codex app-server `mcpServer/tool/call` route with explicit arguments and checks scoped capture/recall, original evidence, owner correction/forgetting, pause/resume and revocation. No model turn is submitted; any request to its configured localhost model endpoint fails the check. It removes its hosts, HTTP services, database and temporary credentials afterward. It does not install Codex or alter your existing Codex configuration. `THREADKEEPER_CODEX_BINARY` can select an existing binary, and `--output <path>` saves sanitized evidence.
+
+Only exit status **0** establishes completed acceptance. PASS on stdout remains provisional until the process exits. A handled SIGINT or SIGTERM fails the run and restores earlier `--output` evidence, or removes a newly created artifact; a private rollback journal is retained until natural exit and then removed.
+
+The recorded [installed-host evidence](measurements/codex-host-qa.json) identifies the actual version and run. This is transport and explicit host invocation validation, not a learned model choosing when or what to capture. It does not establish installed ChatGPT/Claude behavior or semantic quality.
 
 ## First authorized capture and recall
 

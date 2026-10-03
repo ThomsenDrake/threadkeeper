@@ -1,0 +1,44 @@
+{
+  "recorded_at": "2026-10-03T16:17:33.656Z",
+  "result": "PASS",
+  "host": "codex-cli 0.159.0-alpha.3",
+  "node": "24.19.0",
+  "database": "fresh in-memory PGlite",
+  "checks": [
+    "Two independent installed Codex hosts authenticate with separate scoped credentials and discover their permitted tools.",
+    "Client A captures the documented synthetic deadline/preference; Client B recalls current records and their original source evidence/status.",
+    "Restricted hosts include global context, exclude private projects, reject forbidden scopes and cannot invoke an unadvertised capture tool.",
+    "Owner correction and preview-confirmed forgetting are immediately reflected in fresh recall from both installed hosts.",
+    "Pause rejects new and replayed captures while recall works; resume accepts a new explicit capture.",
+    "Revocation denies the writer without changing its last authenticated timestamp; the independent reader retains authorized recall."
+  ],
+  "invocation": "Actual Codex app-server mcpServer/tool/call, with explicitly supplied arguments; no model turn submitted.",
+  "limits": [
+    "Does not establish autonomous model tool selection, installed ChatGPT/Claude integration, learned-provider quality, GPU operation or native database behavior."
+  ],
+  "model_endpoint_requests": 0,
+  "cleanup": "Both Codex app-servers, localhost HTTP services, database and temporary homes/credentials removed.",
+  "harness_sha256": "5d8f0964c3e5fdb805b3b8c63b6d985ee76bf238213d37a7f524271a7a807f85",
+  "process_exit_code": 0,
+  "acceptance_authority": "Exit status 0 establishes completed acceptance. PASS stdout remains provisional until process exit.",
+  "failure_cleanup_checks": [
+    "SIGTERM-ignoring version command killed and awaited before home cleanup",
+    "SIGTERM-ignoring MCP-add command killed and awaited before home cleanup",
+    "30-second command timeout plus five-second SIGKILL escalation removes command and home",
+    "SIGINT during finally cleanup exits nonzero, emits no PASS, preserves prior evidence and removes disposable resources",
+    "SIGTERM during finally cleanup exits nonzero, emits no PASS, preserves prior evidence and removes disposable resources",
+    "SIGINT during synchronous atomic-rename finalization, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during synchronous atomic-rename finalization, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT during synchronous atomic-rename finalization, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during synchronous atomic-rename finalization, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT during stdout backpressure/drain, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during stdout backpressure/drain, existing artifact restored: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT during stdout backpressure/drain, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGTERM during stdout backpressure/drain, new artifact removed: nonzero exit, artifact rollback and private journal cleanup",
+    "SIGINT with a real undrained 1 MB stdout pipe, existing artifact restored: exit 1 before consumer reads, artifact rollback and journal cleanup",
+    "SIGTERM with a real undrained 1 MB stdout pipe, existing artifact restored: exit 1 before consumer reads, artifact rollback and journal cleanup",
+    "SIGINT with a real undrained 1 MB stdout pipe, new artifact removed: exit 1 before consumer reads, artifact rollback and journal cleanup",
+    "SIGTERM with a real undrained 1 MB stdout pipe, new artifact removed: exit 1 before consumer reads, artifact rollback and journal cleanup"
+  ],
+  "stdout_control_observation": "Without forced exit after publication, an interrupted real pipe write kept the process alive until the consumer read. Forced exit occurs only after all application resources have been cleaned."
+}
