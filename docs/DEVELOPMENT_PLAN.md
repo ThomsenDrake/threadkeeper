@@ -25,9 +25,11 @@ Priority 1 merged in [PR #4](https://github.com/ThomsenDrake/threadkeeper/pull/4
 
 Priority 2 merged in [PR #5](https://github.com/ThomsenDrake/threadkeeper/pull/5), main `487e4d4`: explicit owner confirmation, edit-and-confirm and dismissal preserve original evidence/provider history and create separate authoritative user evidence. Final-head Codex review and GitGuardian checks passed after the legacy import fix; reuse the merged flow and its [verification evidence](HANDOFF.md).
 
-Priority 3 is implemented and verified on `codex/client-control`, rebased onto merged priority 2: practical endpoint/configuration instructions, separate observed credential use, an explicit capture/recall walkthrough and server-enforced owner capture pause/resume. Its baseline, browser and native full-stack evidence are in [HANDOFF.md](HANDOFF.md); final-head GitHub review/merge remains the delivery checkpoint.
+Priority 3 merged in [PR #6](https://github.com/ThomsenDrake/threadkeeper/pull/6), main `50c7dc4`: practical endpoint/configuration instructions, separate observed credential use, an explicit capture/recall walkthrough and server-enforced owner capture pause/resume. Exact final head `cdd9d4b` received a finding-free Codex review and successful Devin/GitGuardian checks before merge. Reuse the merged flow and its [verification evidence](HANDOFF.md).
 
-The next default product outcome is priority 4: preview the current connected deletion impact before confirmation and allow forgetting captured sources awaiting extraction. Preserve revision checks, attempt fencing, review provenance and capture controls. Continue through review/merge and then the next unblocked outcome during a broad development task.
+Priority 4 is implemented and verified on `codex/forgetting-preview`, rebased onto merged priorities 2–3: owner memory/source impact previews, required graph-bound confirmation hashes, source-only forgetting and known raw-source-copy cleanup. Its combined verification and remaining final-head review/merge are recorded in [HANDOFF.md](HANDOFF.md). Existing deletion callers must obtain a preview first; confirm the final merged head before treating it as main.
+
+The next unblocked implementation outcome is priority 5: larger profile collections, complete loading/recovery states and import reporting. Complete the pending final-head review/merge for priority 4 before treating it as main.
 
 ## Delivery loop
 

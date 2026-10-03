@@ -1,0 +1,18 @@
+{
+  "browser": "151.0.7922.173",
+  "evidence": "Disposable PGlite, synthetic inference and authenticated independent HTTP reader; no learned model or installed host",
+  "checks": [
+    "Combined UI retains keyboard memory dialog behavior, explicit confirmation, separate owner evidence and original extractor history",
+    "Edit-and-confirm and dismiss still work after integration; dismissed records remain available through the status filter",
+    "Connection JSON and one-time credential preserve endpoint; observed authenticated use is separate; pause blocks new capture while independent recall works",
+    "Forgetting original evidence while capture is paused previews and removes confirmed owner evidence, both revisions, all evidence links and completed job",
+    "Dismissed memory keeps conservative forgetting/history preview and can be deleted while paused on 390px mobile"
+  ],
+  "errors": [],
+  "screenshots": [
+    "forgetting-combined-dismissed-mobile.png"
+  ],
+  "date": "2026-10-03",
+  "code_head": "d33b92642333d3b3d51c9871525ac0b0ab84c647",
+  "scope": "Priority 4 explicitly stacked on candidate review and client controls; pending prerequisite merge and final GitHub review."
+}

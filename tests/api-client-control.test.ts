@@ -177,7 +177,8 @@ test('pause preserves already admitted queued/retried extraction and deletion fe
   try {
     await settings(true, 2);
     const detail = await request(`/api/memories/${sourced.data.memory_ids[0]}`);
-    assert.equal((await request(`/api/memories/${sourced.data.memory_ids[0]}`, { method: 'DELETE', body: { expected_revision: detail.data.memory.revision } })).status, 200);
+    const deletionPreview = await request(`/api/memories/${sourced.data.memory_ids[0]}/deletion-preview`);
+    assert.equal((await request(`/api/memories/${sourced.data.memory_ids[0]}`, { method: 'DELETE', body: { expected_revision: detail.data.memory.revision, preview_hash: deletionPreview.data.preview_hash } })).status, 200);
   } finally { release(); }
   assert.equal((await worker)?.status, 'cancelled');
   const live = await request(`/api/captures/${inFlight.data.capture_id}`);

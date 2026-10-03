@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
 import {
-  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema,
+  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, SourceDeleteSchema, DeletionPreviewSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
 } from '@threadkeeper/contracts';
 
@@ -432,6 +432,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       if (Number(memory.revision) !== input.expected_revision) throw new DomainError(409, 'revision_conflict');
       if (memory.status === 'candidate' || memory.status === 'dismissed') throw new DomainError(409, 'review_required');
       if (await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(input.statement, memory.project_id, memory.subject))) throw new DomainError(410, 'deleted_content');
+      if (await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(input.statement))) throw new DomainError(410, 'deleted_source');
       const siblings = await supersedeSiblings(tx, memory);
       // Old source events remain available as history, but no pending extractor can admit them again.
       await tx.query('UPDATE tk_revisions SET extractor=COALESCE(extractor,$2) WHERE memory_id=$1 AND revision=$3', [id, memory.extractor, memory.revision]);
@@ -449,38 +450,126 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     });
   }
 
-  async function remove(auth: Auth, id: string, raw: unknown) {
+  function deletionPermission(auth: Auth) {
     permission(auth, 'delete');
+    // Content tombstones apply throughout the owner, and the connected graph
+    // can cross project boundaries through identical source text. A constrained
+    // principal cannot preview or authorize removal of hidden context.
+    if (auth.projects !== null) throw new DomainError(403, 'owner_delete_required');
+  }
+  async function deletionGraph(tx: Database, auth: Auth, target: { kind: 'memory' | 'source'; id: string }) {
+    const allSources = (await tx.query('SELECT * FROM tk_sources WHERE owner_id=$1 ORDER BY id', [auth.ownerId])).rows;
+    const allMemories = (await tx.query('SELECT * FROM tk_memories WHERE owner_id=$1 ORDER BY id', [auth.ownerId])).rows;
+    const allRevisions = (await tx.query(`SELECT r.* FROM tk_revisions r JOIN tk_memories m ON m.id=r.memory_id
+      WHERE m.owner_id=$1 ORDER BY r.memory_id,r.revision`, [auth.ownerId])).rows;
+    const allEvidence = (await tx.query(`SELECT e.* FROM tk_evidence e JOIN tk_memories m ON m.id=e.memory_id
+      JOIN tk_sources s ON s.id=e.source_id WHERE m.owner_id=$1 AND s.owner_id=$1
+      ORDER BY e.memory_id,e.revision,e.source_id`, [auth.ownerId])).rows;
+    const memoriesById = new Map(allMemories.map(memory => [memory.id, memory]));
+    const selected = target.kind === 'memory' ? memoriesById.get(target.id) : allSources.find(source => source.id === target.id);
+    if (!selected) throw new DomainError(404, target.kind === 'memory' ? 'memory_not_found' : 'source_not_found');
+
+    const sourceCopies = new Map<string, string[]>();
+    const assertions = new Map<string, string[]>();
+    const memoryAssertions = new Map<string, string[]>();
+    const memorySources = new Map<string, string[]>();
+    const sourceMemories = new Map<string, string[]>();
+    function link(map: Map<string, string[]>, key: string, value: string) {
+      const values = map.get(key) ?? []; values.push(value); map.set(key, values);
+    }
+    for (const source of allSources) link(sourceCopies, sourceContent(source.text), source.id);
+    for (const revision of allRevisions) {
+      const memory = memoriesById.get(revision.memory_id)!;
+      const assertion = memoryContent(revision.statement, memory.project_id, memory.subject);
+      link(assertions, assertion, memory.id); link(memoryAssertions, memory.id, assertion);
+    }
+    for (const evidence of allEvidence) {
+      link(memorySources, evidence.memory_id, evidence.source_id);
+      link(sourceMemories, evidence.source_id, evidence.memory_id);
+    }
+    const memoryIds = new Set<string>(), sourceIds = new Set<string>();
+    const queue: Array<{ kind: 'memory' | 'source'; id: string }> = [];
+    function include(kind: 'memory' | 'source', id: string) {
+      const ids = kind === 'memory' ? memoryIds : sourceIds;
+      if (!ids.has(id)) { ids.add(id); queue.push({ kind, id }); }
+    }
+    include(target.kind, target.id);
+    const sourcesById = new Map(allSources.map(source => [source.id, source]));
+    for (let index = 0; index < queue.length; index++) {
+      const item = queue[index];
+      if (item.kind === 'memory') {
+        for (const id of memorySources.get(item.id) ?? []) include('source', id);
+        for (const assertion of memoryAssertions.get(item.id) ?? []) {
+          for (const id of assertions.get(assertion) ?? []) include('memory', id);
+        }
+      } else {
+        // Known normalized copies must also disappear: otherwise a disconnected
+        // queued copy could produce fresh content after this source is forgotten.
+        for (const id of sourceCopies.get(sourceContent(sourcesById.get(item.id)!.text)) ?? []) include('source', id);
+        for (const id of sourceMemories.get(item.id) ?? []) include('memory', id);
+      }
+    }
+    const memories = allMemories.filter(memory => memoryIds.has(memory.id)).map(memoryRow);
+    const sources = allSources.filter(source => sourceIds.has(source.id)).map(sourceRow);
+    const revisions = allRevisions.filter(revision => memoryIds.has(revision.memory_id))
+      .map(revision => ({ ...revision, revision: Number(revision.revision), created_at: date(revision.created_at), effective_at: date(revision.effective_at) }));
+    const evidence = allEvidence.filter(row => memoryIds.has(row.memory_id)).map(row => ({ ...row, revision: Number(row.revision) }));
+    const jobs = (await tx.query('SELECT id,status,source_ids FROM tk_jobs WHERE owner_id=$1 AND source_ids && $2::text[] ORDER BY id', [auth.ownerId, [...sourceIds]])).rows
+      .map(job => ({ id: job.id, status: job.status, source_ids: [...job.source_ids].sort(), affected_source_ids: job.source_ids.filter((id: string) => sourceIds.has(id)).sort() }));
+    // Owner snapshot changes unrelated to this graph do not invalidate consent.
+    // Job claims, failures and retries may change status while leaving the exact
+    // records removed unchanged; new admitted content changes the digest.
+    const previewHash = hash(canonical({ format: 'threadkeeper.deletion-preview.v1', owner_id: auth.ownerId, target,
+      memories, sources, revisions, evidence, jobs: jobs.map(({ id, source_ids }) => ({ id, source_ids })) }));
+    const preview = parsed(DeletionPreviewSchema, { target, expected_revision: target.kind === 'memory' ? Number(selected.revision) : null,
+      snapshot_version: await snapshot(tx, auth.ownerId), preview_hash: previewHash,
+      blast_radius: 'whole_connected_source_events', memories, sources, revision_count: revisions.length, evidence_count: evidence.length, jobs });
+    return { preview, revisions };
+  }
+  async function previewDeletion(auth: Auth, target: { kind: 'memory' | 'source'; id: string }) {
+    deletionPermission(auth);
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      return (await deletionGraph(tx, auth, target)).preview;
+    });
+  }
+  const previewRemoval = (auth: Auth, id: string) => previewDeletion(auth, { kind: 'memory', id });
+  const previewSourceRemoval = (auth: Auth, id: string) => previewDeletion(auth, { kind: 'source', id });
+  async function applyDeletion(tx: Database, auth: Auth, graph: Awaited<ReturnType<typeof deletionGraph>>) {
+    const { preview, revisions } = graph;
+    const memoryIds = preview.memories.map(memory => memory.id), sourceIds = preview.sources.map(source => source.id);
+    const memoriesById = new Map(preview.memories.map(memory => [memory.id, memory]));
+    const tombstones: Array<[string, string]> = preview.sources.flatMap(source => [['source_identity', sourceIdentity(source.client_id, source.event_id)], ['source_content', sourceContent(source.text)]] as Array<[string, string]>);
+    for (const revision of revisions) {
+      const memory = memoriesById.get(revision.memory_id)!;
+      tombstones.push(['memory_content', memoryContent(revision.statement, memory.project_id, memory.subject)]);
+    }
+    for (const [kind, digest] of tombstones) await tx.query('INSERT INTO tk_tombstones(owner_id,kind,hash) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [auth.ownerId, kind, digest]);
+    await tx.query('DELETE FROM tk_jobs WHERE owner_id=$1 AND source_ids && $2::text[]', [auth.ownerId, sourceIds]);
+    await tx.query('DELETE FROM tk_memories WHERE owner_id=$1 AND id=ANY($2::text[])', [auth.ownerId, memoryIds]);
+    await tx.query('DELETE FROM tk_sources WHERE owner_id=$1 AND id=ANY($2::text[])', [auth.ownerId, sourceIds]);
+    return { deleted_memory_ids: memoryIds, deleted_source_ids: sourceIds, deleted_job_ids: preview.jobs.map(job => job.id), deleted_count: memoryIds.length,
+      blast_radius: 'whole_connected_source_events', snapshot_version: await bump(tx, auth.ownerId) };
+  }
+  async function remove(auth: Auth, id: string, raw: unknown) {
+    deletionPermission(auth);
     const input = parsed(DeleteSchema, raw);
     return db.transaction(async tx => {
       await lockOwner(tx, auth.ownerId);
-      const target = await findMemory(tx, auth, id, true);
-      if (Number(target.revision) !== input.expected_revision) throw new DomainError(409, 'revision_conflict');
-      // Conservative graph closure: forgetting one assertion scrubs whole connected source events.
-      // This removes sibling assertions from the same event so retained evidence cannot recreate it.
-      const memoryIds = new Set<string>([id]);
-      const targetHistory = (await tx.query('SELECT statement FROM tk_revisions WHERE memory_id=$1', [id])).rows.map(row => normalize(row.statement));
-      const sameAssertions = await tx.query('SELECT DISTINCT m.id,r.statement FROM tk_memories m JOIN tk_revisions r ON r.memory_id=m.id WHERE m.owner_id=$1 AND m.project_id IS NOT DISTINCT FROM $2 AND m.subject=$3', [auth.ownerId, target.project_id, target.subject]);
-      sameAssertions.rows.filter(row => targetHistory.includes(normalize(row.statement))).forEach(row => memoryIds.add(row.id));
-      const sourceIds = new Set<string>();
-      let changed = true;
-      while (changed) {
-        const before = memoryIds.size + sourceIds.size;
-        const sources = await tx.query('SELECT DISTINCT source_id FROM tk_evidence WHERE memory_id=ANY($1::text[])', [[...memoryIds]]);
-        sources.rows.forEach(row => sourceIds.add(row.source_id));
-        const memories = await tx.query('SELECT DISTINCT e.memory_id FROM tk_evidence e JOIN tk_memories m ON m.id=e.memory_id WHERE e.source_id=ANY($1::text[]) AND m.owner_id=$2', [[...sourceIds], auth.ownerId]);
-        memories.rows.forEach(row => memoryIds.add(row.memory_id));
-        changed = before !== memoryIds.size + sourceIds.size;
-      }
-      const sources = await tx.query('SELECT * FROM tk_sources WHERE id=ANY($1::text[]) AND owner_id=$2', [[...sourceIds], auth.ownerId]);
-      const revisions = await tx.query('SELECT r.statement,m.project_id,m.subject FROM tk_revisions r JOIN tk_memories m ON m.id=r.memory_id WHERE m.id=ANY($1::text[])', [[...memoryIds]]);
-      const tombstones: Array<[string, string]> = sources.rows.flatMap(source => [['source_identity', sourceIdentity(source.client_id, source.event_id)], ['source_content', sourceContent(source.text)]] as Array<[string, string]>);
-      revisions.rows.forEach(row => tombstones.push(['memory_content', memoryContent(row.statement, row.project_id, row.subject)]));
-      for (const [kind, digest] of tombstones) await tx.query('INSERT INTO tk_tombstones(owner_id,kind,hash) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [auth.ownerId, kind, digest]);
-      await tx.query('DELETE FROM tk_jobs WHERE owner_id=$1 AND source_ids && $2::text[]', [auth.ownerId, [...sourceIds]]);
-      await tx.query('DELETE FROM tk_memories WHERE owner_id=$1 AND id=ANY($2::text[])', [auth.ownerId, [...memoryIds]]);
-      await tx.query('DELETE FROM tk_sources WHERE owner_id=$1 AND id=ANY($2::text[])', [auth.ownerId, [...sourceIds]]);
-      return { deleted_memory_ids: [...memoryIds], deleted_source_ids: [...sourceIds], deleted_count: memoryIds.size, blast_radius: 'whole_connected_source_events', snapshot_version: await bump(tx, auth.ownerId) };
+      const graph = await deletionGraph(tx, auth, { kind: 'memory', id });
+      if (graph.preview.expected_revision !== input.expected_revision) throw new DomainError(409, 'revision_conflict');
+      if (graph.preview.preview_hash !== input.preview_hash) throw new DomainError(409, 'deletion_preview_conflict', 'The affected records changed. Review a fresh preview before confirming.');
+      return applyDeletion(tx, auth, graph);
+    });
+  }
+  async function removeSource(auth: Auth, id: string, raw: unknown) {
+    deletionPermission(auth);
+    const input = parsed(SourceDeleteSchema, raw);
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      const graph = await deletionGraph(tx, auth, { kind: 'source', id });
+      if (graph.preview.preview_hash !== input.preview_hash) throw new DomainError(409, 'deletion_preview_conflict', 'The affected records changed. Review a fresh preview before confirming.');
+      return applyDeletion(tx, auth, graph);
     });
   }
 
@@ -663,5 +752,5 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const result = await db.query(`SELECT j.id,j.project_id,j.subject,j.status,j.attempts,j.created_at,j.started_at,j.completed_at,j.error_code,j.result FROM tk_jobs j WHERE ${scope(auth, params, 'j')} ORDER BY j.created_at DESC LIMIT 100`, params);
     return { jobs: result.rows };
   }
-  return { captureSettings, setCaptureSettings, capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
+  return { captureSettings, setCaptureSettings, capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, previewRemoval, previewSourceRemoval, remove, removeSource, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
 }

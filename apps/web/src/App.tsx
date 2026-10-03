@@ -23,6 +23,13 @@ type CaptureStatus = {
   can_retry: boolean; retry_unavailable_reason: string | null;
 };
 type CaptureReceipt = { capture_id: string; status: string; received_at: string };
+type DeletionTarget = { kind: 'memory' | 'source'; id: string };
+type DeletionPreview = {
+  target: DeletionTarget; expected_revision: number | null; snapshot_version: number;
+  preview_hash: string; blast_radius: 'whole_connected_source_events';
+  memories: Memory[]; sources: Source[]; revision_count: number; evidence_count: number;
+  jobs: { id: string; status: string; source_ids: string[]; affected_source_ids: string[] }[];
+};
 type Page = 'memories' | 'captures' | 'connections' | 'portability';
 type Notice = { text: string; type: 'success' | 'error' };
 
@@ -74,6 +81,7 @@ const errorMessages: Record<string, string> = {
   review_required: 'Use the candidate review actions to confirm this memory. Dismissed memories remain available for inspection and deletion.',
   capture_paused: 'New captures are paused. Resume capture in Connections before saving more context.',
   capture_settings_conflict: 'Capture settings changed elsewhere. Review the current setting before trying again.',
+  deletion_preview_conflict: 'The deletion impact has changed. Refresh the preview and review it before confirming again.',
 };
 
 const walkthroughCapture = JSON.stringify({
@@ -160,6 +168,37 @@ function Modal({ title, description, onClose, children }: { title: string; descr
   </div>;
 }
 
+function DeletionPanel({ target, preview, loading, error, stale, deleting, clientName, onRefresh, onConfirm, onCancel }: {
+  target: DeletionTarget; preview: DeletionPreview | null; loading: boolean; error: string | null;
+  stale: boolean; deleting: boolean; clientName: (id: string | null) => string;
+  onRefresh: () => void; onConfirm: () => void; onCancel: () => void;
+}) {
+  return <section className="delete-confirm" aria-labelledby={`forget-${target.kind}-${target.id}`} aria-busy={loading || deleting}>
+    <h3 id={`forget-${target.kind}-${target.id}`}>Review what will be forgotten</h3>
+    <p>Forgetting removes whole connected source events and their memories, including sibling interpretations and history. Known copies of the same source content are included.</p>
+    {loading && <p role="status">Loading the current deletion impact…</p>}
+    {error && <p className="field-error" role="alert">{error}</p>}
+    {stale && <p className="deletion-stale" role="alert">The records changed after this preview. Refresh it, review the updated impact, then confirm again.</p>}
+    {preview && <>
+      <dl className="deletion-counts"><div><dt>Memories</dt><dd>{preview.memories.length}</dd></div><div><dt>Source events</dt><dd>{preview.sources.length}</dd></div><div><dt>Revisions</dt><dd>{preview.revision_count}</dd></div><div><dt>Evidence links</dt><dd>{preview.evidence_count}</dd></div><div><dt>Extraction jobs</dt><dd>{preview.jobs.length}</dd></div></dl>
+      <h4>Memories to remove</h4>
+      {preview.memories.length === 0 ? <p>No memories have been derived from these sources.</p> : <ul className="deletion-records">{preview.memories.map(memory => <li key={memory.id}><p>{memory.statement}</p><span>{memory.project_id || 'Personal'} · {memory.subject} · {statusLabels[memory.status] || memory.status} · Revision {memory.revision}</span><code>{memory.id}</code></li>)}</ul>}
+      <h4>Source evidence to remove</h4>
+      <ul className="deletion-records">{preview.sources.map(source => <li key={source.id}><p>{source.text}</p><span>{clientName(source.client_id)} · {source.author_role} · {source.project_id || 'Personal'} · {source.subject}</span><code>{source.id}</code></li>)}</ul>
+      {preview.jobs.length > 0 && <><h4>Extraction jobs to remove</h4><p>Pending and in-flight extraction is stopped. Each listed job is removed in full. Any retained sources in that job will not be extracted automatically.</p><ul className="deletion-records deletion-jobs">{preview.jobs.map(job => {
+        const retained = job.source_ids.filter(id => !job.affected_source_ids.includes(id));
+        return <li key={job.id}><span>{job.status} · {job.affected_source_ids.length} forgotten source{job.affected_source_ids.length === 1 ? '' : 's'}{retained.length > 0 ? ` · ${retained.length} retained source${retained.length === 1 ? '' : 's'}` : ''}</span><code>Job: {job.id}</code>{retained.length > 0 && <details><summary>Retained sources that will stop processing</summary>{retained.map(id => <code key={id}>{id}</code>)}</details>}</li>;
+      })}</ul></>}
+      <p>These records are removed from future Threadkeeper retrieval and exports. Connected clients and earlier downloaded exports may retain copies.</p>
+    </>}
+    <div className="actions">
+      <button className="button danger" disabled={!preview || loading || stale || !!error || deleting} onClick={onConfirm}>{deleting ? 'Forgetting…' : `Forget ${target.kind === 'memory' ? 'memory' : 'source'} & related records`}</button>
+      {(stale || error) && <button className="button secondary" disabled={loading || deleting} onClick={onRefresh}>{loading ? 'Refreshing…' : 'Refresh preview'}</button>}
+      <button className="text-button" disabled={deleting} onClick={onCancel}>Keep {target.kind}</button>
+    </div>
+  </section>;
+}
+
 export default function App() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [user, setUser] = useState<{ email: string } | null>(null);
@@ -189,10 +228,16 @@ export default function App() {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
   const [editDate, setEditDate] = useState('');
-  const [deleting, setDeleting] = useState(false);
   const [dismissing, setDismissing] = useState(false);
   const [reviewingAction, setReviewingAction] = useState<'confirm' | 'dismiss' | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [deletionTarget, setDeletionTarget] = useState<DeletionTarget | null>(null);
+  const [deletionPreview, setDeletionPreview] = useState<DeletionPreview | null>(null);
+  const [deletionLoading, setDeletionLoading] = useState(false);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
+  const [deletionStale, setDeletionStale] = useState(false);
+  const [deletionBusy, setDeletionBusy] = useState(false);
+  const [deletionRefreshVersion, setDeletionRefreshVersion] = useState(0);
   const [modal, setModal] = useState<'capture' | 'client' | null>(null);
   const [token, setToken] = useState<{ value: string; name: string } | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
@@ -221,18 +266,60 @@ export default function App() {
   const authGeneration = useRef(0);
   const detailRequest = useRef(0);
   const memoryPanel = useRef<HTMLElement>(null);
+  const deletionRequest = useRef(0);
+  const deletionTargetRef = useRef<DeletionTarget | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const sourceIdRef = useRef<string | null>(null);
+  const forgottenMemoryIds = useRef(new Set<string>());
+  const forgottenSourceIds = useRef(new Set<string>());
+  const removedJobIds = useRef(new Set<string>());
   const captureRequest = useRef<{ fingerprint: string; key: string; sourceId: string; occurredAt: string } | null>(null);
+
+  const clearDeletion = () => {
+    deletionRequest.current++; deletionTargetRef.current = null;
+    setDeletionTarget(null); setDeletionPreview(null); setDeletionLoading(false);
+    setDeletionError(null); setDeletionStale(false); setDeletionBusy(false);
+  };
+  const closeMemory = () => {
+    detailRequest.current++; selectedIdRef.current = null;
+    setSelected(null); setSelectedMemoryId(null); setDetailLoading(false); setDetailError(null);
+    setReviewError(null); setEditing(false); setDismissing(false);
+    if (deletionTargetRef.current?.kind === 'memory') clearDeletion();
+  };
+  const openSource = (id: string) => {
+    clearDeletion(); sourceIdRef.current = id;
+    setSourceId(id); setSource(null); setSourceLoading(true); setSourceError(null);
+  };
+  const closeSource = () => {
+    sourceIdRef.current = null; setSourceId(null); setSource(null); setSourceLoading(false); setSourceError(null);
+    if (deletionTargetRef.current?.kind === 'source') clearDeletion();
+  };
+  const beginDeletion = (target: DeletionTarget) => {
+    clearDeletion(); deletionTargetRef.current = target; setDeletionTarget(target);
+  };
+  const withoutForgottenRecords = (item: CaptureStatus): CaptureStatus => {
+    const source_ids = item.source_ids.filter(id => !forgottenSourceIds.current.has(id));
+    const memory_ids = item.memory_ids.filter(id => !forgottenMemoryIds.current.has(id));
+    const jobRemoved = !!item.job && removedJobIds.current.has(item.job.id);
+    if (source_ids.length === item.source_ids.length && memory_ids.length === item.memory_ids.length && !jobRemoved) return item;
+    return { ...item, source_ids, memory_ids, job: jobRemoved ? null : item.job,
+      status: jobRemoved || source_ids.length === 0 ? 'cancelled' : item.status,
+      can_retry: jobRemoved || source_ids.length === 0 ? false : item.can_retry,
+      retry_unavailable_reason: jobRemoved ? 'job_unavailable' : source_ids.length === 0 ? 'sources_unavailable' : item.retry_unavailable_reason };
+  };
 
   const clearOwnerState = () => {
     authGeneration.current++;
+    detailRequest.current++; selectedIdRef.current = null; sourceIdRef.current = null; clearDeletion();
+    forgottenMemoryIds.current.clear(); forgottenSourceIds.current.clear(); removedJobIds.current.clear();
     setUser(null); setSelected(null); setMemories([]); setClients([]); setToken(null); setModal(null);
     setClientsError(null); setClientsLoading(false); setCaptureSettings(null); setCaptureSettingsError(null); setCaptureSettingsLoading(true); setCaptureSettingsBusy(false);
     setMcpEndpoint(null); setConnectionError(null); setConnectionLoading(true); setWalkthroughAuthorized(false);
     setCaptures([]); setCaptureReceipt(null); setCapturePages(1); setNextCaptureOffset(null);
     setCapturesUpdatedAt(null); setCapturesError(null); setCapturesLoading(false); setRetryingCapture(null);
     setSourceId(null); setSource(null); setSourceError(null); setSourceLoading(false);
-    setBusy(false); setDetailError(null); captureRequest.current = null;
-    detailRequest.current++; setSelectedMemoryId(null); setDetailLoading(false); setReviewError(null); setReviewingAction(null); setDismissing(false); setEditing(false); setDeleting(false);
+    setBusy(false); setDetailLoading(false); setDetailError(null); captureRequest.current = null;
+    setSelectedMemoryId(null); setReviewError(null); setReviewingAction(null); setDismissing(false); setEditing(false);
   };
   const informError = (error: unknown) => {
     if (error instanceof ApiError && error.status === 401) clearOwnerState();
@@ -245,7 +332,6 @@ export default function App() {
     setCaptureMode('explicit'); setModal('capture');
   };
   const openClient = () => { setClientScope('all'); setModal('client'); };
-  const closeMemory = () => { detailRequest.current++; setSelected(null); setSelectedMemoryId(null); setDetailLoading(false); setDetailError(null); setReviewError(null); setEditing(false); setDeleting(false); setDismissing(false); };
   const closeMemoryRef = useRef(closeMemory);
   closeMemoryRef.current = closeMemory;
 
@@ -317,7 +403,9 @@ export default function App() {
     const timeout = setTimeout(() => {
       setListLoading(true);
       const query = new URLSearchParams([...Object.entries(filters).filter(([,value]) => value), ['limit', '100']]);
-      api<{ memories: Memory[] }>(`/memories?${query}`, { signal: controller.signal }).then(result => setMemories(result.memories)).catch(error => {
+      api<{ memories: Memory[] }>(`/memories?${query}`, { signal: controller.signal }).then(result => {
+        if (!controller.signal.aborted) setMemories(result.memories.filter(memory => !forgottenMemoryIds.current.has(memory.id)));
+      }).catch(error => {
         if (error instanceof Error && error.name !== 'AbortError') informError(error);
       }).finally(() => { if (!controller.signal.aborted) setListLoading(false); });
     }, 150);
@@ -338,7 +426,7 @@ export default function App() {
           current.push(...result.captures); offset = result.next_offset;
         }
         if (controller.signal.aborted) return;
-        const unique = [...new Map(current.map(item => [item.capture_id, item])).values()];
+        const unique = [...new Map(current.map(item => [item.capture_id, withoutForgottenRecords(item)])).values()];
         setCaptures(unique); setNextCaptureOffset(offset); setCapturesUpdatedAt(new Date().toISOString());
         if (unique.some(item => item.status === 'pending' || item.status === 'processing')) timer = setTimeout(load, 4000);
       } catch (error) {
@@ -354,16 +442,38 @@ export default function App() {
   useEffect(() => {
     if (!user || !sourceId) return;
     const controller = new AbortController();
+    const generation = authGeneration.current;
     setSource(null); setSourceError(null); setSourceLoading(true);
     api<Source>(`/sources/${encodeURIComponent(sourceId)}`, { signal: controller.signal }).then(result => {
-      if (!controller.signal.aborted) setSource(result);
+      if (!controller.signal.aborted && generation === authGeneration.current && sourceIdRef.current === sourceId) setSource(result);
     }).catch(error => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || generation !== authGeneration.current || sourceIdRef.current !== sourceId) return;
       setSourceError(error instanceof Error ? error.message : 'Unable to load this source.');
       if (error instanceof ApiError && error.status === 401) informError(error);
-    }).finally(() => { if (!controller.signal.aborted) setSourceLoading(false); });
+    }).finally(() => { if (!controller.signal.aborted && generation === authGeneration.current && sourceIdRef.current === sourceId) setSourceLoading(false); });
     return () => controller.abort();
   }, [user, sourceId, sourceRefreshVersion]);
+
+  useEffect(() => {
+    if (!user || !deletionTarget) return;
+    const controller = new AbortController();
+    const generation = authGeneration.current;
+    const request = ++deletionRequest.current;
+    setDeletionPreview(null); setDeletionError(null); setDeletionStale(false); setDeletionLoading(true);
+    const collection = deletionTarget.kind === 'memory' ? 'memories' : 'sources';
+    api<DeletionPreview>(`/${collection}/${encodeURIComponent(deletionTarget.id)}/deletion-preview`, { signal: controller.signal }).then(result => {
+      if (controller.signal.aborted || generation !== authGeneration.current || request !== deletionRequest.current) return;
+      if (result.target.kind !== deletionTarget.kind || result.target.id !== deletionTarget.id) throw new Error('The deletion preview did not match this record. Refresh to try again.');
+      setDeletionPreview(result);
+    }).catch(error => {
+      if (controller.signal.aborted || generation !== authGeneration.current || request !== deletionRequest.current) return;
+      setDeletionError(error instanceof Error ? error.message : 'Unable to load the deletion impact.');
+      if (error instanceof ApiError && error.status === 401) informError(error);
+    }).finally(() => {
+      if (!controller.signal.aborted && generation === authGeneration.current && request === deletionRequest.current) setDeletionLoading(false);
+    });
+    return () => controller.abort();
+  }, [user, deletionTarget, deletionRefreshVersion]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setLoginError(''); setLoginBusy(true);
@@ -376,9 +486,10 @@ export default function App() {
   }
 
   async function openMemory(memory: Pick<Memory, 'id'>) {
-    const generation = authGeneration.current;
-    const request = ++detailRequest.current;
-    setSelectedMemoryId(memory.id); setSelected(null); setDetailLoading(true); setDetailError(null); setReviewError(null); setEditing(false); setDeleting(false); setDismissing(false);
+    clearDeletion(); closeSource();
+    const generation = authGeneration.current; const request = ++detailRequest.current;
+    selectedIdRef.current = memory.id;
+    setSelectedMemoryId(memory.id); setSelected(null); setDetailLoading(true); setDetailError(null); setReviewError(null); setEditing(false); setDismissing(false);
     try {
       const detail = await api<Detail>(`/memories/${encodeURIComponent(memory.id)}`);
       if (generation === authGeneration.current && request === detailRequest.current) setSelected(detail);
@@ -390,7 +501,8 @@ export default function App() {
   }
 
   async function reviewMemory(action: 'confirm' | 'dismiss', withEdits = false) {
-    if (!selected || selected.memory.status !== 'candidate' || busy) return;
+    if (!selected || selected.memory.status !== 'candidate' || busy || deletionBusy) return;
+    clearDeletion();
     const memory = selected.memory;
     const generation = authGeneration.current;
     const request = detailRequest.current;
@@ -437,27 +549,59 @@ export default function App() {
 
   async function editMemory(event: FormEvent) {
     event.preventDefault(); if (!selected) return; setBusy(true);
+    const memory = selected.memory; const generation = authGeneration.current; const request = detailRequest.current;
     try {
-      await api(`/memories/${encodeURIComponent(selected.memory.id)}`, { method: 'PATCH', body: JSON.stringify({ statement: editText.trim(), expected_revision: selected.memory.revision, ...(editDate ? { effective_at: new Date(editDate).toISOString() } : {}) }) });
-      const detail = await api<Detail>(`/memories/${encodeURIComponent(selected.memory.id)}`);
-      setSelected(detail); setEditing(false); refresh();
+      await api(`/memories/${encodeURIComponent(memory.id)}`, { method: 'PATCH', body: JSON.stringify({ statement: editText.trim(), expected_revision: memory.revision, ...(editDate ? { effective_at: new Date(editDate).toISOString() } : {}) }) });
+      if (generation !== authGeneration.current) return;
+      refresh();
+      const detail = await api<Detail>(`/memories/${encodeURIComponent(memory.id)}`);
+      if (generation !== authGeneration.current || request !== detailRequest.current) return;
+      setSelected(detail); setEditing(false);
       setNotice({ type: 'success', text: 'Correction saved. Fresh client retrieval uses this revision.' });
     } catch (error) {
+      if (generation !== authGeneration.current || request !== detailRequest.current) return;
       informError(error);
       if (error instanceof ApiError && error.status === 409) {
-        try { setSelected(await api<Detail>(`/memories/${encodeURIComponent(selected.memory.id)}`)); } catch { /* Keep the edit visible for recovery. */ }
+        try {
+          const detail = await api<Detail>(`/memories/${encodeURIComponent(memory.id)}`);
+          if (generation !== authGeneration.current || request !== detailRequest.current) return;
+          setSelected(detail);
+        } catch { /* Keep the edit visible for recovery. */ }
+        if (generation !== authGeneration.current || request !== detailRequest.current) return;
         setNotice({ type: 'error', text: 'Someone changed this memory. The current revision has been loaded. Review it before saving again.' });
       }
-    } finally { setBusy(false); }
+    } finally { if (generation === authGeneration.current) setBusy(false); }
   }
 
-  async function deleteMemory() {
-    if (!selected) return; setBusy(true);
+  async function confirmDeletion() {
+    if (!deletionTarget || !deletionPreview || deletionLoading || deletionStale || deletionError || deletionBusy || busy) return;
+    const target = deletionTarget; const preview = deletionPreview;
+    if (preview.target.id !== target.id || preview.target.kind !== target.kind) return;
+    const generation = authGeneration.current; const request = deletionRequest.current;
+    setDeletionBusy(true);
     try {
-      await api(`/memories/${encodeURIComponent(selected.memory.id)}`, { method: 'DELETE', body: JSON.stringify({ expected_revision: selected.memory.revision }) });
-      closeMemory(); refresh();
-      setNotice({ type: 'success', text: 'Deleted. This memory and affected evidence are removed from future retrieval.' });
-    } catch (error) { informError(error); } finally { setBusy(false); }
+      const collection = target.kind === 'memory' ? 'memories' : 'sources';
+      await api(`/${collection}/${encodeURIComponent(target.id)}`, { method: 'DELETE', body: JSON.stringify({ preview_hash: preview.preview_hash, ...(target.kind === 'memory' ? { expected_revision: preview.expected_revision } : {}) }) });
+      if (generation !== authGeneration.current) return;
+      preview.memories.forEach(memory => forgottenMemoryIds.current.add(memory.id));
+      preview.sources.forEach(source => forgottenSourceIds.current.add(source.id));
+      preview.jobs.forEach(job => removedJobIds.current.add(job.id));
+      setMemories(current => current.filter(memory => !forgottenMemoryIds.current.has(memory.id)));
+      setCaptures(current => current.map(withoutForgottenRecords));
+      if (selectedIdRef.current && preview.memories.some(memory => memory.id === selectedIdRef.current)) closeMemory();
+      if (sourceIdRef.current && preview.sources.some(source => source.id === sourceIdRef.current)) closeSource();
+      if (request === deletionRequest.current) clearDeletion();
+      refresh(); setCaptureRefreshVersion(value => value + 1);
+      setNotice({ type: 'success', text: `Forgotten: ${preview.memories.length} memories and ${preview.sources.length} source events, with their evidence and history. Fresh client retrieval and exports reflect this change.` });
+    } catch (error) {
+      if (generation !== authGeneration.current || request !== deletionRequest.current) return;
+      if (error instanceof ApiError && error.status === 409) {
+        setDeletionStale(true); setDeletionError(null);
+      } else {
+        setDeletionError(error instanceof Error ? error.message : 'The records could not be forgotten. Refresh the preview to try again.');
+        if (error instanceof ApiError && error.status === 401) informError(error);
+      }
+    } finally { if (generation === authGeneration.current && request === deletionRequest.current) setDeletionBusy(false); }
   }
 
   async function capture(event: FormEvent<HTMLFormElement>) {
@@ -499,8 +643,8 @@ export default function App() {
     try {
       const updated = await api<CaptureStatus>(`/captures/${encodeURIComponent(item.capture_id)}/retry`, { method: 'POST', body: JSON.stringify({ expected_attempts: item.job.attempts }) });
       if (generation !== authGeneration.current) return;
-      setCaptures(current => current.map(capture => capture.capture_id === updated.capture_id ? updated : capture));
-      setNotice({ type: 'success', text: 'Retry queued. The existing source will be processed when a configured worker is available.' });
+      setCaptures(current => current.map(capture => capture.capture_id === updated.capture_id ? withoutForgottenRecords(updated) : capture));
+      if (!updated.job || !removedJobIds.current.has(updated.job.id)) setNotice({ type: 'success', text: 'Retry queued. The existing source will be processed when a configured worker is available.' });
     } catch (error) {
       if (generation !== authGeneration.current) return;
       informError(error);
@@ -508,7 +652,7 @@ export default function App() {
         try {
           const updated = await api<CaptureStatus>(`/captures/${encodeURIComponent(item.capture_id)}`);
           if (generation !== authGeneration.current) return;
-          setCaptures(current => current.map(capture => capture.capture_id === updated.capture_id ? updated : capture));
+          setCaptures(current => current.map(capture => capture.capture_id === updated.capture_id ? withoutForgottenRecords(updated) : capture));
         } catch (refreshError) { if (generation === authGeneration.current) informError(refreshError); }
       }
     } finally { if (generation === authGeneration.current) { setRetryingCapture(null); setCaptureRefreshVersion(value => value + 1); } }
@@ -592,7 +736,7 @@ export default function App() {
   </div>;
 
   return <div className="app-shell">
-    <aside className="sidebar"><Brand /><div className="workspace-label">PERSONAL CONTEXT</div><nav aria-label="Main navigation">{(['memories', 'captures', 'connections', 'portability'] as Page[]).map(item => <button key={item} className={`nav-item ${page === item ? 'selected' : ''}`} aria-current={page === item ? 'page' : undefined} onClick={() => { setPage(item); closeMemory(); }}><Icon name={item} />{pageLabels[item]}{item === 'memories' && <span className="nav-count">{memories.length}</span>}</button>)}</nav>
+    <aside className="sidebar"><Brand /><div className="workspace-label">PERSONAL CONTEXT</div><nav aria-label="Main navigation">{(['memories', 'captures', 'connections', 'portability'] as Page[]).map(item => <button key={item} className={`nav-item ${page === item ? 'selected' : ''}`} aria-current={page === item ? 'page' : undefined} onClick={() => { setPage(item); closeMemory(); closeSource(); }}><Icon name={item} />{pageLabels[item]}{item === 'memories' && <span className="nav-count">{memories.length}</span>}</button>)}</nav>
       <div className="sidebar-note"><span className="status-dot" />You own the memory.<p>Connected clients request context. You decide what stays.</p></div>
       <div className="account"><div className="avatar">{user.email[0].toUpperCase()}</div><div><span className="account-label">Local account</span><span className="account-email" title={user.email}>{user.email}</span></div><button className="signout" onClick={async () => { try { await api('/auth/logout', { method: 'POST' }); clearOwnerState(); } catch (error) { informError(error); } }}>Sign out</button></div>
     </aside>
@@ -627,7 +771,7 @@ export default function App() {
               <p className="capture-description">{captureStatusDescriptions[item.status]}</p>
               {item.job && <dl className="capture-properties"><div><dt>Extraction attempts</dt><dd>{item.job.attempts}</dd></div><div><dt>Started</dt><dd>{item.job.started_at ? readableDate(item.job.started_at) : 'Waiting'}</dd></div>{item.job.completed_at && <div><dt>Finished</dt><dd>{readableDate(item.job.completed_at)}</dd></div>}{item.status === 'complete' && item.job.accepted !== null && <div><dt>Extraction outcome</dt><dd>{item.job.accepted} accepted{item.job.skipped !== null ? ` · ${item.job.skipped} skipped` : ''}</dd></div>}</dl>}
               {item.status === 'failed' && <div className="capture-recovery"><p>{item.can_retry ? 'Retry extraction using the same source evidence. Current corrections and deletions remain authoritative.' : retryUnavailableMessages[item.retry_unavailable_reason || ''] || 'Retry is unavailable for the current capture state.'}</p>{item.can_retry && <button className="button secondary" disabled={retryingCapture !== null} onClick={() => retryCapture(item)}>{retryingCapture === item.capture_id ? 'Queuing retry…' : 'Retry extraction'}</button>}</div>}
-              <details className="capture-evidence"><summary>Sources and current memories <span>{item.source_ids.length} sources · {item.memory_ids.length} memories</span></summary><div className="capture-links"><h3>Source evidence</h3>{item.source_ids.length === 0 ? <p>No source evidence remains.</p> : item.source_ids.map((id, index) => <button className="text-button" key={id} onClick={() => setSourceId(id)}>View source {index + 1}<code>{id}</code></button>)}<h3>Current memories</h3>{item.memory_ids.length === 0 ? <p>{item.status === 'pending' || item.status === 'processing' ? 'Memories will appear here if extraction admits them.' : 'No current memories are linked to this capture.'}</p> : item.memory_ids.map((id, index) => <button className="text-button" key={id} onClick={() => openMemory({ id })}>View memory {index + 1}<code>{id}</code></button>)}</div></details>
+              <details className="capture-evidence"><summary>Sources and current memories <span>{item.source_ids.length} sources · {item.memory_ids.length} memories</span></summary><div className="capture-links"><h3>Source evidence</h3>{item.source_ids.length === 0 ? <p>No source evidence remains.</p> : item.source_ids.map((id, index) => <button className="text-button" key={id} onClick={() => openSource(id)}>View source {index + 1}<code>{id}</code></button>)}<h3>Current memories</h3>{item.memory_ids.length === 0 ? <p>{item.status === 'pending' || item.status === 'processing' ? 'Memories will appear here if extraction admits them.' : 'No current memories are linked to this capture.'}</p> : item.memory_ids.map((id, index) => <button className="text-button" key={id} onClick={() => openMemory({ id })}>View memory {index + 1}<code>{id}</code></button>)}</div></details>
               <p className="capture-id">Capture ID: <code>{item.capture_id}</code></p>
             </article>)}
           </section>
@@ -659,25 +803,26 @@ export default function App() {
       </div>
     </main>
     {(selected || detailLoading || detailError) && <div className="detail-backdrop" onMouseDown={event => { if (event.currentTarget === event.target) closeMemory(); }}><aside className="detail-panel" role="dialog" aria-modal="true" aria-label="Memory details" ref={memoryPanel}><div className="detail-top"><span className="eyebrow">MEMORY DETAILS</span><button className="icon-button" onClick={closeMemory} aria-label="Close memory details"><Icon name="close" /></button></div>
-      {detailLoading && <p className="muted" role="status">Loading evidence…</p>}{detailError && <div><p className="field-error" role="alert">{detailError}</p>{selectedMemoryId && <button className="button secondary" onClick={() => openMemory({ id: selectedMemoryId })} disabled={busy}>Refresh memory</button>}</div>}
-      {reviewError && <div className="review-error" role="alert"><p>{reviewError}</p>{!detailError && selectedMemoryId && <button className="text-button" disabled={busy} onClick={() => openMemory({ id: selectedMemoryId })}>Refresh memory</button>}</div>}
+      {detailLoading && <p className="muted" role="status">Loading evidence…</p>}{detailError && <div><p className="field-error" role="alert">{detailError}</p>{selectedMemoryId && <button className="button secondary" onClick={() => openMemory({ id: selectedMemoryId })} disabled={busy || deletionBusy}>Refresh memory</button>}</div>}
+      {reviewError && <div className="review-error" role="alert"><p>{reviewError}</p>{!detailError && selectedMemoryId && <button className="text-button" disabled={busy || deletionBusy} onClick={() => openMemory({ id: selectedMemoryId })}>Refresh memory</button>}</div>}
       {selected && <><div className="detail-badges"><span className={`badge origin-${selected.memory.origin}`}>{originLabels[selected.memory.origin]}</span><span className={`badge status-${selected.memory.status}`}>{statusLabels[selected.memory.status]}</span></div>
-        {editing ? <form onSubmit={selected.memory.status === 'candidate' ? event => { event.preventDefault(); void reviewMemory('confirm', true); } : editMemory} className="edit-form"><h2>{selected.memory.status === 'candidate' ? 'Edit and confirm this candidate' : 'Correct this memory'}</h2><p className="muted">{selected.memory.status === 'candidate' ? 'Your edited statement becomes separate user-authored confirmation evidence. The original proposal or inference remains in its history.' : 'Your edit creates a direct user correction in the same scope.'}</p><label>Statement<textarea aria-label="Statement" rows={5} value={editText} onChange={event => setEditText(event.target.value)} required maxLength={4000} disabled={busy} /></label><label>Effective date <span className="optional">(optional)</span><input type="datetime-local" value={editDate} onChange={event => setEditDate(event.target.value)} disabled={busy} /></label><div className="actions"><button className="button primary" disabled={busy || !editText.trim()}>{busy ? 'Saving…' : selected.memory.status === 'candidate' ? 'Save and confirm' : 'Save correction'}</button><button className="button secondary" type="button" onClick={() => setEditing(false)} disabled={busy}>Cancel</button></div></form> : <><h2 className="detail-statement">{selected.memory.statement}</h2>
-          {selected.memory.status === 'candidate' && <section className="candidate-review" aria-label="Candidate review"><h3>Review this candidate</h3><p>Confirming records your acceptance as separate user-authored evidence. The original proposal or inference and its sources remain inspectable.</p><div className="actions"><button className="button primary" disabled={busy} onClick={() => reviewMemory('confirm')}>{reviewingAction === 'confirm' ? 'Confirming…' : 'Confirm'}</button><button className="button secondary" disabled={busy} onClick={() => { setEditText(selected.memory.statement); setEditDate(''); setEditing(true); setDeleting(false); setDismissing(false); setReviewError(null); }}>Edit and confirm</button><button className="text-button" disabled={busy} onClick={() => { setDismissing(true); setDeleting(false); }}>Dismiss</button></div></section>}
+        {editing ? <form onSubmit={selected.memory.status === 'candidate' ? event => { event.preventDefault(); void reviewMemory('confirm', true); } : editMemory} className="edit-form"><h2>{selected.memory.status === 'candidate' ? 'Edit and confirm this candidate' : 'Correct this memory'}</h2><p className="muted">{selected.memory.status === 'candidate' ? 'Your edited statement becomes separate user-authored confirmation evidence. The original proposal or inference remains in its history.' : 'Your edit creates a direct user correction in the same scope.'}</p><label>Statement<textarea aria-label="Statement" rows={5} value={editText} onChange={event => setEditText(event.target.value)} required maxLength={4000} disabled={busy || deletionBusy} /></label><label>Effective date <span className="optional">(optional)</span><input type="datetime-local" value={editDate} onChange={event => setEditDate(event.target.value)} disabled={busy || deletionBusy} /></label><div className="actions"><button className="button primary" disabled={busy || !editText.trim()}>{busy ? 'Saving…' : selected.memory.status === 'candidate' ? 'Save and confirm' : 'Save correction'}</button><button className="button secondary" type="button" onClick={() => setEditing(false)} disabled={busy || deletionBusy}>Cancel</button></div></form> : <><h2 className="detail-statement">{selected.memory.statement}</h2>
+          {selected.memory.status === 'candidate' && <section className="candidate-review" aria-label="Candidate review"><h3>Review this candidate</h3><p>Confirming records your acceptance as separate user-authored evidence. The original proposal or inference and its sources remain inspectable.</p><div className="actions"><button className="button primary" disabled={busy || deletionBusy} onClick={() => reviewMemory('confirm')}>{reviewingAction === 'confirm' ? 'Confirming…' : 'Confirm'}</button><button className="button secondary" disabled={busy || deletionBusy} onClick={() => { setEditText(selected.memory.statement); setEditDate(''); setEditing(true); clearDeletion(); setDismissing(false); setReviewError(null); }}>Edit and confirm</button><button className="text-button" disabled={busy || deletionBusy} onClick={() => { setDismissing(true); clearDeletion(); }}>Dismiss</button></div></section>}
           {selected.memory.status === 'dismissed' && <div className="dismissed-note"><p>This candidate was dismissed. Its evidence and history are retained, and it is excluded from Needs review and fresh default recall.</p></div>}
-          <div className="actions">{!['candidate', 'dismissed'].includes(selected.memory.status) && <button className="button secondary" disabled={busy} onClick={() => { setEditText(selected.memory.statement); setEditDate(''); setEditing(true); setDeleting(false); }}>Edit memory</button>}<button className="text-button danger-text" disabled={busy} onClick={() => { setDeleting(true); setDismissing(false); }}>Delete</button></div>
+          <div className="actions">{!['candidate', 'dismissed'].includes(selected.memory.status) && <button className="button secondary" disabled={busy || deletionBusy} onClick={() => { setEditText(selected.memory.statement); setEditDate(''); setEditing(true); clearDeletion(); }}>Edit memory</button>}<button className="text-button danger-text" disabled={busy || deletionBusy || deletionTarget?.kind === 'memory'} onClick={() => { beginDeletion({ kind: 'memory', id: selected.memory.id }); setDismissing(false); }}>Delete</button></div>
         </>}
-        {dismissing && selected.memory.status === 'candidate' && <div className="dismiss-confirm"><h3>Dismiss this candidate?</h3><p>Remove it from Needs review and fresh default recall. Its source evidence and revision history remain available under Dismissed.</p><div className="actions"><button className="button secondary" disabled={busy} onClick={() => reviewMemory('dismiss')}>{reviewingAction === 'dismiss' ? 'Dismissing…' : 'Dismiss candidate'}</button><button className="text-button" disabled={busy} onClick={() => setDismissing(false)}>Keep for review</button></div></div>}
-        {deleting && <div className="delete-confirm" role="alert"><h3>Forget this memory?</h3><p>Removes this memory and its source evidence from future Threadkeeper retrieval. Other memories derived from the same source events are also removed. Connected agents may retain copies they already received.</p><div className="actions"><button className="button danger" disabled={busy} onClick={deleteMemory}>{busy ? 'Deleting…' : 'Delete memory'}</button><button className="text-button" disabled={busy} onClick={() => setDeleting(false)}>Keep memory</button></div></div>}
+        {dismissing && selected.memory.status === 'candidate' && <div className="dismiss-confirm"><h3>Dismiss this candidate?</h3><p>Remove it from Needs review and fresh default recall. Its source evidence and revision history remain available under Dismissed.</p><div className="actions"><button className="button secondary" disabled={busy || deletionBusy} onClick={() => reviewMemory('dismiss')}>{reviewingAction === 'dismiss' ? 'Dismissing…' : 'Dismiss candidate'}</button><button className="text-button" disabled={busy || deletionBusy} onClick={() => setDismissing(false)}>Keep for review</button></div></div>}
+        {deletionTarget?.kind === 'memory' && deletionTarget.id === selected.memory.id && <DeletionPanel target={deletionTarget} preview={deletionPreview} loading={deletionLoading} error={deletionError} stale={deletionStale} deleting={deletionBusy} clientName={clientName} onRefresh={() => setDeletionRefreshVersion(value => value + 1)} onConfirm={confirmDeletion} onCancel={clearDeletion} />}
         <dl className="detail-properties"><div><dt>Subject</dt><dd>{selected.memory.subject}</dd></div><div><dt>Project</dt><dd>{selected.memory.project_id || 'Personal'}</dd></div><div><dt>Kind</dt><dd>{kindLabels[selected.memory.kind] || selected.memory.kind}</dd></div><div><dt>Effective</dt><dd>{readableDate(selected.memory.effective_at)}</dd></div><div><dt>Recorded</dt><dd>{readableDate(selected.memory.created_at)}</dd></div><div><dt>Revision</dt><dd>{selected.memory.revision}{selected.memory.authoritative ? selected.memory.origin === 'user_confirmed' ? ' · User confirmation' : ' · User correction' : ''}</dd></div></dl>
         <section className="detail-section"><h3>Supporting evidence <span>{selected.sources.length}</span></h3>{selected.sources.map(source => { const quote = selected.evidence?.find(item => item.source_id === source.id)?.quote; return <article className="source-card" key={source.id}><div className="source-heading"><strong>{clientName(source.client_id)}</strong><span>{source.author_role}</span></div><blockquote>{quote || source.text}</blockquote><p>{originLabels[source.origin] || source.origin}</p><dl><div><dt>Captured via</dt><dd>{captureMethodLabels[source.capture_method || ""] || "Not supplied"}</dd></div><div><dt>Occurred</dt><dd>{readableDate(source.occurred_at)}</dd></div><div><dt>Captured</dt><dd>{readableDate(source.recorded_at)}</dd></div></dl><details><summary>Source identity & full text</summary><code>{source.id}</code><p className="source-fulltext">{source.text}</p></details></article>; })}{selected.sources.length === 0 && <p className="muted">No supporting source was returned.</p>}</section>
         <section className="detail-section"><h3>Revision history <span>{selected.revisions.length}</span></h3><ol className="revision-list">{[...selected.revisions].sort((a, b) => b.revision - a.revision).map(revision => <li key={revision.revision}><div><strong>Revision {revision.revision}</strong><span>{readableDate(revision.created_at)}</span></div><p>{revision.statement}</p><small>{originLabels[revision.origin] || revision.origin} · {statusLabels[revision.status] || revision.status}</small>{revision.extractor && <p className="revision-extractor">Extracted by <code>{revision.extractor}</code></p>}</li>)}</ol></section><p className="muted memory-id">Memory ID: {selected.memory.id}</p>
       </>}
     </aside></div>}
-    {sourceId && <Modal title="Source evidence" description="The saved source is preserved independently from memory interpretations." onClose={() => { setSourceId(null); setSource(null); }}>
+    {sourceId && <Modal title="Source evidence" description="The saved source is preserved independently from memory interpretations." onClose={closeSource}>
       {sourceLoading && <p className="muted" role="status">Loading source evidence…</p>}
       {sourceError && <div><p className="field-error" role="alert">{sourceError}</p><button className="button secondary" onClick={() => setSourceRefreshVersion(value => value + 1)}>Try again</button></div>}
-      {source && <article className="source-card"><div className="source-heading"><strong>{clientName(source.client_id)}</strong><span>{source.author_role}</span></div><blockquote>{source.text}</blockquote><p>{originLabels[source.origin] || source.origin}</p><dl><div><dt>Captured via</dt><dd>{captureMethodLabels[source.capture_method || ''] || 'Not supplied'}</dd></div><div><dt>Subject</dt><dd>{source.subject}</dd></div><div><dt>Project</dt><dd>{source.project_id || 'Personal'}</dd></div><div><dt>Occurred</dt><dd>{readableDate(source.occurred_at)}</dd></div><div><dt>Captured</dt><dd>{readableDate(source.recorded_at)}</dd></div></dl><code>{source.id}</code></article>}
+      {source && source.id === sourceId && <><article className="source-card"><div className="source-heading"><strong>{clientName(source.client_id)}</strong><span>{source.author_role}</span></div><blockquote>{source.text}</blockquote><p>{originLabels[source.origin] || source.origin}</p><dl><div><dt>Captured via</dt><dd>{captureMethodLabels[source.capture_method || ''] || 'Not supplied'}</dd></div><div><dt>Subject</dt><dd>{source.subject}</dd></div><div><dt>Project</dt><dd>{source.project_id || 'Personal'}</dd></div><div><dt>Occurred</dt><dd>{readableDate(source.occurred_at)}</dd></div><div><dt>Captured</dt><dd>{readableDate(source.recorded_at)}</dd></div></dl><code>{source.id}</code></article><button className="text-button danger-text" disabled={deletionBusy || deletionTarget?.kind === 'source'} onClick={() => beginDeletion({ kind: 'source', id: source.id })}>Forget source</button></>}
+      {deletionTarget?.kind === 'source' && deletionTarget.id === sourceId && <DeletionPanel target={deletionTarget} preview={deletionPreview} loading={deletionLoading} error={deletionError} stale={deletionStale} deleting={deletionBusy} clientName={clientName} onRefresh={() => setDeletionRefreshVersion(value => value + 1)} onConfirm={confirmDeletion} onCancel={clearDeletion} />}
     </Modal>}
     {modal === 'capture' && <Modal title="Add context" description={captureMode === 'explicit' ? 'Record a direct statement with source evidence for connected clients to remember.' : 'Save source context for a configured worker to extract source-backed memories.'} onClose={() => setModal(null)}><form onSubmit={capture}>{captureUnavailable && <div className="notice error" role="alert"><span>{captureSettings?.paused ? 'New captures are paused.' : 'Capture controls must be available before saving.'}</span><button type="button" className="text-button" onClick={() => { setModal(null); setPage('connections'); }}>Open capture controls</button></div>}<label>Save as<select name="capture_mode" aria-label="Save as" value={captureMode} disabled={busy} onChange={event => setCaptureMode(event.target.value as 'explicit' | 'extract')}><option value="explicit">Direct memory</option><option value="extract">Source for extraction</option></select></label><label>{captureMode === 'explicit' ? 'What should be remembered?' : 'Source context'}<textarea name="statement" rows={4} required maxLength={4000} placeholder={captureMode === 'explicit' ? 'State the fact, preference, decision, or constraint in your own words.' : 'Paste the context you want saved as source evidence.'} /></label>{captureMode === 'extract' && <p className="muted fine-print">The source is saved immediately. Extraction waits for an available worker; model inferences remain labeled for review.</p>}<div className="form-row">{captureMode === 'explicit' && <label>Kind<select name="kind" aria-label="Kind">{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}<label>Subject<input name="subject" defaultValue="self" required /></label></div><label>Project <span className="optional">(optional)</span><input name="project" placeholder="Leave blank for personal scope" /></label><div className="actions"><button className="button primary" disabled={busy || captureUnavailable}>{busy ? 'Saving…' : captureMode === 'explicit' ? 'Save memory' : 'Save source'}</button><button type="button" className="button secondary" onClick={() => setModal(null)} disabled={busy}>Cancel</button></div></form></Modal>}
     {modal === 'client' && <Modal title="Create a client credential" description="Create a separate token for one chatbot or coding agent. You can revoke it at any time." onClose={() => setModal(null)}><form onSubmit={createClient}><label>Client name<input name="name" required maxLength={100} placeholder="e.g. Coding agent" /></label><label className="check-label"><input name="capture" type="checkbox" defaultChecked /><span>Allow capture of approved context</span></label><p className="muted fine-print">Recall is enabled. Profile editing, full exports, and credential management remain owner-only. Capture permission follows your pause setting.</p><label>Scope<select name="scope" aria-label="Scope" value={clientScope} onChange={event => setClientScope(event.target.value as 'all' | 'selected')}><option value="all">All projects and global / personal context</option><option value="selected">Specific projects + global / personal context</option></select></label><label>Project IDs<input name="projects" disabled={clientScope === 'all'} placeholder="Comma-separated project IDs" /></label><p className="muted fine-print">Restricted credentials include the listed project IDs and global / personal context (project_id: null). Leave the IDs empty for global / personal context only.</p><div className="actions"><button className="button primary" disabled={busy}>{busy ? 'Creating…' : 'Create client token'}</button><button type="button" className="button secondary" disabled={busy} onClick={() => setModal(null)}>Cancel</button></div></form></Modal>}
