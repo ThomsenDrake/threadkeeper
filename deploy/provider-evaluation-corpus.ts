@@ -1,6 +1,6 @@
 import type { SourceEvent } from '../packages/contracts/src/index.ts';
 
-export type ExpectedMemory = { pattern: string; and_patterns?: string[]; statement_patterns?: string[]; quote_patterns?: string[]; source_event_id: string; origin: string; kind?: string; status?: string; effective_at?: string | null };
+export type ExpectedMemory = { pattern: string; and_patterns?: string[]; statement_patterns?: string[]; quote_patterns?: string[]; source_event_id: string; origin: string; kind?: string; accepted_kinds?: string[]; status?: string; effective_at?: string | null };
 export type EvaluationCase = { id: string; events: SourceEvent[]; expected: ExpectedMemory[]; forbidden?: string[]; empty?: boolean };
 const event = (id: string, text: string, origin: SourceEvent['origin'] = 'user_explicit', author_role: SourceEvent['author_role'] = 'user'): SourceEvent => ({
   id, text, origin, author_role, occurred_at: '2026-10-03T12:00:00Z',
