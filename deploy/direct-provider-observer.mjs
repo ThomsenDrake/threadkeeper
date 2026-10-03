@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { appendFileSync } from 'node:fs';
 
 // Development-only observation of the application's original direct fetch.
 // No request is relayed. Never retain headers, prompts, response text or errors.
@@ -9,6 +8,27 @@ const COUNT_KEYS = new Set(['prompt_tokens', 'completion_tokens', 'total_tokens'
   'cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens']);
 const DETAIL_KEYS = new Set(['prompt_tokens_details', 'completion_tokens_details', 'input_tokens_details', 'output_tokens_details']);
 const hash = value => createHash('sha256').update(value).digest('hex');
+const ACTIVE_OBSERVER = Symbol.for('threadkeeper.direct-provider-observer');
+
+// Reporting commands consume this configuration explicitly. Importing this
+// library never changes fetch or writes files/stdout, even when FILE is set.
+export function providerObservationConfigFromEnv(env = process.env) {
+  function limit(name) {
+    const value = env[name];
+    if (value === undefined || value === '') return undefined;
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed < 0) throw new Error('Invalid provider observation request limit');
+    return parsed;
+  }
+  const modelBase = env.MODEL_BASE_URL || DEFAULT_BASE_URL;
+  return {
+    // An explicit observation base adds an alias; it cannot disable observation
+    // or request limits for either configured runtime provider endpoint.
+    baseUrls: [...new Set([modelBase, env.EMBEDDING_BASE_URL || modelBase, env.THREADKEEPER_PROVIDER_OBSERVATIONS_BASE_URL].filter(Boolean))],
+    models: [...new Set([env.MODEL_ID || DEFAULT_MODELS[0], env.EMBEDDING_MODEL, ...DEFAULT_MODELS].filter(Boolean))],
+    limits: { 'chat/completions': limit('THREADKEEPER_PROVIDER_CHAT_LIMIT'), embeddings: limit('THREADKEEPER_PROVIDER_EMBEDDING_LIMIT') },
+  };
+}
 
 export function numericTokenUsage(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -36,18 +56,36 @@ export function summarizeProviderObservations(records) {
   const complete = record => record.usage_status === 'reported' && (typeof record.usage?.total_tokens === 'number'
     || (typeof record.usage?.prompt_tokens === 'number' && typeof record.usage?.completion_tokens === 'number')
     || (typeof record.usage?.input_tokens === 'number' && typeof record.usage?.output_tokens === 'number'));
-  for (const record of inference) add(usage, record.usage);
+  let derivedTotals = 0;
+  for (const record of inference) {
+    const reported = record.usage;
+    let normalized = reported;
+    // Preserve each raw envelope, but do not undercount aggregate totals when
+    // a compatible provider reports only a complete input/output pair.
+    if (reported && reported.total_tokens === undefined) {
+      const total = typeof reported.prompt_tokens === 'number' && typeof reported.completion_tokens === 'number'
+        ? reported.prompt_tokens + reported.completion_tokens
+        : typeof reported.input_tokens === 'number' && typeof reported.output_tokens === 'number'
+          ? reported.input_tokens + reported.output_tokens : undefined;
+      if (total !== undefined) { normalized = { ...reported, total_tokens: total }; derivedTotals++; }
+    }
+    add(usage, normalized);
+  }
   return {
     observed_attempt_count: records.length, direct_request_count: sent.length,
     inference_request_count: inference.length,
     usage_complete: inference.every(complete),
     inference_requests_without_usage: inference.filter(record => record.usage_status !== 'reported').length,
     inference_requests_without_complete_usage: inference.filter(record => !complete(record)).length,
+    derived_total_tokens_request_count: derivedTotals,
     usage,
   };
 }
 
 export function installDirectProviderObserver(options = {}) {
+  // A nested observer would mistake a budget rejection by the inner wrapper
+  // for an outbound network request. Reject that configuration before any call.
+  if (globalThis[ACTIVE_OBSERVER]?.fetch === globalThis.fetch) throw new Error('provider_observer_already_installed');
   let bases;
   try {
     bases = (options.baseUrls ?? [options.baseUrl ?? DEFAULT_BASE_URL]).map(value => {
@@ -125,31 +163,9 @@ export function installDirectProviderObserver(options = {}) {
     return response;
   };
   globalThis.fetch = observedFetch;
-  return { records, errors, restore() { if (globalThis.fetch === observedFetch) globalThis.fetch = originalFetch; } };
-}
-
-// Explicit preload opt-in for disposable native API/worker checks only.
-const output = process.env.THREADKEEPER_PROVIDER_OBSERVATIONS_FILE;
-if (output) {
-  function limit(name) {
-    const value = process.env[name];
-    if (value === undefined) return undefined;
-    const parsed = Number(value);
-    if (!Number.isSafeInteger(parsed) || parsed < 0) throw new Error('Invalid provider observation request limit');
-    return parsed;
-  }
-  installDirectProviderObserver({
-    baseUrl: process.env.THREADKEEPER_PROVIDER_OBSERVATIONS_BASE_URL ?? DEFAULT_BASE_URL,
-    limits: { 'chat/completions': limit('THREADKEEPER_PROVIDER_CHAT_LIMIT'), embeddings: limit('THREADKEEPER_PROVIDER_EMBEDDING_LIMIT') },
-    onRecord(record) {
-      try {
-        const line = JSON.stringify(record) + '\n';
-        if (output === '-') process.stdout.write(line);
-        else appendFileSync(output, line, { mode: 0o600 });
-      } catch {
-        process.stderr.write('provider_observation_write_failed\n');
-        process.exitCode = 1;
-      }
-    },
-  });
+  globalThis[ACTIVE_OBSERVER] = { fetch: observedFetch };
+  return { records, errors, restore() {
+    if (globalThis.fetch === observedFetch) globalThis.fetch = originalFetch;
+    if (globalThis[ACTIVE_OBSERVER]?.fetch === observedFetch) delete globalThis[ACTIVE_OBSERVER];
+  } };
 }
