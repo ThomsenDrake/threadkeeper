@@ -89,7 +89,8 @@ function verifyUsageTotals(item: ProviderObservation) {
   const input = count('input_tokens'), output = count('output_tokens');
   if (prompt !== undefined && input !== undefined) assert.equal(prompt, input, 'Provider input token counts contradict each other');
   if (completion !== undefined && output !== undefined) assert.equal(completion, output, 'Provider output token counts contradict each other');
-  for (const [before, after] of [[prompt, completion], [input, output]]) {
+  {
+    const before = prompt ?? input, after = completion ?? output;
     if (before !== undefined && after !== undefined) assert(Number.isSafeInteger(before + after), 'Provider token component sum is unsafe');
     if (item.path === 'embeddings') {
       assert(after === undefined || after === 0, 'Embedding usage unexpectedly reports generated completion tokens');
@@ -101,6 +102,28 @@ function verifyUsageTotals(item: ProviderObservation) {
         if (after !== undefined) assert(total >= after, 'Provider total is smaller than output tokens');
       }
     }
+  }
+  // Breakdown categories can overlap, so bound each count independently.
+  // A missing parent is unknown; a reported total still supplies an upper bound.
+  const recognizedCounts = new Set(['prompt_tokens', 'completion_tokens', 'total_tokens', 'input_tokens', 'output_tokens',
+    'cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens']);
+  const detailParents: Record<string, number | undefined> = {
+    prompt_tokens_details: prompt ?? input ?? total,
+    input_tokens_details: input ?? prompt ?? total,
+    completion_tokens_details: completion ?? output ?? total,
+    output_tokens_details: output ?? completion ?? total,
+  };
+  function verifyDetails(details: unknown, parent: number | undefined) {
+    assert(details && typeof details === 'object' && !Array.isArray(details), 'Provider token details must be an object');
+    for (const [key, value] of Object.entries(details)) {
+      if (recognizedCounts.has(key)) {
+        assert(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0, 'Provider token detail must be a nonnegative safe integer');
+        if (parent !== undefined) assert(value <= parent, 'Provider token detail exceeds its parent count');
+      } else if (Object.hasOwn(detailParents, key)) verifyDetails(value, parent);
+    }
+  }
+  for (const [key, parent] of Object.entries(detailParents)) {
+    if (usage[key] !== undefined) verifyDetails(usage[key], parent);
   }
 }
 
