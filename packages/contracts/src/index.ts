@@ -62,6 +62,12 @@ export const ReviewSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Dismissal retains the current statement and effective date.' });
   }
 });
+export const CaptureSettingsSchema = z.object({
+  paused: z.boolean(), version: z.number().int().min(0),
+}).strict();
+export const CaptureSettingsUpdateSchema = z.object({
+  paused: z.boolean(), expected_version: z.number().int().min(0).optional(),
+}).strict();
 export const CaptureListSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).max(100_000).default(0),
