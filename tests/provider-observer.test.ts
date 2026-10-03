@@ -31,7 +31,7 @@ test('direct observation accounts for both rejected extraction responses without
     assert(observer.records.every(record => record.request_sha256?.length === 64 && record.response_sha256?.length === 64 && record.elapsed_ms >= 0));
     assert.deepEqual(summarizeProviderObservations(observer.records), {
       observed_attempt_count: 2, direct_request_count: 2, inference_request_count: 2,
-      usage_complete: true, inference_requests_without_usage: 0, inference_requests_without_complete_usage: 0,
+      usage_complete: true, inference_requests_without_usage: 0, inference_requests_without_complete_usage: 0, derived_total_tokens_request_count: 0,
       usage: { prompt_tokens: 20, completion_tokens: 8, total_tokens: 28, completion_tokens_details: { reasoning_tokens: 4 } },
     });
     const serialized = JSON.stringify(observer.records);
@@ -188,4 +188,118 @@ test('base URLs retain their path and enforce zero-request budgets with or witho
     } finally { multiple.restore(); }
     assert.equal(calls, 0, 'No original fetch may run when the configured request budget is zero.');
   } finally { globalThis.fetch = originalFetch; }
+});
+
+
+async function observationProcess(args: string[], extraEnv: NodeJS.ProcessEnv = {}) {
+  const { spawn } = await import('node:child_process');
+  const child = spawn(process.execPath, args, { cwd: process.cwd(), timeout: 10_000,
+    env: { ...process.env, NODE_OPTIONS: '', NEBIUS_API_KEY: '', NO_PROXY: '127.0.0.1,localhost',
+      THREADKEEPER_PROVIDER_OBSERVATIONS_FILE: '', THREADKEEPER_PROVIDER_OBSERVATIONS_BASE_URL: '',
+      THREADKEEPER_PROVIDER_CHAT_LIMIT: '', THREADKEEPER_PROVIDER_EMBEDDING_LIMIT: '', ...extraEnv },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  const code = await new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+  return { code, stdout, stderr };
+}
+
+test('importing the observer library never installs fetch or writes observation stdout', async () => {
+  const result = await observationProcess(['--input-type=module', '-e', `
+    const original = globalThis.fetch;
+    await import('./deploy/direct-provider-observer.mjs');
+    console.log(JSON.stringify({ fetch_unchanged: globalThis.fetch === original }));
+  `], { THREADKEEPER_PROVIDER_OBSERVATIONS_FILE: '-', THREADKEEPER_PROVIDER_CHAT_LIMIT: '0' });
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { fetch_unchanged: true });
+});
+
+test('actual preload fences both runtime provider bases and an additive alias before any underlying fetch', async () => {
+  const { mkdtemp, readFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-observer-preload-'));
+  const output = join(directory, 'observations.ndjson');
+  const fakeFetch = 'globalThis.underlyingCalls=0;globalThis.fetch=async()=>{globalThis.underlyingCalls++;return new Response("{}");};';
+  try {
+    const result = await observationProcess([
+      '--import', 'data:text/javascript,' + encodeURIComponent(fakeFetch),
+      '--import', './deploy/direct-provider-preload.mjs', '--input-type=module', '-e', `
+        const endpoints = ['http://127.0.0.1:18818/model/v1/chat/completions',
+          'http://127.0.0.1:18819/embedding/v2/embeddings', 'http://127.0.0.1:18820/alias/v3/embeddings'];
+        let blocked = 0;
+        for (const endpoint of endpoints) {
+          try { await fetch(endpoint, { method: 'POST' }); }
+          catch (error) { if (error.message === 'provider_observation_request_budget_exhausted') blocked++; else throw error; }
+        }
+        const { installDirectProviderObserver } = await import('./deploy/direct-provider-observer.mjs');
+        let duplicate_rejected = false;
+        try { installDirectProviderObserver(); }
+        catch (error) { duplicate_rejected = error.message === 'provider_observer_already_installed'; }
+        console.log(JSON.stringify({ underlying_calls: globalThis.underlyingCalls, blocked, duplicate_rejected }));
+      `,
+    ], { MODEL_BASE_URL: 'http://127.0.0.1:18818/model/v1', EMBEDDING_BASE_URL: 'http://127.0.0.1:18819/embedding/v2',
+      THREADKEEPER_PROVIDER_OBSERVATIONS_BASE_URL: 'http://127.0.0.1:18820/alias/v3', THREADKEEPER_PROVIDER_OBSERVATIONS_FILE: output,
+      THREADKEEPER_PROVIDER_CHAT_LIMIT: '0', THREADKEEPER_PROVIDER_EMBEDDING_LIMIT: '0' });
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), { underlying_calls: 0, blocked: 3, duplicate_rejected: true });
+    const records = (await readFile(output, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+    assert.equal(records.length, 3);
+    assert.deepEqual(records.map(record => record.path), ['chat/completions', 'embeddings', 'embeddings']);
+    assert(records.every(record => record.sent === false && record.outcome === 'budget_exhausted'));
+    assert.equal(summarizeProviderObservations(records).direct_request_count, 0);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('provider check honors zero environment budgets with FILE stdout configured while retaining one JSON report', async () => {
+  const { createServer } = await import('node:http');
+  const requests: string[] = [];
+  const server = createServer((request, response) => {
+    requests.push(request.url!);
+    response.setHeader('content-type', 'application/json');
+    response.end(JSON.stringify({ data: [{ id: model }] }));
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address(); assert(address && typeof address !== 'string');
+  try {
+    const result = await observationProcess(['--import', 'tsx', 'deploy/provider-check.ts'], {
+      MODEL_BASE_URL: `http://127.0.0.1:${address.port}/model/v1`, MODEL_ID: model, MODEL_API_KEY: 'synthetic-probe-secret',
+      MODEL_REASONING_EFFORT: 'none', EMBEDDING_BASE_URL: `http://127.0.0.1:${address.port}/embedding/v1`,
+      EMBEDDING_MODEL: 'synthetic-embedding', EMBEDDING_DIMENSIONS: '2', PROVIDER_CHECK_SCHEMA: 'false',
+      THREADKEEPER_PROVIDER_OBSERVATIONS_FILE: '-', THREADKEEPER_PROVIDER_CHAT_LIMIT: '0', THREADKEEPER_PROVIDER_EMBEDDING_LIMIT: '0',
+    });
+    assert.equal(result.code, 1, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.deepEqual(requests, ['/model/v1/models']);
+    assert.equal(report.provider_accounting.direct_request_count, 1);
+    assert.equal(report.provider_accounting.inference_request_count, 0);
+    const blocked = report.checks.flatMap((check: any) => check.provider_attempts ?? []).filter((record: any) => record.path !== 'models');
+    assert(blocked.length >= 5);
+    assert(blocked.every((record: any) => record.sent === false && record.outcome === 'budget_exhausted'));
+    assert(blocked.some((record: any) => record.path === 'embeddings'));
+    assert(!result.stdout.includes('synthetic-probe-secret'));
+  } finally { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+});
+
+test('complete mixed token envelopes derive missing totals without rewriting raw provider usage', async () => {
+  const originalFetch = globalThis.fetch;
+  const usages = [
+    { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15 },
+    { prompt_tokens: 12, completion_tokens: 3 }, { input_tokens: 12, output_tokens: 3 }, { total_tokens: 15 },
+  ];
+  let calls = 0;
+  globalThis.fetch = async () => new Response(JSON.stringify({ usage: usages[calls++] }));
+  const observer = installDirectProviderObserver({ baseUrl });
+  try {
+    for (const _ of usages) await fetch(baseUrl + 'chat/completions');
+    assert.deepEqual(observer.records.map(record => record.usage), usages);
+    const summary = summarizeProviderObservations(observer.records);
+    assert.equal(summary.usage_complete, true);
+    assert.equal(summary.usage.total_tokens, 60);
+    assert.equal(summary.derived_total_tokens_request_count, 2);
+    assert.equal(observer.records[1].usage?.total_tokens, undefined);
+    assert.equal(observer.records[2].usage?.total_tokens, undefined);
+  } finally { observer.restore(); globalThis.fetch = originalFetch; }
 });
