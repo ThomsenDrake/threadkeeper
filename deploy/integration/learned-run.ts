@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { readFile, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
-import { rmSync } from 'node:fs';
+import { access, lstat, readFile, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
+import { constants, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
@@ -15,6 +15,13 @@ assert.equal(process.versions.node.split('.')[0], '24', 'Use Node 24');
 assert(process.env.NEBIUS_API_KEY, 'Configure NEBIUS_API_KEY without printing it');
 const output = process.argv[2];
 assert(process.argv.length <= 3, 'Usage: pnpm integration:learned [evidence.json]');
+if (output) {
+  let exists = true;
+  try { await lstat(resolve(output)); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; exists = false; }
+  assert(!exists, 'Evidence output already exists; choose a new path before provider requests');
+  await access(dirname(resolve(output)), constants.W_OK);
+}
 // Immutable identity is mandatory before billed requests. Documentation/artifact
 // edits are allowed, but every tracked implementation/configuration byte is hashed.
 const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
