@@ -1,6 +1,6 @@
 # Frozen extraction holdout
 
-This measurement-only increment depends on PR #16's literal qualifier checks, starting from `4f38162975070c86ead29a96c725cdbe263e59e5`. It changes no runtime extraction prompt, model or admission policy. The latest broader learned corpus remains the historical **8/11** at `4a709f4`; no new live result is implied by these fixtures.
+This measurement-only increment depends on PR #16's literal qualifier checks, starting from `4f38162975070c86ead29a96c725cdbe263e59e5` and now integrating checked prerequisite `bb7686e7499e2206653b82d7b5871f888c36b439` (native prerequisite `58a1e05`). It changes no runtime extraction prompt, model or admission policy. The latest broader learned corpus remains the historical **8/11** at `4a709f4`; no new live result is implied by these fixtures.
 
 The [manifest](../deploy/provider-extraction-holdout.ts) freezes eight synthetic captures, semantic inclusions/exclusions and conservative whole-statement templates before inference. Freeze commit: `74a478e754d82702a6b9e798b1628cd06bbcb879`; manifest SHA-256: `91503716bf7879c49e3763c68d62f1a94c14b7a4896121c84fe628adfe81f49e`. The hash covers all labels, cases, limits and assessment guidance and is emitted in each report. An independent pre-inference audit refined the labels and finite paraphrase alternatives. The pair with identical preference/attack text in opposite order is deliberately paired; eight cases are not eight independent semantic assertions or a broad accuracy estimate.
 
