@@ -48,6 +48,13 @@ export const SearchSchema = z.object({
   status: MemoryStatusSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 }).strict();
+// Owner browsing is separate from bounded client recall. A snapshot guard lets
+// the profile recover when canonical writes move records between pages.
+export const MemoryListSchema = SearchSchema.extend({
+  offset: z.coerce.number().int().min(0).max(100_000).default(0),
+  snapshot_version: z.coerce.number().int().min(0).optional(),
+  ranking_version: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+});
 export const CorrectSchema = z.object({
   statement: z.string().min(1).max(4_000),
   expected_revision: z.number().int().positive(),
@@ -94,6 +101,20 @@ export const MemorySchema = z.object({
   status: MemoryStatusSchema, revision: z.number().int().positive(), authoritative: z.boolean(),
   effective_at: Timestamp.nullable(), created_at: Timestamp, updated_at: Timestamp,
   extractor: z.string().max(500).nullable(),
+});
+export const MemoryListResultSchema = z.object({
+  memories: z.array(MemorySchema.passthrough()),
+  next_offset: z.number().int().min(0).nullable(),
+  total_count: z.number().int().min(0),
+  snapshot_version: z.number().int().min(0),
+  ranking_version: z.string().regex(/^[a-f0-9]{64}$/),
+}).passthrough();
+export const ImportResultSchema = z.object({
+  imported_sources: z.number().int().min(0), existing_sources: z.number().int().min(0), skipped_sources: z.number().int().min(0),
+  imported_memories: z.number().int().min(0), existing_memories: z.number().int().min(0), skipped_memories: z.number().int().min(0),
+  tombstone_excluded_sources: z.number().int().min(0), tombstone_excluded_memories: z.number().int().min(0),
+  evidence_excluded_memories: z.number().int().min(0), imported_tombstones: z.number().int().min(0), existing_tombstones: z.number().int().min(0),
+  retained_memories: z.number().int().min(0), snapshot_version: z.number().int().min(0),
 });
 export const ExportSourceSchema = z.object({
   id: Identifier, event_id: Identifier, client_id: Identifier, project_id: Identifier.nullable(), subject: Identifier,

@@ -29,7 +29,9 @@ Priority 3 merged in [PR #6](https://github.com/ThomsenDrake/threadkeeper/pull/6
 
 Priority 4 is implemented and verified on `codex/forgetting-preview`, rebased onto merged priorities 2–3: owner memory/source impact previews, required graph-bound confirmation hashes, source-only forgetting and known raw-source-copy cleanup. Its combined verification and remaining final-head review/merge are recorded in [HANDOFF.md](HANDOFF.md). Existing deletion callers must obtain a preview first; confirm the final merged head before treating it as main.
 
-The next unblocked implementation outcome is priority 5: larger profile collections, complete loading/recovery states and import reporting. Complete the pending final-head review/merge for priority 4 before treating it as main.
+Priority 5 is implemented and verified on `codex/profile-scaling`, explicitly stacked on priority 4: complete owner pagination with snapshot/ranking guards, realistic older-record workflows, counted atomic import feedback and recoverable profile states. Required deletion-preview guards are integrated. Combined **96 tests**, **53 native-enabled regressions** and **16 production browser checks** passed; [handoff evidence](HANDOFF.md) separates those synthetic observations from release gates. Wait for priority 4 to merge, retarget onto actual main and review the resulting head before self-merging.
+
+The next unblocked implementation outcome is priority 6: deletion-aware restore, reconciliation and migration/recovery procedures. Complete pending prerequisite-aware review/merge loops for priorities 4–5 before treating them as main.
 
 ## Delivery loop
 

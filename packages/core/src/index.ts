@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
 import {
-  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, SourceDeleteSchema, DeletionPreviewSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema,
+  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, SourceDeleteSchema, DeletionPreviewSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema, MemoryListSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
 } from '@threadkeeper/contracts';
 
@@ -280,7 +280,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
 
   async function select(auth: Auth, raw: unknown, defaultsActive: boolean) {
     permission(auth, 'read');
-    const filters = parsed(SearchSchema, raw);
+    const filters = parsed(MemoryListSchema, defaultsActive ? parsed(SearchSchema, raw) : raw);
     if (filters.project_id !== undefined) projectAllowed(auth, filters.project_id);
     const params: any[] = [];
     const where = [scope(auth, params)];
@@ -300,24 +300,26 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const bind = (value: unknown) => { params.push(value); return `$${params.length}`; };
     const evidence = `(SELECT jsonb_agg(jsonb_build_object('source_id',e.source_id,'quote',e.quote,'client_id',s.client_id,'author_role',s.author_role,'origin',s.origin,'capture_method',s.capture_method,'occurred_at',s.occurred_at,'recorded_at',s.recorded_at)) FROM tk_evidence e JOIN tk_sources s ON s.id=e.source_id WHERE e.memory_id=m.id AND e.revision=m.revision) AS evidence`;
     let sql: string;
+    let rankingSql: string;
     if (semantic.vector) {
       const q = bind(query);
       const space = bind(embeddingIndex.spaceId);
       const dimensions = bind(embeddingIndex.dimensions);
       const vector = bind(JSON.stringify(semantic.vector));
-      const candidateLimit = bind(filters.limit * 4);
-      const limit = bind(filters.limit);
+      // Recall stays bounded. Owner browsing ranks the entire eligible set so
+      // later pages cannot stop at the first recall-sized candidate pool.
+      const candidateLimit = defaultsActive ? `LIMIT ${bind(filters.limit * 4)}` : '';
       // One materialized, authorized relation feeds BOTH rankers, including all
       // subject/source/status filters. Exact cosine supports large vectors and
       // avoids ANN post-filter underfilling of project-scoped personal context.
       // Materializing compatible vectors also prevents distance evaluation on
       // vectors from a different model/dimension if the planner reorders joins.
-      sql = `WITH eligible AS MATERIALIZED (
+      const ranked = `WITH eligible AS MATERIALIZED (
           SELECT m.* FROM tk_memories m WHERE ${where.join(' AND ')}
         ), lexical AS (
           SELECT id, row_number() OVER (ORDER BY ts_rank_cd(search_vector,websearch_to_tsquery('english',${q})) DESC,updated_at DESC,id) AS rank
           FROM eligible WHERE search_vector @@ websearch_to_tsquery('english',${q}) OR position(lower(${q}) in lower(statement)) > 0
-          ORDER BY rank LIMIT ${candidateLimit}
+          ORDER BY rank ${candidateLimit}
         ), compatible_vectors AS MATERIALIZED (
           SELECT m.id,m.updated_at,e.embedding FROM eligible m JOIN tk_embeddings e ON e.memory_id=m.id AND e.revision=m.revision
           WHERE e.space_id=${space} AND e.dimensions=${dimensions} AND vector_dims(e.embedding)=${dimensions}
@@ -325,15 +327,16 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
           SELECT id,updated_at,1-(embedding <=> ${vector}::vector) AS similarity FROM compatible_vectors
         ), semantic AS (
           SELECT id,row_number() OVER (ORDER BY similarity DESC,updated_at DESC,id) AS rank
-          FROM distances WHERE similarity >= 0.3 AND similarity <= 1.000001 ORDER BY rank LIMIT ${candidateLimit}
+          FROM distances WHERE similarity >= 0.3 AND similarity <= 1.000001 ORDER BY rank ${candidateLimit}
         ), fused AS (
           SELECT id,sum(score) AS score FROM (
             SELECT id,1.0/(60+rank) AS score FROM lexical
             UNION ALL SELECT id,1.0/(60+rank) AS score FROM semantic
           ) ranks GROUP BY id
-        )
-        SELECT m.*,${evidence} FROM eligible m JOIN fused ON fused.id=m.id
-        ORDER BY fused.score DESC,m.updated_at DESC,m.id LIMIT ${limit}`;
+        )`;
+      rankingSql = `${ranked} SELECT m.id,m.revision FROM eligible m JOIN fused ON fused.id=m.id ORDER BY fused.score DESC,m.updated_at DESC,m.id`;
+      sql = `${ranked} SELECT m.*,${evidence} FROM eligible m JOIN fused ON fused.id=m.id
+        ORDER BY fused.score DESC,m.updated_at DESC,m.id`;
     } else {
       let rank = 'm.updated_at DESC,m.id';
       if (query) {
@@ -342,12 +345,31 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         where.push(`(m.search_vector @@ websearch_to_tsquery('english',${q}) OR position(lower(${q}) in lower(m.statement)) > 0)`);
         rank = `ts_rank_cd(m.search_vector,websearch_to_tsquery('english',${q})) DESC,m.updated_at DESC,m.id`;
       }
-      sql = `SELECT m.*,${evidence} FROM tk_memories m WHERE ${where.join(' AND ')} ORDER BY ${rank} LIMIT ${bind(filters.limit)}`;
+      rankingSql = `SELECT m.id,m.revision FROM tk_memories m WHERE ${where.join(' AND ')} ORDER BY ${rank}`;
+      sql = `SELECT m.*,${evidence} FROM tk_memories m WHERE ${where.join(' AND ')} ORDER BY ${rank}`;
     }
+    const rankingParams = [...params];
+    sql += ` LIMIT ${bind(filters.limit)}${defaultsActive ? '' : ` OFFSET ${bind(filters.offset)}`}`;
     return db.transaction(async tx => {
       await lockOwner(tx, auth.ownerId);
+      const snapshotVersion = await snapshot(tx, auth.ownerId);
+      if (!defaultsActive && filters.snapshot_version !== undefined && filters.snapshot_version !== snapshotVersion) {
+        throw new DomainError(409, 'memory_list_changed', 'Your context changed while browsing. Refresh the list to load the current records.');
+      }
+      const ranking = defaultsActive ? null : await tx.query(rankingSql, rankingParams);
+      // Indexing and provider availability may change hybrid order without a
+      // canonical write. Bind each page to the full current ordered ID/revision
+      // set and retrieval mode, without retaining personal context in a cache.
+      const rankingVersion = ranking ? hash(canonical([filters.query, filters.project_id ?? null, filters.subject ?? null, filters.source ?? null,
+        filters.status ?? null, semantic.vector ? 'hybrid' : 'lexical', semantic.reason, embeddingIndex.spaceId, ranking.rows])) : null;
+      if (!defaultsActive && filters.ranking_version !== undefined && filters.ranking_version !== rankingVersion) {
+        throw new DomainError(409, 'memory_list_changed', 'Search results changed while browsing. Refresh the list to load the current order.');
+      }
       const result = await tx.query(sql, params);
-      return { memories: result.rows.map(row => ({ ...memoryRow(row), evidence: row.evidence ?? [] })), snapshot_version: await snapshot(tx, auth.ownerId), coverage: { retrieval: semantic.vector ? 'postgresql_hybrid' : 'postgresql_full_text', semantic_search: semantic.reason, result_limit: filters.limit, insufficient_context: result.rows.length === 0 } };
+      const totalCount = ranking?.rows.length;
+      return { memories: result.rows.map(row => ({ ...memoryRow(row), evidence: row.evidence ?? [] })), snapshot_version: snapshotVersion,
+        ...(!defaultsActive ? { total_count: totalCount!, ranking_version: rankingVersion!, next_offset: filters.offset + result.rows.length < totalCount! ? filters.offset + result.rows.length : null } : {}),
+        coverage: { retrieval: semantic.vector ? 'postgresql_hybrid' : 'postgresql_full_text', semantic_search: semantic.reason, result_limit: filters.limit, insufficient_context: result.rows.length === 0 } };
     });
   }
   async function detail(auth: Auth, id: string) {
@@ -644,32 +666,46 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       await lockOwner(tx, auth.ownerId);
       // Importing tombstones into a nonempty instance could otherwise leave active deleted content.
       // Require a fresh destination for incoming deletion history, or an identical existing history.
+      let importedTombstones = 0, existingTombstones = 0;
       for (const tombstone of bundle.tombstones) {
         const already = await tombstoned(tx, auth.ownerId, tombstone.kind, tombstone.hash);
         if (!already && (await tx.query('SELECT 1 FROM tk_sources WHERE owner_id=$1 LIMIT 1', [auth.ownerId])).rows.length) throw new DomainError(409, 'fresh_import_required', 'Import deletion history into a fresh instance.');
         await tx.query('INSERT INTO tk_tombstones(owner_id,kind,hash,deleted_at) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [auth.ownerId, tombstone.kind, tombstone.hash, tombstone.deleted_at]);
+        if (already) existingTombstones++; else importedTombstones++;
       }
       const allowedSources = new Set<string>();
+      let importedSources = 0, existingSources = 0;
       for (const source of bundle.sources) {
         if (await tombstoned(tx, auth.ownerId, 'source_identity', sourceIdentity(source.client_id, source.event_id)) || await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(source.text))) continue;
         const old = await tx.query('SELECT * FROM tk_sources WHERE id=$1 OR (owner_id=$2 AND client_id=$3 AND event_id=$4)', [source.id, auth.ownerId, source.client_id, source.event_id]);
         if (old.rows.length) {
           const row = old.rows[0];
           if (row.id !== source.id || row.owner_id !== auth.ownerId || canonical(sourceRow(row)) !== canonical(source)) throw new DomainError(409, 'import_source_conflict');
+          existingSources++;
         } else {
           await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,recorded_at,checksum,extraction_blocked,capture_method)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, [source.id, auth.ownerId, source.client_id, source.event_id, source.project_id, source.subject, source.text, source.author_role, source.origin, source.occurred_at, source.recorded_at, source.checksum, source.extraction_blocked, source.capture_method]);
+          importedSources++;
         }
         allowedSources.add(source.id);
       }
       const allowedMemories = new Set<string>();
-      let imported = 0;
+      let imported = 0, existingMemories = 0, tombstoneExcludedMemories = 0, evidenceExcludedMemories = 0;
       for (const memory of bundle.memories) {
         const supporting = bundle.evidence.filter(evidence => evidence.memory_id === memory.id);
-        if (supporting.some(evidence => !allowedSources.has(evidence.source_id)) || await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(memory.statement, memory.project_id, memory.subject))) continue;
+        if (supporting.some(evidence => !allowedSources.has(evidence.source_id))) { evidenceExcludedMemories++; continue; }
+        // History is exported and inspectable too. A harmless current revision
+        // cannot bring back a forgotten historical assertion under fresh source
+        // identities or different evidence text.
+        let deletedHistory = false;
+        for (const revision of bundle.revisions.filter(revision => revision.memory_id === memory.id)) {
+          if (await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(revision.statement, memory.project_id, memory.subject))) { deletedHistory = true; break; }
+        }
+        if (deletedHistory) { tombstoneExcludedMemories++; continue; }
         const old = await tx.query('SELECT * FROM tk_memories WHERE id=$1', [memory.id]);
         if (old.rows[0]) {
           if (old.rows[0].owner_id !== auth.ownerId || canonical(memoryRow(old.rows[0])) !== canonical(memory)) throw new DomainError(409, 'import_memory_conflict');
+          existingMemories++;
         } else {
           const contentKey = hash(canonical([supporting.find(evidence => evidence.revision === 1)?.source_id, normalize(bundle.revisions.find(revision => revision.memory_id === memory.id && revision.revision === 1)?.statement ?? memory.statement), memory.kind, bundle.revisions.find(revision => revision.memory_id === memory.id && revision.revision === 1)?.origin ?? memory.origin, memory.subject]));
           await tx.query(`INSERT INTO tk_memories(id,owner_id,project_id,subject,statement,kind,origin,status,revision,authoritative,effective_at,created_at,updated_at,extractor,content_key)
@@ -693,7 +729,11 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         if (old && old.quote !== evidence.quote) throw new DomainError(409, 'import_evidence_conflict');
         if (!old) await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,$2,$3,$4)', [evidence.memory_id, evidence.revision, evidence.source_id, evidence.quote]);
       }
-      return { imported_memories: imported, retained_memories: allowedMemories.size, skipped_memories: bundle.memories.length - allowedMemories.size, snapshot_version: await bump(tx, auth.ownerId) };
+      return { imported_sources: importedSources, existing_sources: existingSources, skipped_sources: bundle.sources.length - allowedSources.size,
+        imported_memories: imported, existing_memories: existingMemories, retained_memories: allowedMemories.size, skipped_memories: bundle.memories.length - allowedMemories.size,
+        tombstone_excluded_sources: bundle.sources.length - allowedSources.size, tombstone_excluded_memories: tombstoneExcludedMemories,
+        evidence_excluded_memories: evidenceExcludedMemories, imported_tombstones: importedTombstones, existing_tombstones: existingTombstones,
+        snapshot_version: await bump(tx, auth.ownerId) };
     });
   }
 
