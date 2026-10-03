@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
+export type { EmbeddingProvider } from './embeddings.ts';
 import {
   CaptureSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, SearchSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
@@ -120,7 +122,8 @@ async function insertMemory(tx: Database, auth: Auth, candidate: ExplicitMemory,
   return { id, skipped: null };
 }
 
-export function createStore(db: Database) {
+export function createStore(db: Database, options: { embeddings?: EmbeddingProvider } = {}) {
+  const embeddingIndex = createEmbeddingIndex(db, options.embeddings);
   async function capture(auth: Auth, raw: unknown) {
     permission(auth, 'capture');
     const input = parsed(CaptureSchema, raw) as CaptureInput;
@@ -183,21 +186,63 @@ export function createStore(db: Database) {
       params.push(filters.source);
       where.push(`EXISTS (SELECT 1 FROM tk_evidence e JOIN tk_sources s ON s.id=e.source_id WHERE e.memory_id=m.id AND e.revision=m.revision AND (s.id=$${params.length} OR s.client_id=$${params.length}))`);
     }
-    let rank = 'm.updated_at DESC';
-    if (filters.query.trim()) {
-      params.push(filters.query.trim());
-      const n = params.length;
-      // Substring fallback covers exact dates/IDs and simple fragments; FTS covers word forms.
-      where.push(`(m.search_vector @@ websearch_to_tsquery('english',$${n}) OR position(lower($${n}) in lower(m.statement)) > 0)`);
-      rank = `ts_rank_cd(m.search_vector,websearch_to_tsquery('english',$${n})) DESC,m.updated_at DESC`;
+    const query = filters.query.trim();
+    // Authorization and filter validation precede any provider call. Only the
+    // query leaves this path; memory indexing is a separate trusted worker task.
+    // No database lock is held across a remote request. The final read takes the
+    // owner lock and joins current revisions after the request has completed.
+    const semantic = query ? await embeddingIndex.query(query) : { vector: null, reason: 'not_requested' };
+    const bind = (value: unknown) => { params.push(value); return `$${params.length}`; };
+    const evidence = `(SELECT jsonb_agg(jsonb_build_object('source_id',e.source_id,'quote',e.quote,'client_id',s.client_id,'author_role',s.author_role,'origin',s.origin,'capture_method',s.capture_method,'occurred_at',s.occurred_at,'recorded_at',s.recorded_at)) FROM tk_evidence e JOIN tk_sources s ON s.id=e.source_id WHERE e.memory_id=m.id AND e.revision=m.revision) AS evidence`;
+    let sql: string;
+    if (semantic.vector) {
+      const q = bind(query);
+      const space = bind(embeddingIndex.spaceId);
+      const dimensions = bind(embeddingIndex.dimensions);
+      const vector = bind(JSON.stringify(semantic.vector));
+      const candidateLimit = bind(filters.limit * 4);
+      const limit = bind(filters.limit);
+      // One materialized, authorized relation feeds BOTH rankers, including all
+      // subject/source/status filters. Exact cosine supports large vectors and
+      // avoids ANN post-filter underfilling of project-scoped personal context.
+      // Materializing compatible vectors also prevents distance evaluation on
+      // vectors from a different model/dimension if the planner reorders joins.
+      sql = `WITH eligible AS MATERIALIZED (
+          SELECT m.* FROM tk_memories m WHERE ${where.join(' AND ')}
+        ), lexical AS (
+          SELECT id, row_number() OVER (ORDER BY ts_rank_cd(search_vector,websearch_to_tsquery('english',${q})) DESC,updated_at DESC,id) AS rank
+          FROM eligible WHERE search_vector @@ websearch_to_tsquery('english',${q}) OR position(lower(${q}) in lower(statement)) > 0
+          ORDER BY rank LIMIT ${candidateLimit}
+        ), compatible_vectors AS MATERIALIZED (
+          SELECT m.id,m.updated_at,e.embedding FROM eligible m JOIN tk_embeddings e ON e.memory_id=m.id AND e.revision=m.revision
+          WHERE e.space_id=${space} AND e.dimensions=${dimensions} AND vector_dims(e.embedding)=${dimensions}
+        ), distances AS MATERIALIZED (
+          SELECT id,updated_at,1-(embedding <=> ${vector}::vector) AS similarity FROM compatible_vectors
+        ), semantic AS (
+          SELECT id,row_number() OVER (ORDER BY similarity DESC,updated_at DESC,id) AS rank
+          FROM distances WHERE similarity >= 0.3 AND similarity <= 1.000001 ORDER BY rank LIMIT ${candidateLimit}
+        ), fused AS (
+          SELECT id,sum(score) AS score FROM (
+            SELECT id,1.0/(60+rank) AS score FROM lexical
+            UNION ALL SELECT id,1.0/(60+rank) AS score FROM semantic
+          ) ranks GROUP BY id
+        )
+        SELECT m.*,${evidence} FROM eligible m JOIN fused ON fused.id=m.id
+        ORDER BY fused.score DESC,m.updated_at DESC,m.id LIMIT ${limit}`;
+    } else {
+      let rank = 'm.updated_at DESC,m.id';
+      if (query) {
+        const q = bind(query);
+        // Preserve credential-free word-form matching and exact date/ID fragments.
+        where.push(`(m.search_vector @@ websearch_to_tsquery('english',${q}) OR position(lower(${q}) in lower(m.statement)) > 0)`);
+        rank = `ts_rank_cd(m.search_vector,websearch_to_tsquery('english',${q})) DESC,m.updated_at DESC,m.id`;
+      }
+      sql = `SELECT m.*,${evidence} FROM tk_memories m WHERE ${where.join(' AND ')} ORDER BY ${rank} LIMIT ${bind(filters.limit)}`;
     }
-    params.push(filters.limit);
     return db.transaction(async tx => {
       await lockOwner(tx, auth.ownerId);
-      const result = await tx.query(`SELECT m.*,
-        (SELECT jsonb_agg(jsonb_build_object('source_id',e.source_id,'quote',e.quote,'client_id',s.client_id,'author_role',s.author_role,'origin',s.origin,'capture_method',s.capture_method,'occurred_at',s.occurred_at,'recorded_at',s.recorded_at)) FROM tk_evidence e JOIN tk_sources s ON s.id=e.source_id WHERE e.memory_id=m.id AND e.revision=m.revision) AS evidence
-        FROM tk_memories m WHERE ${where.join(' AND ')} ORDER BY ${rank} LIMIT $${params.length}`, params);
-      return { memories: result.rows.map(row => ({ ...memoryRow(row), evidence: row.evidence ?? [] })), snapshot_version: await snapshot(tx, auth.ownerId), coverage: { retrieval: 'postgresql_full_text', semantic_search: 'not_enabled', result_limit: filters.limit, insufficient_context: result.rows.length === 0 } };
+      const result = await tx.query(sql, params);
+      return { memories: result.rows.map(row => ({ ...memoryRow(row), evidence: row.evidence ?? [] })), snapshot_version: await snapshot(tx, auth.ownerId), coverage: { retrieval: semantic.vector ? 'postgresql_hybrid' : 'postgresql_full_text', semantic_search: semantic.reason, result_limit: filters.limit, insufficient_context: result.rows.length === 0 } };
     });
   }
   async function detail(auth: Auth, id: string) {
@@ -442,5 +487,5 @@ export function createStore(db: Database) {
     const result = await db.query(`SELECT j.id,j.project_id,j.subject,j.status,j.attempts,j.created_at,j.started_at,j.completed_at,j.error_code,j.result FROM tk_jobs j WHERE ${scope(auth, params, 'j')} ORDER BY j.created_at DESC LIMIT 100`, params);
     return { jobs: result.rows };
   }
-  return { capture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, correct, remove, export: exportData, import: importData, processJob, jobs };
+  return { capture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
 }

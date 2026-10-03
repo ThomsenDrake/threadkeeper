@@ -22,10 +22,10 @@ Extraction has at most two requests: one attempt and one repair. The default req
 | `EMBEDDING_BASE_URL` | Same as model endpoint unless supplied |
 | `EMBEDDING_API_KEY` | Optional; falls back to the model key only for the same normalized endpoint |
 | `EMBEDDING_TIMEOUT_MS` | 60000 per request; maximum 300000 |
-| `EMBEDDING_DIMENSIONS` | Optional dimension pin; otherwise measured from the first response |
+| `EMBEDDING_DIMENSIONS` | Required for runtime hybrid recall (1–16000), sent to the provider and checked against every response; optional for the standalone probe |
 | `WORKER_POLL_MS` | 1000; 100 to 60000 allowed |
 
-The embedding adapter validates numeric vectors, response indices, consistent length, and changes against the measured or configured length. It creates no fallback or fabricated vectors. Configuring it does not prove it is integrated into retrieval or that the model's query/document preprocessing is correct. Run and measure those checks before enabling a database vector index. Local inference hardware and runtime compatibility require a separate real deployment test.
+The embedding adapter validates finite float32, nonzero vectors, response indices and consistent dimensions. Runtime storage normalizes vectors to unit length for stable cosine ranking. It creates no fallback or fabricated vectors. [Hybrid retrieval](RETRIEVAL.md) is optional; failed query embeddings fall back to full-text with a coverage reason. Raw statement/query text is sent to the configured provider without model-specific instruction prefixes. Synthetic tests establish integration and lifecycle behavior, not embedding quality or correct preprocessing for every model. Local inference hardware and runtime compatibility require a separate real deployment test.
 
 Run `pnpm provider:check` with operator-configured secrets to measure model listing, chat, a validation-only tool call, JSON output, source-backed extraction, and optional embeddings. Set `PROVIDER_CHECK_SCHEMA=true` for an additional strict-schema probe. The script sends synthetic data, does not execute the proposed tool, and prints only capability checks, timing, usage, and sanitized error codes. Its output describes that run only. It does not claim full self-hosting, quality superiority, or a deployment.
 

@@ -16,7 +16,8 @@ Date: 2026-10-02 UTC / 2026-10-03 Europe/Paris. User-confirmed requirements take
 | Configurable inference and embeddings | Nebius is the hackathon provider, never a runtime dependency for self-hosters |
 | Nebius default `nvidia/Nemotron-3_5-Lightning` | Exact identifier verified in official guidance and authenticated model listing; never silently substitute another agent model |
 | Prompted JSON with local validation initially | A live JSON-object request succeeded. Truncated schema trial and conflicting Nebius documentation do not establish schema enforcement |
-| PostgreSQL full-text retrieval initially | Semantic search is not wired yet. The available Qwen embedding model returned 4,096 dimensions; use measured exact ranking or a validated reduced dimension before adding an ANN index |
+| Optional hybrid full-text and exact vector retrieval | Full-text stays available without credentials. Reciprocal-rank fusion combines authorized lexical and cosine results. Native pgvector 0.8.7 exact retrieval supports 4,096 dimensions; vector HNSW/IVFFlat reject more than 2,000. No ANN index is selected in this increment |
+| Embeddings are revision-bound derived data | Endpoint/model/dimensions/preprocessing identify the vector space. Database triggers invalidate corrections and status changes; deletion cascades. Worker admission rechecks canonical state after provider calls; imports rebuild embeddings |
 | MCP TypeScript v2 | Available package versions are checked by the parent session; modern and legacy client protocol behavior must be tested using the installed code |
 
 ## Open decisions and blockers

@@ -13,30 +13,32 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "migrate": "node --import tsx deploy/migrate.ts",
+    "reindex": "node --import tsx deploy/reindex.ts",
     "provider:check": "node --import tsx deploy/provider-check.ts",
     "demo": "node --import tsx deploy/demo.ts",
     "dev:demo": "node --import tsx deploy/dev-demo.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.3.0",
     "@modelcontextprotocol/client": "2.3.0",
     "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/server": "2.3.0",
     "express": "5.1.0",
     "pg": "8.16.3",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "0.0.9",
     "@types/express": "5.0.3",
     "@types/node": "24.7.2",
     "@types/pg": "8.15.5",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "typescript": "5.9.3",
-    "tsx": "4.20.6",
-    "vite": "7.1.9",
+    "@vitejs/plugin-react": "5.0.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "@vitejs/plugin-react": "5.0.4"
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vite": "7.1.9"
   }
 }

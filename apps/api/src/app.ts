@@ -3,12 +3,12 @@ import {z,ZodError} from 'zod';
 import {createMcpHandler,McpServer} from '@modelcontextprotocol/server';
 import {toNodeHandler} from '@modelcontextprotocol/node';
 import {CaptureSchema,SearchSchema,CorrectSchema,DeleteSchema,ExportSchema} from '../../../packages/contracts/src/index.ts';
-import {createStore,DomainError,type Database} from '../../../packages/core/src/index.ts';
+import {createStore,DomainError,type Database,type EmbeddingProvider} from '../../../packages/core/src/index.ts';
 import {createAuth} from './auth.ts';
 import {resolve} from 'node:path';
 
-export function createApp(db:Database,options:{origin?:string;cookieSecure?:boolean;staticDir?:string}={}){
- const app=express(),store=createStore(db),auth=createAuth(db);const origin=options.origin??'http://localhost:3000';const allowedHost=new URL(origin).host;
+export function createApp(db:Database,options:{origin?:string;cookieSecure?:boolean;staticDir?:string;embeddings?:EmbeddingProvider}={}){
+ const app=express(),store=createStore(db,{embeddings:options.embeddings}),auth=createAuth(db);const origin=options.origin??'http://localhost:3000';const allowedHost=new URL(origin).host;
  app.disable('x-powered-by');
  app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Cache-Control','no-store');if(req.headers.host!==allowedHost)return res.status(403).json({error:'invalid_host'});if(req.headers.origin&&req.headers.origin!==origin)return res.status(403).json({error:'invalid_origin'});next();});
  app.get('/health',async(_req,res)=>{await db.query('SELECT 1');res.json({status:'ok'});});

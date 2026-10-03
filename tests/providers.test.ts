@@ -4,6 +4,7 @@ import {
   OpenAICompatibleEmbeddingProvider,
   OpenAICompatibleProvider,
   ProviderError,
+  createEmbeddingProvider,
   embeddingConfigFromEnv,
   providerConfigFromEnv,
   type ProviderConfig,
@@ -103,13 +104,88 @@ test('date-only or invented effective timestamps require repair instead of admis
 });
 
 test('embedding vectors are validated, ordered by response indices, and dimension changes fail', async () => {
-  await withFakeEndpoint(async (baseUrl) => {
+  await withFakeEndpoint(async (baseUrl, requests) => {
     const provider = new OpenAICompatibleEmbeddingProvider({ baseUrl, modelId: 'local-embedding-alias', timeoutMs: 1000 });
     const result = await provider.embed(['one', 'two']);
     assert.equal(result.dimensions, 3);
     assert.deepEqual(result.vectors, [[1, 0, 0], [0, 1, 0]]);
+    assert.equal(requests[0]?.body.dimensions, undefined, 'probe may measure the natural dimension');
     await assert.rejects(provider.embed(['next']), error => error instanceof ProviderError && error.code === 'embedding_dimension_mismatch');
   }, [{ data: [{ index: 1, embedding: [0, 1, 0] }, { index: 0, embedding: [1, 0, 0] }] }, { data: [{ index: 0, embedding: [1, 0] }] }]);
+});
+
+test('optional runtime embeddings require explicit pgvector dimensions without choosing a model', () => {
+  assert.equal(createEmbeddingProvider({}), undefined);
+  assert.equal(createEmbeddingProvider({ EMBEDDING_DIMENSIONS: '3' }), undefined);
+  assert.throws(() => createEmbeddingProvider({ EMBEDDING_MODEL: 'synthetic-embedding' }), /EMBEDDING_DIMENSIONS is required/);
+  for (const dimensions of ['0', '-1', '1.5', 'NaN', '16001']) {
+    assert.throws(() => createEmbeddingProvider({ EMBEDDING_MODEL: 'synthetic-embedding', EMBEDDING_DIMENSIONS: dimensions }));
+  }
+  const provider = createEmbeddingProvider({ EMBEDDING_MODEL: 'synthetic-4096', EMBEDDING_DIMENSIONS: '4096' });
+  assert.equal(provider?.config.dimensions, 4096, 'storage-compatible dimensions are not restricted to ANN index limits');
+  assert.equal(provider?.config.modelId, 'synthetic-4096');
+  assert.equal(createEmbeddingProvider({ EMBEDDING_MODEL: 'synthetic-16000', EMBEDDING_DIMENSIONS: '16000' })?.config.dimensions, 16000);
+});
+
+test('self-hosted embeddings send the configured dimension and never inherit a distinct endpoint key', async () => {
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    const provider = createEmbeddingProvider({
+      MODEL_BASE_URL: 'https://models.example.invalid/v1/', MODEL_API_KEY: 'synthetic-model-key', NEBIUS_API_KEY: 'synthetic-nebius-key',
+      EMBEDDING_BASE_URL: baseUrl, EMBEDDING_MODEL: 'self-hosted-reduced', EMBEDDING_DIMENSIONS: '3',
+    });
+    const result = await provider!.embed(['synthetic portable context']);
+    assert.equal(requests[0]?.path, '/v1/embeddings');
+    assert.equal(requests[0]?.authorization, undefined);
+    assert.deepEqual(requests[0]?.body, {
+      model: 'self-hosted-reduced', input: ['synthetic portable context'], encoding_format: 'float', dimensions: 3,
+    });
+    assert.deepEqual(result.vectors, [[Math.fround(0.1), 0, 1]]);
+  }, [{ data: [{ index: 0, embedding: [0.1, 0, 1] }] }]);
+});
+
+test('embedding-specific credentials override shared endpoint credentials', async () => {
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    const env = { MODEL_BASE_URL: baseUrl, MODEL_API_KEY: 'synthetic-model-key', EMBEDDING_MODEL: 'local-alias', EMBEDDING_DIMENSIONS: '2' };
+    await createEmbeddingProvider(env)!.embed(['synthetic one']);
+    await createEmbeddingProvider({ ...env, EMBEDDING_API_KEY: 'synthetic-embedding-key' })!.embed(['synthetic two']);
+    assert.equal(requests[0]?.authorization, 'Bearer synthetic-model-key');
+    assert.equal(requests[1]?.authorization, 'Bearer synthetic-embedding-key');
+  }, [{ data: [{ index: 0, embedding: [1, 0] }] }]);
+});
+
+test('valid high-dimensional batches are not restricted by the chat response size cap', async () => {
+  const dimensions = 16_000;
+  const data = Array.from({ length: 8 }, (_, index) => ({ index, embedding: Array.from({ length: dimensions }, () => 0.12345678901234567) }));
+  assert.ok(JSON.stringify({ data }).length > 2_000_000);
+  await withFakeEndpoint(async baseUrl => {
+    const provider = createEmbeddingProvider({ EMBEDDING_BASE_URL: baseUrl, EMBEDDING_MODEL: 'synthetic-large', EMBEDDING_DIMENSIONS: String(dimensions) });
+    const result = await provider!.embed(data.map(({ index }) => `synthetic memory ${index}`));
+    assert.equal(result.vectors.length, data.length);
+    assert.equal(result.dimensions, dimensions);
+  }, [{ data }]);
+});
+
+test('zero, non-float32, malformed, and mismatched embedding responses are rejected', async () => {
+  const fixtures: { reply: unknown; code: string }[] = [
+    { reply: { data: [{ index: 0, embedding: [0, 0] }] }, code: 'embedding_zero_vector' },
+    { reply: { data: [{ index: 0, embedding: [1e100, 1] }] }, code: 'embedding_invalid_component' },
+    { reply: { data: [{ index: 0, embedding: [1e-100, 1] }] }, code: 'embedding_invalid_component' },
+    { reply: { data: [{ index: 0, embedding: [null, 1] }] }, code: 'embedding_invalid_response' },
+    { reply: { data: [{ index: 0, embedding: ['1', 1] }] }, code: 'embedding_invalid_response' },
+    { reply: { data: [] }, code: 'embedding_invalid_response' },
+    { reply: { data: [{ index: 1, embedding: [1, 0] }] }, code: 'embedding_invalid_indices' },
+    { reply: { data: [{ index: 0, embedding: [1, 0, 0] }] }, code: 'embedding_dimension_mismatch' },
+  ];
+  for (const { reply, code } of fixtures) {
+    await withFakeEndpoint(async baseUrl => {
+      const provider = createEmbeddingProvider({ EMBEDDING_BASE_URL: baseUrl, EMBEDDING_MODEL: 'synthetic', EMBEDDING_DIMENSIONS: '2' });
+      await assert.rejects(provider!.embed(['synthetic vector validation']), error => error instanceof ProviderError && error.code === code);
+    }, [reply]);
+  }
+  await withFakeEndpoint(async baseUrl => {
+    const provider = new OpenAICompatibleEmbeddingProvider({ baseUrl, modelId: 'synthetic', timeoutMs: 1000 });
+    await assert.rejects(provider.embed(['synthetic one', 'synthetic two']), error => error instanceof ProviderError && error.code === 'embedding_invalid_indices');
+  }, [{ data: [{ index: 0, embedding: [1, 0] }, { index: 0, embedding: [0, 1] }] }]);
 });
 
 test('embedding configuration is optional and does not send model key to a different endpoint', () => {
@@ -118,4 +194,5 @@ test('embedding configuration is optional and does not send model key to a diffe
   assert.equal(distinct?.apiKey, undefined);
   assert.equal(providerConfigFromEnv({ MODEL_BASE_URL: 'http://localhost:8000/v1/', NEBIUS_API_KEY: 'synthetic-secret' }).apiKey, undefined);
   assert.throws(() => providerConfigFromEnv({ MODEL_BASE_URL: 'https://user:pass@example.com/v1/' }));
+  assert.throws(() => providerConfigFromEnv({ MODEL_BASE_URL: 'synthetic-secret-invalid-url' }), error => error instanceof Error && !error.message.includes('synthetic-secret'));
 });

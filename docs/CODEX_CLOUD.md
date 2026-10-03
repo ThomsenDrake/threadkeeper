@@ -8,7 +8,17 @@ bash scripts/codex-cloud-setup.sh
 
 No Nebius key, OpenAI API key, Executor instance, Docker daemon, external database or GPU is required for these checks. Database tests use PGlite. Native PostgreSQL/pgvector, container builds and local GPU inference require separate validation. Passing this script locally is not evidence of a completed Codex Cloud setup or task.
 
-Local verification on 2026-10-03: the full script passed on Node.js 24.19.0 with the existing pnpm 11.25.0, including 22 tests, type checking, the production build and the synthetic lifecycle demo. Shell syntax and whitespace checks passed. Environment creation and execution in Codex Cloud remain to be verified.
+Local verification on 2026-10-03: the full script passed on Node.js 24.19.0 with the existing pnpm 11.25.0, including 22 tests, type checking, the production build and the synthetic lifecycle demo. Shell syntax and whitespace checks passed. A subsequent Cloud task on 2026-10-03 verified the baseline and hybrid increment; see [actual results](HANDOFF.md). The task initially resolved the environment fallback pnpm 11.19.0. A writable Corepack shim selected the pinned 11.25.0 without changing the repository pin:
+
+```sh
+mkdir -p /tmp/threadkeeper-bin
+corepack enable --install-directory /tmp/threadkeeper-bin pnpm
+PATH=/tmp/threadkeeper-bin:$PATH corepack install
+PATH=/tmp/threadkeeper-bin:$PATH pnpm check
+PATH=/tmp/threadkeeper-bin:$PATH pnpm demo
+```
+
+The writable shim was needed because `corepack enable pnpm` could not write the system Node directory. The reusable Install script itself has not been changed or republished by this task.
 
 ## Create the environment
 
@@ -39,28 +49,21 @@ Run `pnpm check` for the baseline and `pnpm demo` for the synthetic walkthrough.
 
 Provider integration is an optional, separately configured task. The default memory model is `nvidia/Nemotron-3_5-Lightning` through Nebius Token Factory; a local compatible endpoint is configurable. See [provider verification](PROVIDER_VERIFICATION.md) and [self-hosting instructions](../README.md). Baseline tests must continue to run with provider settings absent.
 
-## Suggested first development task
+## Continue after hybrid recall
 
-Hybrid recall is a useful next product increment because the current service uses full-text and substring retrieval, while its embedding adapter is not connected to recall. Native deployment validation remains a separate acceptance item when an appropriate runtime is available.
+Optional hybrid recall is now implemented. [Retrieval setup](RETRIEVAL.md) covers provider configuration, dimensions, exact ranking, reindexing and fallback behavior. `pnpm check` and `pnpm demo` remain credential-free; vector tests use the pinned PGlite pgvector extension and synthetic embeddings.
 
-```text
-Read AGENTS.md, README.md, docs/MVP_BRIEF.md, docs/DECISIONS.md and docs/HANDOFF.md.
-Run pnpm check and pnpm demo first and record their actual results.
+For a separately provisioned **disposable synthetic** native database, install pgvector in its public schema, then opt in explicitly:
 
-Implement optional hybrid full-text/vector recall in the existing memory layer.
-Inspect the provider adapter, schema and authorization paths before changing them.
-Keep explicit capture and client-invoked recall, and keep the credential-free
-full-text baseline working. Make embedding dimensions configurable and verify
-pgvector limits before choosing an index. Preserve owner/project permissions,
-active revisions, source evidence and inference labels in every retrieval path.
-Corrections must exclude older records and deletion must remove embeddings and
-derived results as well as lexical search results. Add meaningful deterministic
-tests using synthetic embeddings, including permission boundaries and the central
-capture/correct/delete demonstration. Record native pgvector validation separately
-if this runtime cannot run it. Run pnpm check and pnpm demo after the change.
-Update docs/HANDOFF.md with evidence and remaining limits. Do not deploy, change
-DNS, require Executor, add a general assistant or add paid feature gates.
+```sh
+# Export THREADKEEPER_NATIVE_TEST_URL securely for the disposable database first.
+node --import tsx --test tests/hybrid.test.ts tests/api-hybrid.test.ts
+pnpm demo
 ```
+
+The helper creates and drops isolated test schemas. Only vector-enabled fixtures use the native URL; the explicit no-pgvector fallback and ordinary full-text fixtures remain PGlite. Do not point this at an operator or production database. Native checks that actually ran, exact server/extension versions and remaining full-stack limitations are recorded in [HANDOFF.md](HANDOFF.md).
+
+Next work should measure the chosen embedding model's query preprocessing and retrieval quality, then validate full application containers and installed MCP hosts. Keep provider credentials optional for baseline development and keep native/GPU/provider claims separate from fixture results.
 
 ## Verified documentation
 
