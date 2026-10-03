@@ -25,7 +25,7 @@ export const evaluationCorpus: EvaluationCase[] = [
   { id: 'proposal', events: [
     event('proposal-assistant', 'I suggest moving the Lumen demo deadline to November 3, 2026.', 'assistant_proposed', 'assistant'),
     event('proposal-question', 'What tradeoffs would that change have?'),
-  ], expected: [{ pattern: 'November 3|2026-11-03|3 November', origin: 'assistant_proposed' }] },
+  ], expected: [{ pattern: 'November 3|2026-11-03|3 November', origin: 'assistant_proposed' }], forbidden: ['tradeoffs'] },
   { id: 'report', events: [
     event('report-agent', 'The build agent reports that the synthetic integration suite passed 42 tests.', 'agent_reported', 'assistant'),
   ], expected: [{ pattern: '42.*tests|tests.*42', origin: 'agent_reported' }] },
