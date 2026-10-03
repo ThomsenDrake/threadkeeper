@@ -233,27 +233,53 @@ Do not include markdown, thinking, commentary, tools, or any properties outside 
 
 const FULL_EFFECTIVE_TIMESTAMP = String.raw`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})`;
 const LITERAL_EFFECTIVE_PREFIX = new RegExp(String.raw`^(?:Starting|Effective)\s+(?:at|from)\s+(${FULL_EFFECTIVE_TIMESTAMP}),\s+(.+)$`, 'i');
+const CALENDAR_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const CALENDAR_MONTH = `(?:${CALENDAR_MONTHS.join('|')})`;
+const FULL_CALENDAR_DATE = String.raw`(?:\d{4}-\d{2}-\d{2}|${CALENDAR_MONTH} \d{1,2},? \d{4}|\d{1,2} ${CALENDAR_MONTH} \d{4})`;
+const LITERAL_EFFECTIVE_DATE_PREFIX = new RegExp(String.raw`^(?:Starting|Effective)\s+(?:on|from)\s+(${FULL_CALENDAR_DATE}),\s+(.+)$`, 'i');
+const CalendarDateSchema = z.iso.date();
 
-function omittedLiteralEffectiveTime(memory: ExplicitMemory, source: SourceEvent, origin: ExplicitMemory['origin']): boolean {
+function validCalendarDate(value: string): boolean {
+  if (CalendarDateSchema.safeParse(value).success) return true;
+  const monthFirst = new RegExp(String.raw`^(${CALENDAR_MONTH}) (\d{1,2}),? (\d{4})$`, 'i').exec(value);
+  const dayFirst = new RegExp(String.raw`^(\d{1,2}) (${CALENDAR_MONTH}) (\d{4})$`, 'i').exec(value);
+  if (!monthFirst && !dayFirst) return false;
+  const month = monthFirst?.[1] ?? dayFirst![2];
+  const day = monthFirst?.[2] ?? dayFirst![1];
+  const year = monthFirst?.[3] ?? dayFirst![3];
+  const monthNumber = CALENDAR_MONTHS.findIndex(name => name.toLowerCase() === month.toLowerCase()) + 1;
+  // Validate the stated calendar date without interpreting a timezone or time.
+  return CalendarDateSchema.safeParse(`${year}-${String(monthNumber).padStart(2, '0')}-${day.padStart(2, '0')}`).success;
+}
+
+function omittedLiteralEffectiveQualifier(memory: ExplicitMemory, source: SourceEvent, origin: ExplicitMemory['origin']): string | undefined {
   if (memory.effective_at || source.author_role !== 'user'
     || !['user_explicit', 'user_confirmed'].includes(source.origin)
-    || !['user_explicit', 'user_confirmed'].includes(origin)) return false;
+    || !['user_explicit', 'user_confirmed'].includes(origin)) return;
   const quote = memory.quote.trim();
   // A substring can hide surrounding negation, quotation or hypothetical text.
   // This deliberately narrow check requires the complete source event.
-  if (quote !== source.text.trim() || /[\r\n]/.test(quote)) return false;
-  const match = LITERAL_EFFECTIVE_PREFIX.exec(quote);
-  if (!match || !ExplicitMemorySchema.shape.effective_at.safeParse(match[1]).success
-    || quote.match(new RegExp(FULL_EFFECTIVE_TIMESTAMP, 'g'))?.length !== 1) return false;
+  if (quote !== source.text.trim() || /[\r\n]/.test(quote)) return;
+  let match = LITERAL_EFFECTIVE_PREFIX.exec(quote);
+  let failure = 'extraction_missing_effective_timestamp';
+  if (match) {
+    if (!ExplicitMemorySchema.shape.effective_at.safeParse(match[1]).success
+      || quote.match(new RegExp(FULL_EFFECTIVE_TIMESTAMP, 'g'))?.length !== 1) return;
+  } else {
+    match = LITERAL_EFFECTIVE_DATE_PREFIX.exec(quote);
+    if (!match || !validCalendarDate(match[1])
+      || quote.match(new RegExp(FULL_CALENDAR_DATE, 'gi'))?.length !== 1) return;
+    failure = 'extraction_missing_effective_date_qualifier';
+  }
   const assertion = (value: string) => value.trim().replace(/\.$/, '').trimEnd();
   const remainder = assertion(match[2]);
   // Do not assign a qualifier to one part of a compound, a deadline, or an
   // ambiguous clause. Paraphrases and unsupported wording remain unclassified.
   if (!remainder || /[.!?;,:()[\]{}"'`“”‘’&|/]/.test(remainder)
-    || /\b(?:and|or|but|plus|then|if|when|unless|until|before|after|except|although|while|because|assuming|maybe|perhaps|may|would|could|might|should|not|never|no|due|deadline|expires?|ends?|ending)\b/i.test(remainder)) return false;
+    || /\b(?:and|or|but|plus|then|if|when|unless|until|before|after|except|although|while|because|assuming|maybe|perhaps|may|would|could|might|should|not|never|no|due|deadline|expires?|ends?|ending)\b/i.test(remainder)) return;
   // Exact literal agreement establishes which assertion lost the qualifier.
-  // Reject omission for bounded repair; never manufacture the timestamp value.
-  return remainder === assertion(memory.statement);
+  // Reject omission for bounded repair; never manufacture metadata or wording.
+  return remainder === assertion(memory.statement) ? failure : undefined;
 }
 
 function parseExtraction(content: string, input: ExtractionInput): ExplicitMemory[] {
@@ -291,7 +317,8 @@ function parseExtraction(content: string, input: ExtractionInput): ExplicitMemor
         origin = source.origin;
       }
     }
-    if (omittedLiteralEffectiveTime(memory, source, origin)) throw new ProviderError('extraction_missing_effective_timestamp');
+    const missingQualifier = omittedLiteralEffectiveQualifier(memory, source, origin);
+    if (missingQualifier) throw new ProviderError(missingQualifier);
     return { ...memory, origin };
   });
 }
