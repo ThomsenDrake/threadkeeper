@@ -12,7 +12,9 @@ export type EvaluationMemory = {
 export function evaluateMemoryRubric(item: EvaluationCase, memories: EvaluationMemory[]) {
   const candidates = item.expected.map(expected => memories.flatMap((memory, index) => {
     const patterns = [expected.pattern, ...(expected.and_patterns ?? [])];
+    const statement = memory.statement.trim().replace(/\s+/g, ' ').replace(/\.$/, '');
     const matches = patterns.every(pattern => new RegExp(pattern, 'i').test(memory.statement))
+      && (expected.statement_patterns === undefined || expected.statement_patterns.some(pattern => new RegExp(`^(?:${pattern})$`, 'i').test(statement)))
       && (expected.status === undefined || memory.status === expected.status)
       && memory.origin === expected.origin && (!expected.kind || memory.kind === expected.kind)
       && memory.evidence.length === 1 && memory.evidence[0].event_id === expected.source_event_id
