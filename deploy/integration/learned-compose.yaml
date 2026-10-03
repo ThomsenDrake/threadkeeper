@@ -24,7 +24,7 @@ services:
       WORKER_POLL_MS: "1000"
       NODE_USE_ENV_PROXY: "1"
       NODE_EXTRA_CA_CERTS: /run/learned-provider-ca.pem
-      NODE_OPTIONS: --import=/app/deploy/direct-provider-observer.mjs
+      NODE_OPTIONS: --import=/app/deploy/direct-provider-preload.mjs
       THREADKEEPER_PROVIDER_OBSERVATIONS_FILE: "-"
       THREADKEEPER_PROVIDER_CHAT_LIMIT: "0"
       THREADKEEPER_PROVIDER_EMBEDDING_LIMIT: "8"
