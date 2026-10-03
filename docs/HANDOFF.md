@@ -1,5 +1,12 @@
 # Threadkeeper handoff
 
+
+## Current delivery state — 2026-10-03
+
+Candidate review [PR #5](https://github.com/ThomsenDrake/threadkeeper/pull/5) merged into main `487e4d47193cef00d2478db2498f5426a6381e36`. GitHub Codex reviewed final head `e73661ed0cb6b6869dd0d6418ae8a8d4c2649670` with no new findings after the legacy import fix, GitGuardian reported success, and the coordinating session checked the review, verification and merge conditions before merging.
+
+Priority 3 client connection/control development is implemented and verified on `codex/client-control`, now rebased onto that merged main. The rebase skipped the already merged import fix and retained an identical product/test/evidence tree to the final tested branch `d2408ba`; only this delivery status and the development plan changed afterward. Its final checks remain **80/80 tests**, typecheck/build, both demos, **11 native full-stack stages**, migration rerun and **37 native-enabled regression checks**, plus the recorded browser/independent-SDK walkthrough. No broad, native or browser checks were repeated for this unchanged product tree. Its own final-head GitHub review and merge are the next delivery checkpoint. Priority 4 deletion preview/source forgetting remains the next product outcome; independent later work is still being developed and must preserve the merged review and capture-control rules.
+
 ## Candidate review development — 2026-10-03
 
 Capture recovery [PR #4](https://github.com/ThomsenDrake/threadkeeper/pull/4) merged as main `26c025d` after GitHub Codex reviewed exact head `0744ca387a`, found no major issues, and remote Devin Review reported success. No review threads, required approvals or merge conflicts remained; merge used an expected-head SHA guard. Continued priority 2 on `codex/candidate-review`, initially stacked on that PR, then fast-forwarded to the merged main before submission. The final capture screenshot visual-review note is included in this branch.
