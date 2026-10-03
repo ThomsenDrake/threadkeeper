@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { renameSync } from 'node:fs';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -26,6 +27,9 @@ const interrupt = () => {
   cancellation.abort();
   for (const stop of commands) void stop();
   for (const host of hosts) host.process.kill('SIGTERM');
+};
+const assertNotInterrupted = () => {
+  if (cancellation.signal.aborted) throw new Error('Host check interrupted');
 };
 process.on('SIGINT', interrupt);
 process.on('SIGTERM', interrupt);
@@ -310,18 +314,36 @@ async function main() {
     cleanup.push(...await Promise.allSettled(hosts.map(host => host.close())));
     cleanup.push(...await Promise.allSettled([closeServer(api), closeServer(provider)]));
     cleanup.push(...await Promise.allSettled([database?.close(), rm(directory, { recursive: true, force: true })]));
-    process.off('SIGINT', interrupt);
-    process.off('SIGTERM', interrupt);
     const failures = cleanup.filter(result => result.status === 'rejected');
     if (failures.length) throw new Error(redact(`Disposable resource cleanup failed: ${failures.map(result => String(result.reason)).join('; ')}`));
   }
+  assertNotInterrupted();
   assert.equal(providerRequests, 0, 'Host acceptance must never call any inference/model endpoint, including host shutdown.');
   evidence.model_endpoint_requests = providerRequests;
   evidence.cleanup = 'Both Codex app-servers, localhost HTTP services, database and temporary homes/credentials removed.';
   const json = JSON.stringify(evidence, null, 2) + '\n';
   assert(redact(json) === json, 'Sanitized evidence must contain no generated credential');
-  if (outputIndex !== -1) await writeFile(resolve(process.argv[outputIndex + 1]), json);
-  console.info(json);
+  if (outputIndex !== -1) {
+    const output = resolve(process.argv[outputIndex + 1]);
+    const staged = `${output}.${randomBytes(8).toString('hex')}.tmp`;
+    let committed = false;
+    try {
+      await writeFile(staged, json, { mode: 0o600, signal: cancellation.signal });
+      assertNotInterrupted();
+      // No asynchronous gap between the final cancellation check, atomic
+      // evidence publication and PASS output. Interrupted writes retain the
+      // previous evidence and remove their incomplete staged file.
+      renameSync(staged, output);
+      committed = true;
+      console.info(json);
+    } finally {
+      if (!committed) await rm(staged, { force: true });
+    }
+  } else {
+    assertNotInterrupted();
+    console.info(json);
+  }
 }
 
-await main().catch(error => { console.error(redact(`FAIL: ${error instanceof Error ? error.message : 'Installed Codex host check failed'}`)); process.exitCode = 1; });
+await main().catch(error => { console.error(redact(`FAIL: ${error instanceof Error ? error.message : 'Installed Codex host check failed'}`)); process.exitCode = 1; })
+  .finally(() => { process.off('SIGINT', interrupt); process.off('SIGTERM', interrupt); });

@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-10-03T15:52:06.763Z",
+  "recorded_at": "2026-10-03T16:02:31.608Z",
   "result": "PASS",
   "host": "codex-cli 0.159.0-alpha.3",
   "node": "24.19.0",
@@ -18,10 +18,12 @@
   ],
   "model_endpoint_requests": 0,
   "cleanup": "Both Codex app-servers, localhost HTTP services, database and temporary homes/credentials removed.",
-  "harness_sha256": "3155fecb40520a48cdd04f1ec65a23abfdd5dfb81bec0c7b48a11e578e449b33",
+  "harness_sha256": "2bd99159ecd9d85b559a9e3d060e3db25f36912c35100ca5dd244025e9f2ed6a",
   "failure_cleanup_checks": [
     "SIGTERM-ignoring version command killed and awaited before home cleanup",
     "SIGTERM-ignoring MCP-add command killed and awaited before home cleanup",
-    "30-second command timeout plus five-second SIGKILL escalation removes command and home"
+    "30-second command timeout plus five-second SIGKILL escalation removes command and home",
+    "SIGINT during finally cleanup exits nonzero, emits no PASS, preserves prior evidence and removes disposable resources",
+    "SIGTERM during finally cleanup exits nonzero, emits no PASS, preserves prior evidence and removes disposable resources"
   ]
 }
