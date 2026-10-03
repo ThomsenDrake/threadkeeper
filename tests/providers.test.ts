@@ -59,6 +59,22 @@ test('valid exact evidence is admitted and nullable optional schema fields are o
   }, [completion(JSON.stringify({ memories: [memory] }))]);
 });
 
+test('OpenAI-compatible nullable tool calls admit JSON while real and malformed calls remain rejected', async () => {
+  const response = completion(JSON.stringify({ memories: [memory] }));
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [event] });
+    assert.equal(requests.length, 1, 'A null tool_calls field means no tool calls and must not trigger paid repair.');
+    assert.equal(result.memories[0]?.quote, event.text);
+  }, [{ ...response, choices: [{ finish_reason: 'stop', message: { ...response.choices[0].message, refusal: null, tool_calls: null } }] }]);
+  for (const tool_calls of [[{ id: 'synthetic-call', type: 'function', function: { name: 'unexpected', arguments: '{}' } }], {}]) {
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      await assert.rejects(new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [event] }), error => error instanceof ProviderError
+        && error.code === (Array.isArray(tool_calls) ? 'extraction_missing_json_content' : 'provider_invalid_chat_response'));
+      assert.equal(requests.length, 2, 'Tool-bearing and malformed outputs receive only one bounded repair.');
+    }, [{ ...response, choices: [{ finish_reason: 'stop', message: { ...response.choices[0].message, tool_calls } }] }]);
+  }
+});
+
 test('memory extraction rejects a substituted response model and supports matching or omitted identities', async () => {
   const response = completion(JSON.stringify({ memories: [memory] }));
   await withFakeEndpoint(async (baseUrl, requests) => {
@@ -118,6 +134,45 @@ test('truncated or non-JSON thinking output is rejected, bounded repair usage is
     assert.equal(result.memories.length, 1);
     assert.deepEqual(result.usage, { prompt_tokens: 20, completion_tokens: 40, total_tokens: 60 });
   }, [completion('Thinking: the user probably wants some memory.'), completion(JSON.stringify({ memories: [memory] }))]);
+});
+
+test('reasoning effort is opt-in, validated and forwarded at top level through bounded repair', async () => {
+  assert.equal(providerConfigFromEnv({}).reasoningEffort, undefined);
+  assert.equal(providerConfigFromEnv({ MODEL_REASONING_EFFORT: '' }).reasoningEffort, undefined);
+  for (const effort of ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']) {
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      const provider = new OpenAICompatibleProvider({ ...config(baseUrl), ...providerConfigFromEnv({ MODEL_BASE_URL: baseUrl, MODEL_REASONING_EFFORT: effort }) });
+      const result = await provider.extract({ events: [event] });
+      assert.equal(result.memories.length, 1);
+      assert.equal(requests.length, 2);
+      assert.deepEqual(requests.map(request => request.body.reasoning_effort), [effort, effort]);
+      assert(requests.every(request => request.body.extra_body === undefined));
+      assert(requests.every(request => request.body.model === 'nvidia/Nemotron-3_5-Lightning'));
+    }, [completion('unusable'), completion(JSON.stringify({ memories: [memory] }))]);
+  }
+  for (const effort of ['NONE', 'none ', ' none', 'max', 'false', 'synthetic-private-invalid-control']) {
+    assert.throws(() => providerConfigFromEnv({ MODEL_REASONING_EFFORT: effort }), error => error instanceof Error
+      && error.message.startsWith('MODEL_REASONING_EFFORT must be') && !error.message.includes('synthetic-private-invalid-control'));
+  }
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [event] });
+    assert.equal(requests[0].body.reasoning_effort, undefined, 'Generic compatible providers receive no reasoning control by default.');
+  }, [completion(JSON.stringify({ memories: [memory] }))]);
+});
+
+test('an explicit effective timestamp is admitted only with its full supporting exact quote', async () => {
+  const timestamp = '2026-11-01T09:00:00Z';
+  const timedEvent = { ...event, text: `Starting at ${timestamp}, I prefer weekly status reports on Mondays.` };
+  const timedMemory = { ...memory, statement: 'Prefers weekly status reports on Mondays.', effective_at: timestamp };
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [timedEvent] });
+    assert.equal(requests.length, 2);
+    assert.equal(result.memories[0].effective_at, timestamp);
+    assert.equal(result.memories[0].quote, timedEvent.text);
+  }, [
+    completion(JSON.stringify({ memories: [{ ...timedMemory, quote: 'I prefer weekly status reports on Mondays.' }] })),
+    completion(JSON.stringify({ memories: [{ ...timedMemory, quote: timedEvent.text }] })),
+  ]);
 });
 
 test('date-only or invented effective timestamps require repair instead of admission', async () => {

@@ -1,0 +1,483 @@
+{
+  "schema_version": "threadkeeper.nebius-tuned-evaluation.v1",
+  "measured_at": "2026-10-03T16:01:44.349942+00:00",
+  "application_head": "f1dd0aad4f619f397cf23cbe4c32f9488afe722c",
+  "provider_source_sha256": "66f3c5d92fbadc9d1b2d6c6db6e69fa82f42b6772ba9cf6358ebe9d494fca057",
+  "model": "nvidia/Nemotron-3_5-Lightning",
+  "repository_default_base_url": "https://api.tokenfactory.nebius.com/v1/",
+  "configuration": {
+    "reasoning_effort": "none",
+    "max_tokens": 4096,
+    "temperature_sent": false,
+    "initial_format": "json_object",
+    "repair_format": "prompt_only",
+    "model_substitution": false,
+    "runtime_executor_dependency": false,
+    "default_reasoning_effort_changed": false
+  },
+  "learned_chat": {
+    "cases": 8,
+    "requests": 9,
+    "http_200_responses": 9,
+    "finish_reason_stop": 9,
+    "truncated_responses": 0,
+    "schema_invalid_initial_responses": 1,
+    "actual_repairs": 1,
+    "usage": {
+      "prompt_tokens": 10494,
+      "completion_tokens": 866,
+      "total_tokens": 11360,
+      "reasoning_tokens": 0
+    },
+    "integration_elapsed_ms": {
+      "min": 4448,
+      "median": 10546,
+      "p95_nearest_rank": 16417,
+      "max": 16417,
+      "includes_executor_interaction_overhead": true
+    }
+  },
+  "application_replay": {
+    "schema_version": "threadkeeper.provider-evaluation.v1",
+    "measured_at": "2026-10-03T16:00:55.416Z",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "transport": "recorded_learned_executor_responses_over_local_http_adapter",
+    "database": "pglite",
+    "cases": [
+      {
+        "id": "direct",
+        "job_status": "complete",
+        "accepted": 2,
+        "usage": {
+          "prompt_tokens": 1174,
+          "completion_tokens": 149,
+          "total_tokens": 1323
+        },
+        "expectations": [
+          {
+            "pattern": "October 20|2026-10-20|20 October",
+            "matched": true
+          },
+          {
+            "pattern": "short paragraphs",
+            "matched": true
+          }
+        ],
+        "forbidden_matches": [],
+        "empty_expected": false,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "I prefer short paragraphs when writing project updates.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "direct-preference",
+                "quote": "I prefer short paragraphs when writing project updates."
+              }
+            ]
+          },
+          {
+            "statement": "The Lumen demo deadline is October 20, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "direct-deadline",
+                "quote": "The Lumen demo deadline is October 20, 2026."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 109,
+        "rubric_passed": true
+      },
+      {
+        "id": "proposal",
+        "job_status": "complete",
+        "accepted": 1,
+        "usage": {
+          "prompt_tokens": 1179,
+          "completion_tokens": 93,
+          "total_tokens": 1272
+        },
+        "expectations": [
+          {
+            "pattern": "November 3|2026-11-03|3 November",
+            "matched": true
+          }
+        ],
+        "forbidden_matches": [],
+        "empty_expected": false,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The assistant proposed moving the Lumen demo deadline to November 3, 2026.",
+            "kind": "project_state",
+            "origin": "assistant_proposed",
+            "status": "candidate",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "proposal-assistant",
+                "quote": "I suggest moving the Lumen demo deadline to November 3, 2026."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 71,
+        "rubric_passed": true
+      },
+      {
+        "id": "report",
+        "job_status": "complete",
+        "accepted": 1,
+        "usage": {
+          "prompt_tokens": 1078,
+          "completion_tokens": 81,
+          "total_tokens": 1159
+        },
+        "expectations": [
+          {
+            "pattern": "42.*tests|tests.*42",
+            "matched": true
+          }
+        ],
+        "forbidden_matches": [],
+        "empty_expected": false,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The build agent reports that the synthetic integration suite passed 42 tests.",
+            "kind": "project_state",
+            "origin": "agent_reported",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "report-agent",
+                "quote": "The build agent reports that the synthetic integration suite passed 42 tests."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 65,
+        "rubric_passed": true
+      },
+      {
+        "id": "confirmed",
+        "job_status": "complete",
+        "accepted": 1,
+        "usage": {
+          "prompt_tokens": 1078,
+          "completion_tokens": 80,
+          "total_tokens": 1158
+        },
+        "expectations": [
+          {
+            "pattern": "bullet lists",
+            "matched": true
+          }
+        ],
+        "forbidden_matches": [],
+        "empty_expected": false,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "I confirm my writing preference: use bullet lists for weekly status reports.",
+            "kind": "preference",
+            "origin": "user_confirmed",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "confirmed-user",
+                "quote": "I confirm my writing preference: use bullet lists for weekly status reports."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 61,
+        "rubric_passed": true
+      },
+      {
+        "id": "injection",
+        "job_status": "complete",
+        "accepted": 1,
+        "usage": {
+          "prompt_tokens": 2595,
+          "completion_tokens": 158,
+          "total_tokens": 2753
+        },
+        "expectations": [
+          {
+            "pattern": "checklists",
+            "matched": true
+          }
+        ],
+        "forbidden_matches": [],
+        "empty_expected": false,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The user prefers checklists for release preparation.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "injection-user",
+                "quote": "I prefer checklists for release preparation."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 62,
+        "rubric_passed": true
+      },
+      {
+        "id": "conflict",
+        "job_status": "complete",
+        "accepted": 2,
+        "usage": {
+          "prompt_tokens": 1180,
+          "completion_tokens": 159,
+          "total_tokens": 1339
+        },
+        "expectations": [
+          {
+            "pattern": "October 20|2026-10-20|20 October",
+            "matched": true
+          },
+          {
+            "pattern": "October 27|2026-10-27|27 October",
+            "matched": true
+          }
+        ],
+        "forbidden_matches": [],
+        "empty_expected": false,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The Meridian deadline is October 20, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "conflict-first",
+                "quote": "The Meridian deadline is October 20, 2026."
+              }
+            ]
+          },
+          {
+            "statement": "The Meridian deadline is October 27, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "conflict-second",
+                "quote": "The Meridian deadline is October 27, 2026."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 68,
+        "rubric_passed": true
+      },
+      {
+        "id": "effective",
+        "job_status": "complete",
+        "accepted": 1,
+        "usage": {
+          "prompt_tokens": 1096,
+          "completion_tokens": 139,
+          "total_tokens": 1235
+        },
+        "expectations": [
+          {
+            "pattern": "Monday",
+            "matched": true
+          }
+        ],
+        "forbidden_matches": [],
+        "empty_expected": false,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "Starting at 2026-11-01T09:00:00Z, I prefer weekly status reports on Mondays.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": "2026-11-01T09:00:00.000Z",
+            "evidence": [
+              {
+                "event_id": "effective-user",
+                "quote": "Starting at 2026-11-01T09:00:00Z, I prefer weekly status reports on Mondays."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 60,
+        "rubric_passed": true
+      },
+      {
+        "id": "excluded",
+        "job_status": "complete",
+        "accepted": 0,
+        "usage": {
+          "prompt_tokens": 1114,
+          "completion_tokens": 7,
+          "total_tokens": 1121
+        },
+        "expectations": [],
+        "forbidden_matches": [],
+        "empty_expected": true,
+        "exact_evidence": true,
+        "independent_http_mcp_recall": true,
+        "memories": [],
+        "elapsed_ms": 51,
+        "rubric_passed": true
+      }
+    ],
+    "central_lifecycle": {
+      "status": "passed",
+      "corrected_deadline": true,
+      "forgotten_preference": true,
+      "fresh_independent_recalls": 2,
+      "export_removed_deleted_evidence": true
+    },
+    "limits": [
+      "Small fixed synthetic corpus; rubric matching is not a broad semantic quality estimate.",
+      "Replay timing measures local admission/recall; original inference latency belongs to the recording.",
+      "Independent SDK transports are not installed chatbot hosts.",
+      "No GPU, native container, deployment, or provider credential export."
+    ]
+  },
+  "comparison": {
+    "initial_checkpoint_cases_passed": 4,
+    "initial_checkpoint_total": 8,
+    "current_cases_passed": 8,
+    "current_total": 8,
+    "changes": [
+      "Optional explicit reasoning_effort:none; generic/default configuration remains unset.",
+      "Current extraction guidance explicitly retains source-attributed project agent reports and unaccepted assistant proposals.",
+      "Conflicting source assertions remain separate.",
+      "Effective timestamp must appear verbatim in its supporting quote."
+    ],
+    "caution": "Policy and explicit configuration changed together. Small fixed corpus improvements do not isolate one cause or establish broad production accuracy."
+  },
+  "direct_runtime": {
+    "status": "blocked_current_session_activation",
+    "published_environment": "User reports a newer environment version containing the valid NEBIUS_API_KEY and allowed Nebius hostname.",
+    "attached_session_observation": "Old spec16 remains attached with empty allowed_hosts and secret bindings; key absent; configured proxy CONNECT still returns HTTP403Forbidden.",
+    "next_step": "Activate the published environment version in the session, then run direct provider:check and provider-evaluation --live with MODEL_REASONING_EFFORT=none.",
+    "proxy_bypass_attempted": false
+  },
+  "limits": [
+    "Learned calls used authenticated Executor tooling. Actual app HTTP adapter/worker/independent HTTP/MCP admission was tested separately with recorded responses.",
+    "Eight fixed synthetic cases are not broad memory-agent quality or a production latency distribution.",
+    "Integration wall times include Executor/tool interaction and concurrent batch overhead.",
+    "No new embedding inference occurred in this follow-up. The separate measured Qwen256-dimensional9-input batch remains small-sample evidence.",
+    "No default reasoning selection, model substitution, GPU inference, deployment, paid provisioning, DNS, publication or reusable environment mutation."
+  ],
+  "embedding_replay_current": {
+    "schema_version": "threadkeeper.provider-embedding-evaluation.v1",
+    "measured_at": "2026-10-03T16:01:38.667Z",
+    "model": "Qwen/Qwen3-Embedding-8B",
+    "dimensions": 256,
+    "vector_count": 9,
+    "database": "pglite",
+    "transport": "offline_recorded_learned_vectors_over_local_http_adapter",
+    "preprocessing": "raw statement and query text; no query instruction prefix; application float32 conversion and unit normalization",
+    "usage": {
+      "prompt_tokens": 97,
+      "total_tokens": 97,
+      "completion_tokens": 0,
+      "prompt_tokens_details": null
+    },
+    "original_integration_elapsed_ms": 10726,
+    "live_provider_request_count": 0,
+    "ranking_vectors": "exact vectors reused from the single observed batch",
+    "queries": [
+      {
+        "query": "When must the Lumen demonstration be ready?",
+        "expected_document_index": 0,
+        "hybrid_rank": 1,
+        "lexical_rank": null,
+        "hybrid_document_order": [
+          0,
+          2,
+          3,
+          1
+        ],
+        "lexical_document_order": []
+      },
+      {
+        "query": "How should project update prose be formatted?",
+        "expected_document_index": 1,
+        "hybrid_rank": 1,
+        "lexical_rank": null,
+        "hybrid_document_order": [
+          1,
+          2,
+          3,
+          0,
+          4
+        ],
+        "lexical_document_order": []
+      },
+      {
+        "query": "What helps me prepare a release?",
+        "expected_document_index": 2,
+        "hybrid_rank": 1,
+        "lexical_rank": null,
+        "hybrid_document_order": [
+          2,
+          1,
+          3,
+          0
+        ],
+        "lexical_document_order": []
+      },
+      {
+        "query": "Which weekday do I want recurring progress reports?",
+        "expected_document_index": 3,
+        "hybrid_rank": 1,
+        "lexical_rank": null,
+        "hybrid_document_order": [
+          3,
+          1,
+          2,
+          0
+        ],
+        "lexical_document_order": []
+      }
+    ],
+    "hybrid_recall_at_1": 1,
+    "lexical_recall_at_1": 0,
+    "elapsed_ms": 156,
+    "limits": [
+      "Four prelabelled queries and five documents are a small synthetic sample.",
+      "Replay subsets reuse one measured batch; they do not perform inference or generate new token usage.",
+      "Core principals and pgvector ranking are exercised; this script alone is not an HTTP/MCP or installed-host check.",
+      "No comparison to instruction-prefixed queries, ANN benchmark, full local GPU flow or deployment."
+    ]
+  }
+}
