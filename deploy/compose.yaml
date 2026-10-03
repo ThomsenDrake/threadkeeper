@@ -60,7 +60,7 @@ services:
     ports:
       - 127.0.0.1:3000:3000
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health',{headers:{Host:new URL(process.env.APP_ORIGIN||'http://localhost:3000').host}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('node:http').get('http://127.0.0.1:3000/health',{headers:{Host:new URL(process.env.APP_ORIGIN||'http://localhost:3000').host}},r=>{r.resume();process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 12

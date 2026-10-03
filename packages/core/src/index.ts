@@ -441,22 +441,22 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const job = await db.transaction(async tx => {
       const pending = (await tx.query(`SELECT * FROM tk_jobs WHERE status='pending' OR (status='processing' AND started_at < now()-interval '10 minutes') ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED`)).rows[0];
       if (!pending) return null;
-      await tx.query("UPDATE tk_jobs SET status='processing',started_at=now(),attempts=attempts+1,error_code=NULL WHERE id=$1", [pending.id]);
-      return pending;
+      return (await tx.query("UPDATE tk_jobs SET status='processing',started_at=now(),attempts=attempts+1,error_code=NULL WHERE id=$1 RETURNING *", [pending.id])).rows[0];
     });
     if (!job) return null;
     try {
       const before = (await db.query('SELECT * FROM tk_sources WHERE owner_id=$1 AND id=ANY($2::text[]) AND extraction_blocked=false ORDER BY recorded_at', [job.owner_id, job.source_ids])).rows;
       if (!before.length) {
-        await db.query("UPDATE tk_jobs SET status='cancelled',completed_at=now() WHERE id=$1", [job.id]);
+        await db.query("UPDATE tk_jobs SET status='cancelled',completed_at=now() WHERE id=$1 AND status='processing' AND attempts=$2", [job.id, job.attempts]);
         return { job_id: job.id, status: 'cancelled', accepted: 0, skipped: 0 };
       }
       const extracted = await provider.extract({ events: before.map(source => ({ id: source.event_id, text: source.text, author_role: source.author_role, origin: source.origin, ...(source.occurred_at ? { occurred_at: date(source.occurred_at)! } : {}), client_id: source.client_id })), project_id: job.project_id, subject: job.subject });
       const candidates = parsed(z.array(ExplicitMemorySchema).max(64), extracted.memories);
       return await db.transaction(async tx => {
         await lockOwner(tx, job.owner_id);
-        // Lock and re-check the job after inference. Deleted jobs cannot commit extracted content.
-        const live = (await tx.query("SELECT id FROM tk_jobs WHERE id=$1 AND status='processing' FOR UPDATE", [job.id])).rows[0];
+        // Lock and re-check this claimed attempt after inference. Deleted jobs
+        // and older attempts reclaimed by another worker cannot commit content.
+        const live = (await tx.query("SELECT id FROM tk_jobs WHERE id=$1 AND status='processing' AND attempts=$2 FOR UPDATE", [job.id, job.attempts])).rows[0];
         if (!live) return { job_id: job.id, status: 'cancelled', accepted: 0, skipped: candidates.length };
         const current = (await tx.query('SELECT * FROM tk_sources WHERE owner_id=$1 AND id=ANY($2::text[]) AND extraction_blocked=false', [job.owner_id, job.source_ids])).rows;
         const available = new Map(current.map(source => [source.event_id, source]));
@@ -470,14 +470,15 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
           if (inserted.id && !inserted.skipped) accepted++; else skipped++;
         }
         const result = { job_id: job.id, status: 'complete', accepted, skipped, model: extracted.model ?? null, usage: extracted.usage ?? null };
-        await tx.query("UPDATE tk_jobs SET status='complete',completed_at=now(),result=$2::jsonb WHERE id=$1", [job.id, JSON.stringify(result)]);
+        await tx.query("UPDATE tk_jobs SET status='complete',completed_at=now(),result=$2::jsonb WHERE id=$1 AND status='processing' AND attempts=$3", [job.id, JSON.stringify(result), job.attempts]);
         await bump(tx, job.owner_id);
         return result;
       });
     } catch (error) {
       // Store codes only. Provider error strings can contain private source text or credentials.
       const code = error instanceof DomainError ? error.code : 'provider_or_validation_failed';
-      await db.query("UPDATE tk_jobs SET status='failed',completed_at=now(),error_code=$2 WHERE id=$1", [job.id, code]);
+      const failed = await db.query("UPDATE tk_jobs SET status='failed',completed_at=now(),error_code=$2 WHERE id=$1 AND status='processing' AND attempts=$3 RETURNING id", [job.id, code, job.attempts]);
+      if (!failed.rows.length) return { job_id: job.id, status: 'cancelled', accepted: 0, skipped: 0 };
       return { job_id: job.id, status: 'failed', error_code: code, accepted: 0 };
     }
   }
