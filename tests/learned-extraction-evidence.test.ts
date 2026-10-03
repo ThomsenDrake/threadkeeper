@@ -27,7 +27,10 @@ test('invalid recognized raw token counts remain invalid through actual original
     { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14.5 },
     { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14, completion_tokens_details: { reasoning_tokens: -1 } },
     { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14, prompt_tokens_details: 'private-invalid-details' },
-    { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14, completion_tokens_details: { reasoning_tokens: null } },
+    { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14, completion_tokens_details: { reasoning_tokens: 0.5 } },
+    { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14, completion_tokens_details: { audio_tokens: Number.MAX_SAFE_INTEGER + 1 } },
+    { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14, completion_tokens_details: { accepted_prediction_tokens: 'private-invalid-breakdown' } },
+    ...['prompt_tokens', 'completion_tokens', 'total_tokens', 'input_tokens', 'output_tokens'].map(key => ({ prompt_tokens: 10, completion_tokens: 4, total_tokens: 14, [key]: null })),
     null, 'private-invalid-envelope',
   ];
   let raw: unknown;
@@ -55,6 +58,23 @@ test('invalid recognized raw token counts remain invalid through actual original
     assert.equal(observer.records.at(-1)!.usage_invalid, undefined);
     assert.equal(summarizeProviderObservations([observer.records.at(-1)!]).usage_complete, true);
     assert(!JSON.stringify(observer.records).includes('opaque-unknown-field'));
+    // Exact observed Nebius shape, with optional unknowns kept distinct from 0.
+    raw = { completion_tokens: 3, prompt_tokens: 21, total_tokens: 24,
+      completion_tokens_details: { accepted_prediction_tokens: null, audio_tokens: null, reasoning_tokens: 0, rejected_prediction_tokens: null },
+      prompt_tokens_details: null, prompt_cache_hit_tokens: 0, prompt_cache_miss_tokens: 21 };
+    await fetch(baseUrl + 'chat/completions', { method: 'POST', body: JSON.stringify(request) });
+    const compatible = observer.records.at(-1)!;
+    assert.equal(compatible.usage_invalid, undefined);
+    assert.deepEqual(compatible.usage, { completion_tokens: 3, prompt_tokens: 21, total_tokens: 24, completion_tokens_details: { reasoning_tokens: 0 } });
+    const compatibleSummary = summarizeProviderObservations([compatible]);
+    assert.equal(compatibleSummary.usage_complete, true);
+    assert.equal(compatibleSummary.inference_requests_with_invalid_usage, 0);
+    assert.equal(compatibleSummary.usage.total_tokens, 24);
+    raw = { prompt_tokens: 21, completion_tokens: 3, total_tokens: 24,
+      prompt_tokens_details: { cached_tokens: null, audio_tokens: null }, completion_tokens_details: { reasoning_tokens: null } };
+    await fetch(baseUrl + 'chat/completions', { method: 'POST', body: JSON.stringify(request) });
+    assert.equal(observer.records.at(-1)!.usage_invalid, undefined);
+    assert.deepEqual(observer.records.at(-1)!.usage, { prompt_tokens: 21, completion_tokens: 3, total_tokens: 24 });
   } finally { observer.restore(); globalThis.fetch = originalFetch; }
 });
 

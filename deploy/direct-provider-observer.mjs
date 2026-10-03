@@ -8,6 +8,7 @@ const DEFAULT_BASE_URL = 'https://api.tokenfactory.nebius.com/v1/';
 const DEFAULT_MODELS = ['nvidia/Nemotron-3_5-Lightning', 'Qwen/Qwen3-Embedding-8B'];
 const COUNT_KEYS = new Set(['prompt_tokens', 'completion_tokens', 'total_tokens', 'input_tokens', 'output_tokens',
   'cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens']);
+const OPTIONAL_DETAIL_COUNTS = new Set(['cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens']);
 const DETAIL_KEYS = new Set(['prompt_tokens_details', 'completion_tokens_details', 'input_tokens_details', 'output_tokens_details']);
 const hash = value => createHash('sha256').update(value).digest('hex');
 const ACTIVE_OBSERVER = Symbol.for('threadkeeper.direct-provider-observer');
@@ -45,12 +46,15 @@ function inspectNumericTokenUsage(value, depth = 0) {
   let invalid = false;
   for (const [key, count] of Object.entries(value)) {
     if (COUNT_KEYS.has(key)) {
+      // Compatible providers use null for unavailable optional breakdowns.
+      // Omit that unknown value; never turn it into zero or permit null totals.
+      if (depth > 0 && count === null && OPTIONAL_DETAIL_COUNTS.has(key)) continue;
       if (Number.isSafeInteger(count) && count >= 0) result[key] = count;
       else invalid = true;
     }
     else if (DETAIL_KEYS.has(key)) {
       // OpenAI-compatible optional detail objects may be null (unreported).
-      // A null value for a recognized numeric count remains invalid above.
+      // Primary counts remain required numeric values whenever supplied.
       if (count === null) continue;
       const detail = inspectNumericTokenUsage(count, depth + 1);
       invalid ||= detail.invalid;
