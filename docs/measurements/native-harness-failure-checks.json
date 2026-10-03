@@ -1,0 +1,41 @@
+{
+  "schema_version": "threadkeeper.native-harness-failure-checks.v1",
+  "measured_at": "2026-10-03T17:28:38.685047+00:00",
+  "source": {
+    "commit": "cebfb172ce73f26c4611f31169cb8615b9057c91",
+    "files": {
+      "deploy/integration/learned-run.ts": "c034b74505e3f6391025094c4ca0e1feb1f4c452e5333f4520a59223e953da12",
+      "deploy/integration/learned-scenarios.ts": "5f6ef0261be572b76629807848561544a5e26dde49980e803cf8e4eaa20db180",
+      "deploy/integration/learned-compose.yaml": "04769625730d62ff718d27baa47f10093b25c68aeac8f524c55969dec3697eba",
+      "deploy/direct-provider-observer.mjs": "3117f02b8dc8b2936e3f7fdb26c788027c6b2d1f0256216edc4b759e53f1dc56"
+    }
+  },
+  "transport": "no-network local Docker executable fixture",
+  "synthetic_credentials_only": true,
+  "driver_sha256": "30c217537e68113d7de6558e04dc27aed0bda9ed519730abcf1052cdf3d21d0c",
+  "checks": [
+    {
+      "check": "SIGINT escalates Docker child that ignores SIGTERM",
+      "result": "PASS",
+      "elapsed_ms": 5199,
+      "exit_code": 1,
+      "provider_requests": 0,
+      "docker_mode": "local Python executable fixture; no daemon calls or containers",
+      "cleanup": true,
+      "ignoring_child_exited": true,
+      "pass_artifact_created": false
+    },
+    {
+      "check": "Existing output rejects before Docker and inference",
+      "result": "PASS",
+      "exit_code": 1,
+      "provider_requests": 0,
+      "docker_commands": 0,
+      "existing_file_preserved": true
+    }
+  ],
+  "temporary_resources_removed": true,
+  "limits": [
+    "These checks validate harness failure behavior only; no native database, inference or application flow is exercised."
+  ]
+}

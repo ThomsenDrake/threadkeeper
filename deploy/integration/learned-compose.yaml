@@ -1,0 +1,42 @@
+# Dedicated disposable acceptance overlay. No provider relay or fixture service.
+services:
+  postgres:
+    ports: !reset []
+    restart: "no"
+  api:
+    image: ${THREADKEEPER_LEARNED_IMAGE:?Run pnpm integration:learned}
+    ports: !override
+      - 127.0.0.1:${THREADKEEPER_LEARNED_PORT:?Run pnpm integration:learned}:3000
+    environment: &learned-environment
+      APP_ORIGIN: http://127.0.0.1:${THREADKEEPER_LEARNED_PORT:?Run pnpm integration:learned}
+      COOKIE_SECURE: "false"
+      MODEL_BASE_URL: https://api.tokenfactory.nebius.com/v1/
+      MODEL_ID: nvidia/Nemotron-3_5-Lightning
+      MODEL_API_KEY: ""
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY:?Configure NEBIUS_API_KEY in the environment}
+      MODEL_TIMEOUT_MS: "120000"
+      MODEL_REASONING_EFFORT: none
+      EMBEDDING_BASE_URL: https://api.tokenfactory.nebius.com/v1/
+      EMBEDDING_MODEL: Qwen/Qwen3-Embedding-8B
+      EMBEDDING_DIMENSIONS: "256"
+      EMBEDDING_API_KEY: ""
+      EMBEDDING_TIMEOUT_MS: "120000"
+      WORKER_POLL_MS: "1000"
+      NODE_USE_ENV_PROXY: "1"
+      NODE_EXTRA_CA_CERTS: /run/learned-provider-ca.pem
+      NODE_OPTIONS: --import=/app/deploy/direct-provider-preload.mjs
+      THREADKEEPER_PROVIDER_OBSERVATIONS_FILE: "-"
+      THREADKEEPER_PROVIDER_CHAT_LIMIT: "0"
+      THREADKEEPER_PROVIDER_EMBEDDING_LIMIT: "8"
+    volumes:
+      - ${THREADKEEPER_LEARNED_CA:?Select a trusted CA bundle}:/run/learned-provider-ca.pem:ro
+    restart: "no"
+  worker:
+    image: ${THREADKEEPER_LEARNED_IMAGE:?Run pnpm integration:learned}
+    environment:
+      <<: *learned-environment
+      THREADKEEPER_PROVIDER_CHAT_LIMIT: "2"
+      THREADKEEPER_PROVIDER_EMBEDDING_LIMIT: "4"
+    volumes:
+      - ${THREADKEEPER_LEARNED_CA:?Select a trusted CA bundle}:/run/learned-provider-ca.pem:ro
+    restart: "no"
