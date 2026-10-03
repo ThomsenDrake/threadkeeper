@@ -1,0 +1,244 @@
+{
+  "schema_version": "threadkeeper.direct-provider-offline-regrade.v1",
+  "evaluated_at": "2026-10-03T17:40:52.708Z",
+  "rubric_commit": "3a52eded4a59a7ee663c0583d9f8c9f396101e1f",
+  "rubric_source_sha256": {
+    "deploy/provider-evaluation-corpus.ts": "0be707d43d4df522a6265786fb01c37fa90155c40eed915f1ede9acbe5b19984",
+    "deploy/provider-evaluation-rubric.ts": "a0e8152b4d1e9a61e9da652f66e5d0bab957a26393ceb984cbf249c1738cd68e",
+    "deploy/provider-evaluation.ts": "4dfebd37b8b003ab07ad3683be2ca3f735b1ed224f74da8b63283596d98a5c72",
+    "tests/provider-evaluation.test.ts": "ca2651ff528f7d2fbc480a400e6c94ca2efa6a12609d1e367e253a06094bc888"
+  },
+  "input_artifact": "docs/measurements/nebius-direct-evaluation.json",
+  "input_sha256": "4a239258504e0cbfae39d2cc282a35cbcbe82941e37ea89c7c769dc3d5027b5b",
+  "original_live_implementation_commit": "abbf22f7c8c395f4f4ff04713636f1c87fc07e27",
+  "live_provider_requests": 0,
+  "scope": "Offline regrading of existing admitted memories only; no new inference or application lifecycle run. Original live evidence and usage are unchanged.",
+  "passed": 11,
+  "total": 11,
+  "cases": [
+    {
+      "id": "direct",
+      "observed_memory_count": 2,
+      "expectations": [
+        {
+          "source_event_id": "direct-deadline",
+          "pattern": "October 20|2026-10-20|20 October",
+          "origin": "user_explicit",
+          "kind": "fact",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 1
+        },
+        {
+          "source_event_id": "direct-preference",
+          "pattern": "short paragraphs",
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "compound",
+      "observed_memory_count": 2,
+      "expectations": [
+        {
+          "source_event_id": "compound-user",
+          "pattern": "May 18|2027-05-18|18 May",
+          "origin": "user_explicit",
+          "kind": "fact",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 0
+        },
+        {
+          "source_event_id": "compound-user",
+          "pattern": "numbered lists",
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 1
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "proposal",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "source_event_id": "proposal-assistant",
+          "pattern": "November 3|2026-11-03|3 November",
+          "origin": "assistant_proposed",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "report",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "source_event_id": "report-agent",
+          "pattern": "42.*tests|tests.*42",
+          "origin": "agent_reported",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "confirmed",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "source_event_id": "confirmed-user",
+          "pattern": "bullet lists",
+          "origin": "user_confirmed",
+          "kind": "preference",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "injection",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "source_event_id": "injection-user",
+          "pattern": "checklists",
+          "origin": "user_explicit",
+          "kind": "preference",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "conflict",
+      "observed_memory_count": 2,
+      "expectations": [
+        {
+          "source_event_id": "conflict-first",
+          "pattern": "October 20|2026-10-20|20 October",
+          "origin": "user_explicit",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 1
+        },
+        {
+          "source_event_id": "conflict-second",
+          "pattern": "October 27|2026-10-27|27 October",
+          "origin": "user_explicit",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "effective",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "source_event_id": "effective-user",
+          "pattern": "Monday",
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": "2026-11-01T09:00:00Z",
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "deadline-timestamp",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "source_event_id": "deadline-timestamp-user",
+          "pattern": "Harbor.*review|review.*Harbor",
+          "and_patterns": [
+            "2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z"
+          ],
+          "origin": "user_explicit",
+          "kind": "fact",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "effective-date-only",
+      "observed_memory_count": 1,
+      "expectations": [
+        {
+          "source_event_id": "effective-date-only-user",
+          "pattern": "afternoon",
+          "and_patterns": [
+            "February 4|2027-02-04|4 February"
+          ],
+          "origin": "user_explicit",
+          "kind": "preference",
+          "effective_at": null,
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    },
+    {
+      "id": "excluded",
+      "observed_memory_count": 0,
+      "expectations": [],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true
+    }
+  ]
+}
