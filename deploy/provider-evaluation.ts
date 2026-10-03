@@ -162,6 +162,7 @@ const database = databaseResource = await createTestDatabase();
     const sourceById = new Map(sourceRows.map(source => [source.id, source]));
     const exactEvidence = canonical.every(memory => memory.evidence.length === 1 && memory.evidence.every((evidence: any) => sourceById.get(evidence.source_id)?.text.includes(evidence.quote)));
     output.push({ id: item.id, job_status: job.status, accepted: job.accepted,
+      ...('error_code' in job ? { error_code: job.error_code } : {}),
       ...(observer ? { provider_attempts: observer.records.slice(attemptStart) } : {}),
       usage: 'usage' in job ? job.usage : undefined, expectations: checks, forbidden_matches: forbidden,
       empty_expected: item.empty ?? false, exact_evidence: exactEvidence, independent_http_mcp_recall: true,
