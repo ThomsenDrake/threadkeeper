@@ -30,11 +30,11 @@ All baseline commands then passed with pnpm **11.25.0**, before feature work. Th
 | Check | Observed result |
 | --- | --- |
 | Frozen dependency install | Passed with pnpm 11.25.0; added pinned `@electric-sql/pglite-pgvector@0.0.9` matching PGlite 0.5.8 |
-| `pnpm check` | Passed typechecking, **42 tests**, and Vite production build; 0 failed/skipped |
+| `pnpm check` | Passed typechecking, **44 tests**, and Vite production build; 0 failed/skipped |
 | `pnpm demo` | Passed both credential-free full-text and synthetic hybrid lifecycles, each with fresh-database export/import |
 | Synthetic hybrid tests | **13/13 passed** with PGlite pgvector; covers paraphrases, rank fusion/limit/dedup, all scopes/filters, evidence/inference distinctions, fallback, space changes, corrections/deletions, in-flight indexing races, import rebuild and 4096 dimensions |
 | Authenticated hybrid HTTP/MCP | **2/2 passed** using independent SDK clients; nonlexical recall, profile correction/deletion before/after reindex, owner/project/read/capture enforcement and revocation |
-| Provider tests | **14/14 passed**, included in the 42 total; dimensions forwarded/validated, key isolation, keyless endpoint, invalid/zero/float32 geometry and large valid batches |
+| Provider tests | **16/16 passed**, included in the 44 total; dimensions forwarded/validated, key isolation, keyless endpoint, invalid/zero/float32 geometry and large valid batches |
 | Browser regression | Passed on Chromium **151.0.7922.173**, disposable PGlite and lexical default; sign-in, capture, all filters/search, provenance, correction/deletion, independent scoped HTTP client, export/import, revocation, mobile overflow and sign-out. No browser runtime exceptions. [Evidence](measurements/hybrid-ui-qa.json) |
 | Review/whitespace | Independent correctness review found no remaining actionable code defect; stale current-state documentation was corrected. `git diff --check` passed |
 
@@ -77,6 +77,12 @@ Native tests use explicit `THREADKEEPER_NATIVE_TEST_URL`, require pgvector insta
 - OSS license remains undecided; choose one before public release. A previously reported GitGuardian notification has not been resolved by this work; original hardcoded localhost DB fallbacks were removed on main, but their historical incident details were not retrieved.
 
 Next increment should measure real embedding preprocessing/quality with synthetic data, validate the full application containers and actual installed MCP hosts, then address operational retry/restore gaps. Preserve explicit client-invoked capture/recall, authoritative profile corrections and deletion behavior. Rerun the checks/demo and relevant native/browser tests after behavioral changes; record results instead of treating configuration as proof.
+
+## Review follow-up — 2026-10-03
+
+The requested GitHub `@codex review` of `88ac4d4` completed with no findings. A parallel local review found that the embedding adapter discarded an explicit response model identity and always reported the configured model. Same-dimensional vectors from a detectably different model could therefore enter the configured space.
+
+The adapter now rejects an explicit different model (`embedding_model_mismatch`) and malformed identities before accepting vectors. Matching identities and endpoints that omit the optional field remain supported. Two regressions exercise substitution, recovery, omission and malformed values. `pnpm check` passed all **44 tests**, typechecking and build, and `pnpm demo` passed both full-text and hybrid lifecycle/export-import paths after this fix. These updates are submitted for another GitHub Codex review. Native database and browser checks above belong to the original hybrid commit; they were not rerun for this provider-response validation change.
 
 ## Earlier evidence retained
 

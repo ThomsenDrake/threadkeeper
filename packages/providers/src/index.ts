@@ -347,6 +347,7 @@ export class OpenAICompatibleEmbeddingProvider {
   async embed(texts: string[]): Promise<{ vectors: number[][]; dimensions: number; model: string; usage?: TokenUsage }> {
     if (!texts.length || texts.length > 64 || texts.some(text => !text || text.length > 16_000)) throw new ProviderError('embedding_input_outside_bounds');
     const result = z.object({
+      model: z.string().min(1).refine(model => model.trim() === model && !/[\u0000-\u001f\u007f]/.test(model)).optional(),
       data: z.array(z.object({ index: z.number().int().nonnegative(), embedding: z.array(z.number().finite()).min(1).max(16_000) })),
       usage: UsageSchema.optional(),
     }).safeParse(await requestJson(this.config, 'embeddings', {
@@ -356,6 +357,9 @@ export class OpenAICompatibleEmbeddingProvider {
     // the chat-response cap even when every component is an ordinary float.
     }, Math.max(2_000_000, texts.length * (this.measuredDimensions ?? 16_000) * 32 + 65_536)));
     if (!result.success || result.data.data.length !== texts.length) throw new ProviderError('embedding_invalid_response');
+    // Some compatible endpoints omit the model identity. An explicit identity
+    // must match exactly; aliases never authorize a different embedding space.
+    if (result.data.model !== undefined && result.data.model !== this.config.modelId) throw new ProviderError('embedding_model_mismatch');
     const ordered = result.data.data.slice().sort((a, b) => a.index - b.index);
     if (ordered.some((row, index) => row.index !== index)) throw new ProviderError('embedding_invalid_indices');
     const dimensions = ordered[0]!.embedding.length;

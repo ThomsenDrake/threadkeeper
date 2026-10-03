@@ -114,6 +114,29 @@ test('embedding vectors are validated, ordered by response indices, and dimensio
   }, [{ data: [{ index: 1, embedding: [0, 1, 0] }, { index: 0, embedding: [1, 0, 0] }] }, { data: [{ index: 0, embedding: [1, 0] }] }]);
 });
 
+test('same-dimensional embeddings from another model are rejected while matching or omitted identities remain supported', async () => {
+  const data = [{ index: 0, embedding: [1, 0] }];
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    const provider = new OpenAICompatibleEmbeddingProvider({ baseUrl, modelId: 'synthetic-selected', dimensions: 2, timeoutMs: 1000 });
+    await assert.rejects(provider.embed(['synthetic context']), error => error instanceof ProviderError && error.code === 'embedding_model_mismatch');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await provider.embed(['synthetic context']);
+      assert.equal(result.model, 'synthetic-selected');
+      assert.deepEqual(result.vectors, [[1, 0]]);
+    }
+    assert.deepEqual(requests.map(request => request.body.model), ['synthetic-selected', 'synthetic-selected', 'synthetic-selected']);
+  }, [{ model: 'synthetic-substituted', data }, { model: 'synthetic-selected', data }, { data }]);
+});
+
+test('empty or malformed supplied embedding model identities are invalid responses', async () => {
+  for (const model of ['', '   ', ' synthetic-selected', 'synthetic-selected\n', null, 42, { id: 'synthetic-selected' }]) {
+    await withFakeEndpoint(async baseUrl => {
+      const provider = new OpenAICompatibleEmbeddingProvider({ baseUrl, modelId: 'synthetic-selected', dimensions: 2, timeoutMs: 1000 });
+      await assert.rejects(provider.embed(['synthetic context']), error => error instanceof ProviderError && error.code === 'embedding_invalid_response');
+    }, [{ model, data: [{ index: 0, embedding: [1, 0] }] }]);
+  }
+});
+
 test('optional runtime embeddings require explicit pgvector dimensions without choosing a model', () => {
   assert.equal(createEmbeddingProvider({}), undefined);
   assert.equal(createEmbeddingProvider({ EMBEDDING_DIMENSIONS: '3' }), undefined);
