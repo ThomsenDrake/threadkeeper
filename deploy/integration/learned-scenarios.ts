@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { evaluationCorpus, embeddingCorpus } from '../provider-evaluation-corpus.ts';
+import { MemorySchema } from '../../packages/contracts/src/index.ts';
+import { embeddingCorpus } from '../provider-evaluation-corpus.ts';
+import { assertLearnedArchiveHistory, assertLearnedDeadlineHistory, assertLearnedDeletionPreview,
+  assertLearnedExtraction, directLearnedCase, learnedDetail } from './learned-assertions.ts';
 
 const project = 'synthetic-direct-learned-lifecycle';
 const corrected = 'The Lumen demo deadline is October 27, 2026.';
@@ -33,6 +36,11 @@ export async function runLearnedScenarios(options: {
     assert(result.structuredContent, `MCP ${name} omitted structured data`);
     return result.structuredContent as any;
   }
+  async function deniedTool(client: Client, name: string, args: Record<string, unknown>, code: RegExp) {
+    const [outcome] = await Promise.allSettled([client.callTool({ name, arguments: args }, { signal: options.signal, timeout: 20_000 })]);
+    assert(outcome.status === 'fulfilled' ? outcome.value.isError === true && code.test(JSON.stringify(outcome.value.content))
+      : code.test(String(outcome.reason)), `MCP ${name} did not return the expected access denial`);
+  }
   async function poll(label: string, check: () => Promise<boolean>) {
     const deadline = Date.now() + 180_000;
     do {
@@ -60,6 +68,8 @@ export async function runLearnedScenarios(options: {
     const grants = [];
     for (const [index, permissions] of [['a', ['read', 'capture']], ['b', ['read']]] as const) {
       const grant = (await http('/api/clients', 201, { name: `Direct learned client ${index}`, permissions, projects: [project] })).data;
+      assert.deepEqual(grant.client.permissions, permissions);
+      assert.deepEqual(grant.client.projects, [project]);
       grants.push(grant);
       const client = new Client({ name: `direct-learned-client-${index}`, version: '0.1.0' });
       clients.push(client);
@@ -67,9 +77,29 @@ export async function runLearnedScenarios(options: {
     }
     const [a, b] = clients;
     assert.notEqual(grants[0].client.id, grants[1].client.id);
+    const listed = (await http('/api/clients')).data.clients;
+    for (const grant of grants) {
+      const persisted = listed.find((client: any) => client.id === grant.client.id);
+      assert(persisted);
+      assert.deepEqual(persisted.permissions, grant.client.permissions);
+      assert.deepEqual(persisted.projects, [project]);
+    }
+    const deniedCapture = { idempotency_key: 'denied-read-only-capture', project_id: project, events: directLearnedCase.events };
+    await deniedTool(b, 'context_capture', deniedCapture, /not found|unknown tool|permission_denied/i);
+    const deniedHttpCapture = await http('/api/capture', 403, deniedCapture, 'POST', grants[1].token);
+    assert.equal(deniedHttpCapture.data.error, 'permission_denied');
+    for (const [client, grant] of [[a, grants[0]], [b, grants[1]]] as const) {
+      await deniedTool(client, 'context_search', { query: 'out-of-project private deadline', project_id: 'outside-direct-learned-scope' }, /scope_denied/i);
+      const deniedSearch = await http('/api/context/search?query=out-of-project%20private%20deadline&project_id=outside-direct-learned-scope', 403, undefined, undefined, grant.token);
+      assert.equal(deniedSearch.data.error, 'scope_denied');
+    }
+    assert.equal((await options.sql('SELECT id FROM tk_sources')).length, 0, 'Denied capture must not persist a source');
+    assert.equal((await options.sql('SELECT id FROM tk_jobs')).length, 0, 'Denied capture must not enqueue inference');
+    // Runner accounting also requires exact legitimate per-process request counts;
+    // any inference caused by the denied searches/capture fails acceptance.
     checks.push('owner session and two independently scoped MCP transports');
 
-    const events = evaluationCorpus.find(item => item.id === 'direct')!.events;
+    const events = directLearnedCase.events;
     const input = { idempotency_key: 'direct-learned-lifecycle-capture', project_id: project, events };
     const receipt = await tool(a, 'context_capture', input);
     assert.equal(receipt.status, 'pending');
@@ -89,21 +119,26 @@ export async function runLearnedScenarios(options: {
     checks.push('idempotent source-only MCP capture, background direct Nemotron extraction and native Qwen indexing');
 
     const all = (await http(`/api/memories?project_id=${project}`)).data.memories;
-    assert.equal(all.length, 2);
-    const deadline = all.find((memory: any) => /October 20|2026-10-20|20 October/i.test(memory.statement));
-    const preference = all.find((memory: any) => /short paragraphs/i.test(memory.statement));
-    assert(deadline && preference, 'Learned extraction omitted the fixed deadline or preference');
-    assert.equal(preference.kind, 'preference');
-    for (const memory of all) {
-      assert.equal(memory.origin, 'user_explicit');
-      assert.equal(memory.status, 'active');
-      assert.equal(memory.extractor, 'nvidia/Nemotron-3_5-Lightning');
-      assert.equal(memory.evidence.length, 1);
-      assert.equal(memory.evidence[0].client_id, grants[0].client.id);
-      assert.equal(memory.evidence[0].author_role, 'user');
-      const source = await tool(b, 'context_get_source', { source_id: memory.evidence[0].source_id });
-      assert(source.text.includes(memory.evidence[0].quote), 'Admitted evidence must quote the captured source');
-    }
+    const sources = [];
+    for (const sourceId of receipt.source_ids) sources.push(await tool(b, 'context_get_source', { source_id: sourceId }));
+    const { deadline, preference } = assertLearnedExtraction(all, sources, project, grants[0].client.id);
+    assert.deepEqual([...completed.memory_ids].sort(), [deadline.id, preference.id].sort());
+    assert.deepEqual([...completed.source_ids].sort(), sources.map(source => source.id).sort());
+    const originalDeadline = learnedDetail((await http(`/api/memories/${deadline.id}`)).data);
+    const deadlineSource = sources.find(source => source.id === deadline.evidence[0].source_id)!;
+    const preferenceSource = sources.find(source => source.id === preference.evidence[0].source_id)!;
+    assert.deepEqual(originalDeadline.memory, MemorySchema.parse(deadline));
+    assert.deepEqual(originalDeadline.sources, [deadlineSource]);
+    assert.equal(originalDeadline.revisions.length, 1);
+    assert.equal(originalDeadline.revisions[0].revision, 1);
+    assert.equal(originalDeadline.revisions[0].memory_id, deadline.id);
+    assert.equal(originalDeadline.revisions[0].statement, deadline.statement);
+    assert.equal(originalDeadline.revisions[0].origin, deadline.origin);
+    assert.equal(originalDeadline.revisions[0].status, deadline.status);
+    assert.equal(originalDeadline.revisions[0].effective_at, deadline.effective_at);
+    assert.equal(originalDeadline.revisions[0].editor_client_id, grants[0].client.id);
+    assert.equal(originalDeadline.revisions[0].extractor, deadline.extractor);
+    assert.deepEqual(originalDeadline.evidence, [{ memory_id: deadline.id, revision: 1, source_id: deadlineSource.id, quote: deadline.evidence[0].quote }]);
     const learnedQueries = [];
     for (const [query, target] of [[embeddingCorpus.queries[0].text, deadline.id], [embeddingCorpus.queries[1].text, preference.id]]) {
       const result = await recall(b, query);
@@ -120,9 +155,17 @@ export async function runLearnedScenarios(options: {
     const changed = (await http(`/api/memories/${deadline.id}`, 200, { statement: corrected, expected_revision: deadline.revision }, 'PATCH')).data.memory;
     assert.equal(changed.revision, deadline.revision + 1);
     assert.equal(changed.authoritative, true);
+    assert.equal(changed.statement, corrected);
+    assertLearnedDeadlineHistory((await http(`/api/memories/${deadline.id}`)).data, originalDeadline, changed);
+    assert.deepEqual(await tool(b, 'context_get_source', { source_id: deadlineSource.id }), { ...deadlineSource, extraction_blocked: true });
     await http(`/api/memories/${deadline.id}`, 409, { statement: deadline.statement, expected_revision: deadline.revision }, 'PATCH');
-    const preview = (await http(`/api/memories/${preference.id}/deletion-preview`)).data;
-    await http(`/api/memories/${preference.id}`, 200, { expected_revision: preference.revision, preview_hash: preview.preview_hash }, 'DELETE');
+    const preview = assertLearnedDeletionPreview((await http(`/api/memories/${preference.id}/deletion-preview`)).data,
+      preference, preferenceSource, deadlineSource.id, receipt.job_id);
+    const removed = (await http(`/api/memories/${preference.id}`, 200, { expected_revision: preference.revision, preview_hash: preview.preview_hash }, 'DELETE')).data;
+    assert.deepEqual(removed.deleted_memory_ids, [preference.id]);
+    assert.deepEqual(removed.deleted_source_ids, [preferenceSource.id]);
+    assert.deepEqual(removed.deleted_job_ids, [receipt.job_id]);
+    assert.equal(removed.deleted_count, 1);
     await http(`/api/sources/${preference.evidence[0].source_id}`, 404, undefined, undefined, grants[1].token);
     await http(`/api/memories/${preference.id}`, 404);
     const forbidden = await b.callTool({ name: 'context_get_source', arguments: { source_id: preference.evidence[0].source_id } }, { signal: options.signal, timeout: 20_000 });
@@ -139,7 +182,11 @@ export async function runLearnedScenarios(options: {
     }
     const preferenceRecall = await recall(b, embeddingCorpus.queries[1].text);
     assert(!preferenceRecall.memories.some((memory: any) => memory.id === preference.id || /short paragraphs/i.test(memory.statement)));
-    const archive = (await http('/api/export')).data;
+    const retained = assertLearnedDeadlineHistory((await http(`/api/memories/${deadline.id}`)).data, originalDeadline, changed);
+    assert.deepEqual(await tool(b, 'context_get_source', { source_id: deadlineSource.id }), { ...deadlineSource, extraction_blocked: true });
+    assert.deepEqual((await http(`/api/sources/${deadlineSource.id}`, 200, undefined, undefined, grants[1].token)).data,
+      { ...deadlineSource, extraction_blocked: true });
+    const archive = assertLearnedArchiveHistory((await http('/api/export')).data, retained);
     assert(!JSON.stringify(archive).includes('short paragraphs'));
     const remainingVectors = await options.sql('SELECT memory_id,revision,provider_model,dimensions FROM tk_embeddings');
     assert.equal(remainingVectors.length, 1);
