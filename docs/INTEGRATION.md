@@ -34,6 +34,10 @@ and deletes the preference; fresh recall contains only the correction. Additiona
 checks cover evidence/inference distinctions, owner/project/client scopes,
 permission denials and revocation, provider failures and recovery, model/dimension
 validation, and owner edits/deletions while provider replies are held in flight.
+Capture-status checks observe processing, failure and completion through HTTP/MCP.
+The owner retries failed extraction on the same capture, source and job; an
+independent client recalls the resulting memory. Stale retries and token retries
+are rejected, receipts remain immutable, and cancelled work cannot restore content.
 Native SQL inspects jobs and derived vectors; capture, retrieval and profile writes
 use application transports. Rerunning migrations is also checked.
 

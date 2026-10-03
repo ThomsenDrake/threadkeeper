@@ -170,8 +170,8 @@ test('API and MCP enforce owner, project, read/capture and revocation permission
   const reader = await grant('Scoped reader', ['read'], ['atlas']);
   const writerClient = await connect('scope-writer', writer.token);
   const readerClient = await connect('scope-reader', reader.token);
-  assert.deepEqual((await writerClient.listTools()).tools.map(tool => tool.name), ['context_capture']);
-  assert.deepEqual((await readerClient.listTools()).tools.map(tool => tool.name).sort(), ['context_get_source', 'context_search']);
+  assert.deepEqual((await writerClient.listTools()).tools.map(tool => tool.name).sort(), ['context_capture', 'context_capture_status']);
+  assert.deepEqual((await readerClient.listTools()).tools.map(tool => tool.name).sort(), ['context_capture_status', 'context_get_source', 'context_search']);
   const own = await request('/api/capture', { body: capture(deadline), token: writer.token });
   assert.equal(own.response.status, 201);
   const hidden = await request('/api/capture', { body: capture(secret, 'vault', 'secret') });

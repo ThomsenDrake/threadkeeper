@@ -21,7 +21,9 @@ These are implementation outcomes, not an instruction to stop after the first ro
 | 5 | **The profile works beyond a small demo dataset.** Add practical pagination and complete loading, empty, failure and recovery states. Make import outcomes understandable with counts, conflicts and tombstone exclusions. | The owner can reach records beyond the first page without scope/filter leaks, inspect provenance, and complete correction/deletion/import on realistic synthetic collections. Changes remain keyboard-usable and work on mobile. Import never reactivates credentials or forgotten content. |
 | 6 | **Personal context can survive an operational recovery safely.** Implement deletion-aware restore/reconciliation and the migration/recovery procedures needed to support it. | Restore an older synthetic backup into isolation, apply the newer deletion state before serving it, and prove forgotten data stays absent. Record supported upgrade/recovery steps, failure behavior and limits; do not test on an operator's live data. |
 
-The immediate default is priority 1: visible capture progress and safe recovery across the profile, HTTP/MCP and worker. It gives users a way to understand and recover asynchronous saves rather than guessing from an empty search. Complete the flow, review and merge it, then proceed to the next unblocked outcome during a broad development task.
+Priority 1 is implemented on `codex/capture-recovery`: scoped live status, the profile Captures view, source-only saves and owner retry preserve canonical identities and attempt fencing. Its verification and review state are recorded in [HANDOFF.md](HANDOFF.md). Reuse that flow; confirm it is merged before treating it as main.
+
+The next default is priority 2: complete explicit confirmation, edit-and-confirm and dismissal for model candidates. Preserve original evidence and make owner actions authoritative through separate user-authored evidence. Complete the flow, review and merge it, then proceed to the next unblocked outcome during a broad development task.
 
 ## Delivery loop
 
