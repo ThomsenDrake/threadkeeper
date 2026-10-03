@@ -159,3 +159,33 @@ test('partial token fields remain reported while completeness requires a total o
     assert.equal(summary.usage.completion_tokens_details && (summary.usage.completion_tokens_details as any).reasoning_tokens, 0);
   } finally { observer.restore(); globalThis.fetch = originalFetch; }
 });
+
+
+test('base URLs retain their path and enforce zero-request budgets with or without a trailing slash', async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response('{}'); };
+  try {
+    const bases = ['http://127.0.0.1:18818/v1', 'http://127.0.0.1:18818/v1/'];
+    for (const base of bases) {
+      const observer = installDirectProviderObserver({ baseUrl: base, limits: { 'chat/completions': 0 } });
+      try {
+        await assert.rejects(fetch(baseUrl + 'chat/completions'), /provider_observation_request_budget_exhausted/);
+        assert.equal(observer.records.length, 1);
+        assert.equal(observer.records[0].path, 'chat/completions');
+        assert.equal(observer.records[0].sent, false);
+      } finally { observer.restore(); }
+    }
+    const multiple = installDirectProviderObserver({
+      baseUrls: ['http://127.0.0.1:18818/v1', 'http://127.0.0.1:18819/v2/'], limits: { 'chat/completions': 0 },
+    });
+    try {
+      for (const endpoint of ['http://127.0.0.1:18818/v1/chat/completions', 'http://127.0.0.1:18819/v2/chat/completions']) {
+        await assert.rejects(fetch(endpoint), /provider_observation_request_budget_exhausted/);
+      }
+      assert.equal(multiple.records.length, 2);
+      assert(multiple.records.every(record => !record.sent && record.outcome === 'budget_exhausted'));
+    } finally { multiple.restore(); }
+    assert.equal(calls, 0, 'No original fetch may run when the configured request budget is zero.');
+  } finally { globalThis.fetch = originalFetch; }
+});
