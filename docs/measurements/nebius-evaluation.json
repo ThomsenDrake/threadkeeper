@@ -1,7 +1,6 @@
 {
   "schema_version": "threadkeeper.nebius-evaluation.v1",
   "measured_at": "2026-10-03T15:51:07.431829+00:00",
-  "application_head": "7d3f55ec7e7cfaa3c0402bc8e14c4af4b386d120",
   "provider_source_sha256": "4e11cbf510d42179e6bf6c6dbd0da801130c062f7f77fb7a9f534b48c602a5f4",
   "authenticated_catalog": {
     "http_status": 200,
@@ -374,5 +373,11 @@
     "Provider envelopes came through authenticated Executor integration; application ingestion and ranking were separately exercised over localhost replay.",
     "Direct application HTTP authentication/inference remains blocked by secure runtime credential binding and authorized network egress.",
     "No GPU, deployment, publication, spending/provisioning, DNS or reusable environment changes."
-  ]
+  ],
+  "application_base_commit": "7d3f55ec7e7cfaa3c0402bc8e14c4af4b386d120",
+  "working_tree_provenance": {
+    "dirty": true,
+    "completeness": "partial_historical_snapshot",
+    "note": "The recorded base commit predates the then-uncommitted provider/evaluator changes. The separately recorded provider hash identifies the adapter, but the original evaluator/corpus snapshot was not archived. These are historical observed results, not evidence for the unmodified base commit or a fully reproducible source tree."
+  }
 }
