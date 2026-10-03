@@ -6,6 +6,8 @@ The extractor receives only the authorized source events in one capture job. It 
 
 Extraction has at most two requests: one attempt and one repair. The default requests `json_object` and validates locally. Set `MODEL_JSON_OBJECT=false` for prompt-only local endpoints. Strict JSON schema is an optional capability via `MODEL_STRUCTURED_OUTPUT=true`. A rejected format or invalid output receives one prompt-only repair using the same model. Truncated output is rejected. Reasoning control is omitted by default; the bounded synthetic Nebius evaluations explicitly select `MODEL_REASONING_EFFORT=none`.
 
+One narrow completeness check rejects an omitted `effective_at` with sanitized code `extraction_missing_effective_timestamp`, using that same bounded repair. It applies only to direct-user or user-confirmed attribution when the quote is the entire source, begins with `Starting` or `Effective` followed by `at` or `from` and one full timezone-bearing timestamp, and its remaining simple positive assertion exactly matches the statement after trimming and removing one final period. It never assigns the timestamp itself. Compound or multiple-sentence text, paraphrases, partial quotes, date-only starts, deadlines, assistant/inferred attribution and detected ambiguity remain outside this guard. Passing it is not a general semantic-support check. [Verification](PROVIDER_VERIFICATION.md#literal-effective-time-completeness--2026-10-03) separates controlled repair tests from the one-case live observation.
+
 | Variable | Default or behavior |
 | --- | --- |
 | `MODEL_BASE_URL` | Nebius `/v1/` base URL above |

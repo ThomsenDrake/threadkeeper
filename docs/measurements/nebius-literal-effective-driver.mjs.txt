@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { readFile, writeFile, lstat } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+const root = '/workspace/threadkeeper-effective-time';
+const output = '/tmp/threadkeeper-literal-effective-live.json';
+try { await lstat(output); throw new Error('evidence_exists'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+const { createTestDatabase } = await import(root + '/tests/helpers.ts');
+const { createStore } = await import(root + '/packages/core/src/index.ts');
+const { OpenAICompatibleProvider, providerConfigFromEnv, DEFAULT_MODEL_ID, DEFAULT_MODEL_BASE_URL } = await import(root + '/packages/providers/src/index.ts');
+const { installDirectProviderObserver, summarizeProviderObservations } = await import(root + '/deploy/direct-provider-observer.mjs');
+const git = (...args) => execFileSync('git', args, {cwd:root,encoding:'utf8'}).trim();
+assert.equal(git('diff','HEAD','--name-only'), '');
+const paths=git('ls-files','-z').split('\0').filter(p=>p&&!p.startsWith('docs/')&&!p.endsWith('.md'));
+const digest=v=>createHash('sha256').update(v).digest('hex');
+const source={commit:git('rev-parse','HEAD'),files:Object.fromEntries(await Promise.all(paths.map(async p=>[p,digest(await readFile(root+'/'+p))]))),driver_sha256:digest(await readFile(new URL(import.meta.url)))};
+const config=providerConfigFromEnv();assert.equal(config.modelId,DEFAULT_MODEL_ID);assert.equal(config.baseUrl,DEFAULT_MODEL_BASE_URL);assert.equal(config.reasoningEffort,'none');
+const observer=installDirectProviderObserver({baseUrls:[config.baseUrl],models:[config.modelId],limits:{'chat/completions':2}});
+const db=await createTestDatabase();const store=createStore(db.db);
+const owner={ownerId:randomUUID(),clientId:'profile',permissions:['read','capture','correct','delete','export','retry','admin'],projects:null};
+const writer={...owner,clientId:'synthetic-writer',permissions:['read','capture']}, reader={...owner,clientId:'synthetic-reader',permissions:['read']};
+const timestamp='2026-11-01T09:00:00Z';
+const event={id:'effective-user',author_role:'user',origin:'user_explicit',occurred_at:'2026-10-03T12:00:00Z',text:`Starting at ${timestamp}, I prefer weekly status reports on Mondays.`};
+let report;
+try {
+  const receipt=await store.capture(writer,{idempotency_key:'literal-effective-live',project_id:'synthetic-literal-effective',subject:'self',events:[event]});
+  assert.equal(receipt.status,'pending');
+  const result=await store.processJob(new OpenAICompatibleProvider(config));
+  const status=await store.captureStatus(owner,receipt.capture_id);
+  const recalled=await store.search(reader,{query:'',project_id:'synthetic-literal-effective',limit:100});
+  const original=await store.getSource(reader,receipt.source_ids[0]);
+  assert.equal(original.text,event.text);
+  const semanticSuccess=result.status==='complete'&&recalled.memories.length===1&&Date.parse(recalled.memories[0].effective_at)===Date.parse(timestamp);
+  const noIncompleteAdmission=recalled.memories.every(m=>Date.parse(m.effective_at)===Date.parse(timestamp));
+  report={schema_version:'threadkeeper.literal-effective-live.v1',measured_at:new Date().toISOString(),source,
+    configuration:{model:config.modelId,base_url:config.baseUrl,reasoning_effort:config.reasoningEffort,max_chat_requests:2},
+    scope:'One direct learned extraction through the canonical worker/PGlite store and independent in-process authorization contexts; not an installed-host or native-container run.',
+    input:event,job_status:result.status,semantic_extraction_passed:semanticSuccess,no_incomplete_admission:noIncompleteAdmission,
+    owner_status:status.status,owner_can_retry:status.can_retry,source_preserved:true,
+    memories:recalled.memories.map(m=>({statement:m.statement,kind:m.kind,origin:m.origin,effective_at:m.effective_at,evidence:m.evidence.map(e=>({quote:e.quote}))})),
+    provider_attempts:observer.records,provider_accounting:summarizeProviderObservations(observer.records),
+    limits:['No forced first-response fixture: a first-attempt success does not demonstrate a live repair.','Generic two-attempt repair and repeated-omission rejection are tested separately with controlled responses.','Paraphrases, partial/compound quotes and other ambiguity remain outside the narrow literal guard.']};
+} finally { observer.restore(); await db.close(); }
+await writeFile(output,JSON.stringify(report,null,2)+'\n',{flag:'wx',mode:0o600});
+console.log(JSON.stringify({job_status:report.job_status,semantic_extraction_passed:report.semantic_extraction_passed,no_incomplete_admission:report.no_incomplete_admission,request_count:report.provider_attempts.length,output}));
+if(!report.no_incomplete_admission)process.exitCode=1;
