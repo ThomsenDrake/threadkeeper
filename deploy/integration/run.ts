@@ -111,7 +111,7 @@ async function main() {
     await compose(['exec', '-T', 'api', 'pnpm', 'migrate']);
     checks.push('native migrations rerun');
     await compose(['exec', '-T', 'api', 'sh', '-c', 'THREADKEEPER_NATIVE_TEST_URL="$DATABASE_URL" node --import tsx --test tests/hybrid.test.ts tests/api-hybrid.test.ts tests/captures.test.ts tests/review.test.ts']);
-    checks.push('native hybrid, capture recovery and candidate review regressions (33 tests)');
+    checks.push('native hybrid, capture recovery and candidate review regressions (34 tests)');
     console.info(JSON.stringify({ result: 'PASS', evidence: 'native-full-stack-synthetic-provider', versions, checks }, null, 2));
   } catch (error) {
     failure = error;

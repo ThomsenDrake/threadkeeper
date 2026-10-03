@@ -302,6 +302,37 @@ test('reviewed export/import preserves confirmation, dismissal, provider history
   } finally { await close(); await destination.close(); }
 });
 
+test('legacy inactive corrected authority imports only with valid correction provenance and remains idempotent', async () => {
+  const original = await fixture(), destination = await fixture();
+  try {
+    const entry = source('inferred', 'Synthetic original deadline is October 20.');
+    entry.candidate.origin = 'user_explicit';
+    const receipt = await original.store.capture(client(original.profile), { ...entry.capture, explicit_memories: [entry.candidate] });
+    const id = receipt.memory_ids[0];
+    await original.store.correct(original.profile, id, { expected_revision: 1, statement: 'Synthetic corrected deadline is October 23.' });
+    const legacy = await original.store.export(original.profile);
+    legacy.memories[0].status = 'superseded';
+    legacy.memories[0].authoritative = true;
+    legacy.revisions.at(-1)!.status = 'superseded';
+    for (const mutate of [
+      (bundle: ExportBundle) => { bundle.sources.find(s => s.capture_method === 'profile_correction')!.event_id = 'forged-correction'; },
+      (bundle: ExportBundle) => { bundle.sources.find(s => s.capture_method === 'profile_correction')!.extraction_blocked = false; },
+    ]) {
+      const forged = structuredClone(legacy); mutate(forged);
+      await assert.rejects(destination.store.import(destination.profile, forged), failure(400, 'invalid_authority'));
+      assert.equal((await destination.store.export(destination.profile)).sources.length, 0);
+    }
+    assert.equal((await destination.store.import(destination.profile, legacy)).imported_memories, 1);
+    const restored = (await destination.store.detail(destination.profile, id)).memory;
+    assert.equal(restored.status, 'superseded'); assert.equal(restored.authoritative, false);
+    assert.equal(restored.origin, 'user_explicit'); assert.equal(restored.revision, 2);
+    assert.equal((await destination.store.search(destination.profile, {})).memories.length, 0);
+    assert.equal((await destination.store.import(destination.profile, legacy)).imported_memories, 0);
+    await destination.runMigration();
+    assert.equal((await destination.store.import(destination.profile, legacy)).imported_memories, 0);
+  } finally { await original.close(); await destination.close(); }
+});
+
 test('import rejects forged confirmation authority, active model interpretations and unblocked reviewed history atomically', async () => {
   const { store, profile, close } = await fixture();
   const destination = await fixture();

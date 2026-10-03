@@ -500,7 +500,11 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       if (memory.status === 'active' && ['inferred', 'assistant_proposed'].includes(memory.origin)
         || history.some(revision => revision.status === 'active' && ['inferred', 'assistant_proposed'].includes(revision.origin))) throw new DomainError(400, 'unconfirmed_memory');
       if (current.extractor !== null && current.extractor !== memory.extractor) throw new DomainError(400, 'revision_mismatch');
-      if (memory.authoritative && (!['user_explicit', 'user_confirmed'].includes(memory.origin) || memory.status !== 'active' || memory.revision < 2 || memory.extractor !== null)) throw new DomainError(400, 'invalid_authority');
+      // Before migration 005, superseding a corrected sibling retained its
+      // authority flag. Validate its correction provenance before normalizing
+      // the flag, just as the upgrade repairs the inactive canonical row.
+      const legacyInactiveCorrection = memory.authoritative && memory.status === 'superseded' && memory.origin === 'user_explicit';
+      if (memory.authoritative && (!['user_explicit', 'user_confirmed'].includes(memory.origin) || (memory.status !== 'active' && !legacyInactiveCorrection) || memory.revision < 2 || memory.extractor !== null)) throw new DomainError(400, 'invalid_authority');
       if (memory.authoritative && !bundle.evidence.some(evidence => {
         if (evidence.memory_id !== memory.id || evidence.revision !== memory.revision) return false;
         const source = sources.get(evidence.source_id);
@@ -511,6 +515,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       })) throw new DomainError(400, 'invalid_authority', 'Authoritative records require matching owner-authored correction or confirmation evidence.');
       if (memory.authoritative && bundle.evidence.some(evidence => evidence.memory_id === memory.id
         && evidence.revision < memory.revision && !sources.get(evidence.source_id)?.extraction_blocked)) throw new DomainError(400, 'invalid_correction_history', 'Superseded evidence cannot be eligible for extraction after a correction.');
+      if (legacyInactiveCorrection) memory.authoritative = false;
       if (memory.status === 'dismissed' && bundle.evidence.some(evidence => evidence.memory_id === memory.id
         && !sources.get(evidence.source_id)?.extraction_blocked)) throw new DomainError(400, 'invalid_review_history', 'Dismissed evidence cannot be eligible for extraction.');
     }
