@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { readFile, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
+import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
@@ -30,25 +31,33 @@ const secrets = [process.env.NEBIUS_API_KEY];
 const redact = (value: string) => secrets.reduce((text, secret) => text.replaceAll(secret, '[redacted]'), value);
 const cancellation = new AbortController();
 let cleaning = false;
-let child: ReturnType<typeof spawn> | undefined;
-const interrupt = () => { cancellation.abort(); if (!cleaning) child?.kill('SIGTERM'); };
+let stopCommand: (() => void) | undefined;
+let createdOutput: string | undefined;
+const interrupt = () => { process.exitCode = 1; cancellation.abort(); if (!cleaning) stopCommand?.(); };
 process.on('SIGINT', interrupt);
 process.on('SIGTERM', interrupt);
+process.stdout.on('error', interrupt);
+process.on('exit', code => {
+  if (createdOutput && (code !== 0 || cancellation.signal.aborted)) {
+    try { rmSync(createdOutput); } catch { process.exitCode = 1; }
+  }
+});
 async function docker(args: string[], options: { input?: string; cleanup?: boolean; timeout?: number } = {}) {
   if (!options.cleanup) cancellation.signal.throwIfAborted();
   return await new Promise<string>((resolveRun, reject) => {
     const running = spawn('docker', ['--host=unix:///var/run/docker.sock', ...args], { cwd: root, env: dockerEnv, stdio: ['pipe', 'pipe', 'pipe'] });
-    child = running;
     let stdout = '', stderr = '';
     let timedOut = false;
     let force: NodeJS.Timeout | undefined;
-    const timer = setTimeout(() => { timedOut = true; running.kill('SIGTERM'); force = setTimeout(() => running.kill('SIGKILL'), 5000); }, options.timeout ?? 120_000);
+    const stop = () => { running.kill('SIGTERM'); force ??= setTimeout(() => running.kill('SIGKILL'), 5000); };
+    stopCommand = stop;
+    const timer = setTimeout(() => { timedOut = true; stop(); }, options.timeout ?? 120_000);
     running.stdout.on('data', data => { stdout += String(data); });
     running.stderr.on('data', data => { stderr = (stderr + String(data)).slice(-6000); });
     running.once('error', error => { clearTimeout(timer); if (force) clearTimeout(force); reject(error); });
     running.once('close', code => {
       clearTimeout(timer); if (force) clearTimeout(force);
-      if (child === running) child = undefined;
+      if (stopCommand === stop) stopCommand = undefined;
       if (code === 0 && !timedOut) resolveRun(stdout.trim());
       else reject(new Error(redact(`docker ${args[0]} ${timedOut ? 'timed out' : `failed (${code ?? 'signal'})`}: ${stderr || stdout.slice(-6000)}`)));
     });
@@ -127,7 +136,6 @@ try {
     cleanupPassed = true;
     console.info('Cleanup: disposable containers, network, volume, image and generated credentials removed.');
   } catch (error) { failure ??= error; console.error(`Cleanup failed for ${project}`); }
-  process.off('SIGINT', interrupt); process.off('SIGTERM', interrupt);
 }
 // Failed attempts remain measurable, including provider output rejected by the
 // application. A failed acceptance run is never serialized with a PASS label.
@@ -147,7 +155,13 @@ if (result && !failure && !cancellation.signal.aborted) {
     result.result = 'PASS';
     result.limits = ['Synthetic SDK clients are not installed autonomous hosts.', 'One fixed lifecycle is not a broad model quality or sustained-load estimate.', 'Hosted native-container acceptance does not establish local GPU parity, deployment, publication or provider-retained deletion.'];
     const serialized = JSON.stringify(result, null, 2) + '\n';
-    if (output) await writeFile(resolve(output), serialized, { mode: 0o600, flag: 'wx' });
+    if (output) {
+      cancellation.signal.throwIfAborted();
+      const file = await open(resolve(output), 'wx', 0o600);
+      createdOutput = resolve(output);
+      try { await file.writeFile(serialized); } finally { await file.close(); }
+      cancellation.signal.throwIfAborted();
+    }
     console.info(JSON.stringify({ result: 'PASS', provider_request_count: observations.length, checks: result.checks, output: output ?? null }));
   } catch (error) { failure = error; console.error('FAIL: provider observations or evidence publication incomplete'); }
 }
