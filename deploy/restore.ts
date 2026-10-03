@@ -42,6 +42,18 @@ function databaseFor(client: pg.Client): Database {
   } };
 }
 
+export async function restoreTargetHasObjects(db: Pick<Database, 'query'>, allowRecoverySchema = false) {
+  const excluded = ['information_schema', ...(allowRecoverySchema ? ['tk_recovery'] : [])];
+  const result = await db.query(`SELECT EXISTS (
+    SELECT 1 FROM pg_depend d JOIN pg_namespace n ON d.refclassid='pg_namespace'::regclass AND d.refobjid=n.oid
+      WHERE n.nspname !~ '^pg_' AND NOT (n.nspname=ANY($1::text[]))
+    UNION ALL SELECT 1 FROM pg_namespace n WHERE n.nspname !~ '^pg_' AND n.nspname<>'public' AND NOT (n.nspname=ANY($1::text[]))
+    UNION ALL SELECT 1 FROM pg_extension WHERE extname<>'plpgsql'
+    UNION ALL SELECT 1 FROM pg_largeobject_metadata
+  ) AS present`, [excluded]);
+  return Boolean(result.rows[0]?.present);
+}
+
 async function restoreArchive(options: RestoreOptions, url: URL, expectedHash: string) {
   // Passwords stay in child environment, never argv or operational output.
   const inherited = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('PG')));
@@ -75,7 +87,7 @@ export async function restoreDatabase(options: RestoreOptions) {
   if (new Set(ledgers.map(ledger => ledger.owner_id)).size !== ledgers.length) throw new DomainError(400, 'duplicate_ledger_owner');
   const ledgerHash = createHash('sha256').update(canonical([...ledgers].sort((a, b) => a.owner_id.localeCompare(b.owner_id)))).digest('hex');
   const backupHash = await digestFile(options.backup);
-  if (process.platform !== 'win32' && (await stat(options.passwordsFile)).mode & 0o077) throw new DomainError(400, 'recovery_password_file_not_private');
+  if (process.platform !== 'win32' && ((await stat(options.passwordsFile)).mode & 0o077) !== 0) throw new DomainError(400, 'recovery_password_file_not_private');
   const passwords = JSON.parse(await readFile(options.passwordsFile, 'utf8')) as unknown;
   if (!passwords || typeof passwords !== 'object' || Array.isArray(passwords)
     || Object.entries(passwords).some(([id, password]) => !id || typeof password !== 'string' || password.length < 12 || password.length > 1024)) throw new DomainError(400, 'recovery_password_file_invalid');
@@ -91,18 +103,14 @@ export async function restoreDatabase(options: RestoreOptions) {
     if (otherConnections.rows.length) throw new DomainError(409, 'restore_target_in_use');
     const exists = (await client.query("SELECT to_regclass('tk_recovery.state') AS relation")).rows[0]?.relation;
     if (!exists) {
-      const objects = await client.query(`SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-        WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' LIMIT 1`);
-      if (objects.rows.length) throw new DomainError(409, 'restore_target_not_empty');
+      if (await restoreTargetHasObjects(db)) throw new DomainError(409, 'restore_target_not_empty');
       await prepareRecoveryState(db, backupHash, ledgerHash);
     }
     const state = (await client.query('SELECT phase,backup_hash,ledger_hash,report FROM tk_recovery.state WHERE singleton=true')).rows[0];
     if (!state || state.backup_hash !== backupHash || state.ledger_hash !== ledgerHash) throw new DomainError(409, 'recovery_artifact_mismatch');
     if (state.phase === 'complete') return { status: 'already_complete', ...state.report };
     if (state.phase === 'prepared') {
-      const objects = await client.query(`SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-        WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname NOT IN ('information_schema','tk_recovery') LIMIT 1`);
-      if (objects.rows.length) throw new DomainError(409, 'recovery_restore_ambiguous');
+      if (await restoreTargetHasObjects(db, true)) throw new DomainError(409, 'recovery_restore_ambiguous');
       await restoreArchive(options, target, backupHash);
       await client.query("UPDATE tk_recovery.state SET phase='restored' WHERE singleton=true AND phase='prepared'");
     }

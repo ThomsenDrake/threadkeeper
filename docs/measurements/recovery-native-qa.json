@@ -1,0 +1,71 @@
+{
+  "recorded_at": "2026-10-03T14:05:59.762296+00:00",
+  "command": "pnpm recovery:demo",
+  "base_commit": "ba14f3a4eff911381fa2c1a1081abac19bafb57a",
+  "working_tree_note": "Final profile/forgetting-integrated recovery, including namespace/large-object/literal-prefix target guards. Only isolated large-object and literal-prefix guards plus their native regressions changed after the 107-test/full-application-native checkpoint.",
+  "implementation_sha256": {
+    "deploy/restore.ts": "7a5107a1777d3690cddc8e220513cbaf7ea4ce1e62df6b165df03716b7d09d10",
+    "deploy/recovery-demo.ts": "017fba5c470ee154917cf76e03e8a81a971d3eaab48e8e37262a840a0a0c19ea",
+    "packages/core/src/recovery.ts": "15fe2a98e9962ed29b529f60236d6349ba089f055f49b9e44105f861844de24b",
+    "packages/core/src/recovery-gate.ts": "7c20ba903d8bb972feaee69aee9965bb6389240234164b54d82bcd09cebdcdd6",
+    "packages/core/src/deletion.ts": "3a874e3797be446d87b7f109f3394972b04d87cbbbb1196f6478c8268e388baf",
+    "packages/core/src/index.ts": "714c0ecc64fe415ee65de6b735bb7ff1e652a995bfd40ef775e17da47e6e1cec"
+  },
+  "result": "PASS",
+  "evidence": "native-postgresql-custom-archive-synthetic-recovery",
+  "node": "24.19.0",
+  "docker": "28.4.0",
+  "versions": {
+    "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
+    "pgvector": "0.8.7"
+  },
+  "image": "pgvector/pgvector@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d",
+  "archive_bytes": 33020,
+  "report": {
+    "status": "complete",
+    "owners": 2,
+    "deleted_memories": 4,
+    "deleted_sources": 6,
+    "deleted_jobs": 3,
+    "revoked_clients": 1,
+    "deleted_sessions": 1
+  },
+  "checks": [
+    "native legacy migration adoption and unchanged rerun",
+    "native fresh targets containing functions, enums, large objects or tables in legitimate pgx_private schemas are rejected before marker/archive writes",
+    "native shared runtime lock blocks recovery; exclusive recovery lock blocks startup",
+    "actual pg_dump/pg_restore purges forgotten histories, duplicate sources, jobs, vectors, profile/recall/export; unrelated owner survives",
+    "password rotated, restored clients/sessions revoked, complete startup allowed, same-artifact repetition is a no-op",
+    "native pg_restore failure retains a pending marker and blocks startup",
+    "native prepared targets with functions, enums, large objects or pgx_private tables refuse ambiguous replay and remain gated",
+    "native failed reconciliation rolls back purge and credentials, remains gated, and resumes with the same archive/ledgers",
+    "native concurrent migrations apply once, changed checksums fail, failed upgrades roll back SQL and ledger"
+  ],
+  "reviewed_findings": [
+    {
+      "finding": "Restore freshness and ambiguity checks previously missed custom functions and standalone enum types.",
+      "status": "resolved",
+      "resolution": "The restore target guard inspects namespace dependencies, custom namespaces and nondefault extensions.",
+      "verification": "Native fresh targets reject custom functions/enums before marker/archive writes; prepared targets reject each as ambiguous and retain their startup gate."
+    }
+  ],
+  "cleanup": "Disposable native PostgreSQL server, custom archives and synthetic credentials removed.",
+  "limits": [
+    "Synthetic fixtures establish operational behavior; no learned inference, provider quality, installed MCP host, GPU or deployed service was tested.",
+    "Native harness covers archive execution, deletion closure, credentials, gates, resume, migration concurrency and nonrelation target guards; private password-file permissions and streamed archive mutation guards were inspected separately."
+  ],
+  "review_findings": [
+    {
+      "status": "fixed",
+      "issue": "Relation-only checks missed custom functions/enums; namespace dependencies now reject them in fresh and prepared targets, with actual native regressions."
+    },
+    {
+      "status": "fixed",
+      "issue": "Namespace checks missed large objects; pg_largeobject_metadata now rejects them in fresh and prepared targets, with actual native regressions."
+    },
+    {
+      "status": "fixed",
+      "issue": "SQL wildcard pg_% wrongly excluded legitimate pgx_private schemas; literal reserved-prefix matching now rejects those fresh and prepared targets, with actual native table regressions."
+    }
+  ]
+}

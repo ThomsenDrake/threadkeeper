@@ -58,6 +58,13 @@ async function docker(args: string[], options: { cleanup?: boolean } = {}) {
   });
 }
 
+async function isolatedQuery(databaseUrl: string, sql: string) {
+  const client = new pg.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try { return (await client.query(sql)).rows; }
+  finally { await client.end(); }
+}
+
 async function main() {
   assert.equal(process.versions.node.split('.')[0], '24', 'Recovery demonstration requires Node.js 24');
   const suffix = randomBytes(6).toString('hex');
@@ -134,6 +141,27 @@ async function main() {
     await writeFile(pgRestore, `#!${process.execPath}\nimport { spawn } from 'node:child_process';\nconst env = { ...process.env, PGHOST: '127.0.0.1', PGPORT: '5432' };\nfor (const key of ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']) delete env[key];\nconst child = spawn('docker', ['--host=unix:///var/run/docker.sock','exec','--interactive','--env','PGHOST','--env','PGPORT','--env','PGUSER','--env','PGPASSWORD','--env','PGDATABASE','--env','PGSSLMODE',${JSON.stringify(container)},'pg_restore',...process.argv.slice(2)], { env, stdio: ['pipe','ignore','ignore'] });\nconst timeout = setTimeout(() => child.kill('SIGTERM'), 30000);\nprocess.stdin.pipe(child.stdin);\nchild.stdin.on('error', () => process.stdin.destroy());\nchild.on('error', () => { clearTimeout(timeout); process.exitCode = 1; process.stdin.destroy(); });\nchild.on('close', code => { clearTimeout(timeout); process.exitCode = code ?? 1; process.stdin.destroy(); });\n`, { mode: 0o700 });
     const options: RestoreOptions = { backup, ledgers: ledgerPaths, targetName, restoreUrl: urlFor(targetName), runtimeUrl: urlFor(sourceName), passwordsFile, pgRestore };
 
+    // Functions and standalone enums do not have pg_class rows. They must still
+    // reject a supposedly fresh target before any marker or archive is written.
+    await isolatedQuery(options.restoreUrl, "CREATE FUNCTION public.synthetic_existing() RETURNS integer LANGUAGE sql AS 'SELECT 1'");
+    await assert.rejects(restoreDatabase(options), failure('restore_target_not_empty'));
+    assert.equal((await isolatedQuery(options.restoreUrl, "SELECT to_regclass('tk_recovery.state') AS relation"))[0].relation, null);
+    await isolatedQuery(options.restoreUrl, 'DROP FUNCTION public.synthetic_existing()');
+    await isolatedQuery(options.restoreUrl, "CREATE TYPE public.synthetic_existing AS ENUM ('fixture')");
+    await assert.rejects(restoreDatabase(options), failure('restore_target_not_empty'));
+    assert.equal((await isolatedQuery(options.restoreUrl, "SELECT to_regclass('tk_recovery.state') AS relation"))[0].relation, null);
+    await isolatedQuery(options.restoreUrl, 'DROP TYPE public.synthetic_existing');
+    await isolatedQuery(options.restoreUrl, 'SELECT lo_create(424242)');
+    await assert.rejects(restoreDatabase(options), failure('restore_target_not_empty'));
+    assert.equal((await isolatedQuery(options.restoreUrl, "SELECT to_regclass('tk_recovery.state') AS relation"))[0].relation, null);
+    await isolatedQuery(options.restoreUrl, 'SELECT lo_unlink(424242)');
+    await isolatedQuery(options.restoreUrl, 'CREATE SCHEMA pgx_private');
+    await isolatedQuery(options.restoreUrl, 'CREATE TABLE pgx_private.synthetic_existing(value text)');
+    await assert.rejects(restoreDatabase(options), failure('restore_target_not_empty'));
+    assert.equal((await isolatedQuery(options.restoreUrl, "SELECT to_regclass('tk_recovery.state') AS relation"))[0].relation, null);
+    await isolatedQuery(options.restoreUrl, 'DROP SCHEMA pgx_private CASCADE');
+    checks.push('native fresh targets containing functions, enums, large objects or tables in legitimate pgx_private schemas are rejected before marker/archive writes');
+
     const runtime = await holdRuntimeGate(options.restoreUrl, () => { throw new Error('Synthetic gate connection lost'); });
     try { await assert.rejects(restoreDatabase(options), failure('restore_target_in_use')); }
     finally { await runtime.close(); }
@@ -195,12 +223,34 @@ async function main() {
 
     const invalidBackup = join(directory, 'invalid.dump');
     await writeFile(invalidBackup, 'synthetic invalid archive', { mode: 0o600 });
-    await assert.rejects(restoreDatabase({ ...options, backup: invalidBackup, targetName: failureName, restoreUrl: urlFor(failureName) }), failure('archive_restore_failed'));
+    const failedOptions = { ...options, backup: invalidBackup, targetName: failureName, restoreUrl: urlFor(failureName) };
+    await assert.rejects(restoreDatabase(failedOptions), failure('archive_restore_failed'));
     failedTarget = connectDatabase(urlFor(failureName));
     assert.equal((await failedTarget.query('SELECT phase FROM tk_recovery.state')).rows[0].phase, 'prepared');
     assert.equal((await failedTarget.query("SELECT to_regclass('tk_memories') AS relation")).rows[0].relation, null);
     await assert.rejects(holdRuntimeGate(urlFor(failureName), () => undefined), failure('recovery_incomplete'));
     checks.push('native pg_restore failure retains a pending marker and blocks startup');
+    await failedTarget.close(); failedTarget = undefined;
+    await isolatedQuery(failedOptions.restoreUrl, "CREATE FUNCTION public.synthetic_ambiguous() RETURNS integer LANGUAGE sql AS 'SELECT 1'");
+    await assert.rejects(restoreDatabase(failedOptions), failure('recovery_restore_ambiguous'));
+    assert.equal((await isolatedQuery(failedOptions.restoreUrl, 'SELECT phase FROM tk_recovery.state'))[0].phase, 'prepared');
+    await isolatedQuery(failedOptions.restoreUrl, 'DROP FUNCTION public.synthetic_ambiguous()');
+    await isolatedQuery(failedOptions.restoreUrl, "CREATE TYPE public.synthetic_ambiguous AS ENUM ('fixture')");
+    await assert.rejects(restoreDatabase(failedOptions), failure('recovery_restore_ambiguous'));
+    assert.equal((await isolatedQuery(failedOptions.restoreUrl, 'SELECT phase FROM tk_recovery.state'))[0].phase, 'prepared');
+    await assert.rejects(holdRuntimeGate(failedOptions.restoreUrl, () => undefined), failure('recovery_incomplete'));
+    await isolatedQuery(failedOptions.restoreUrl, 'DROP TYPE public.synthetic_ambiguous');
+    await isolatedQuery(failedOptions.restoreUrl, 'SELECT lo_create(424242)');
+    await assert.rejects(restoreDatabase(failedOptions), failure('recovery_restore_ambiguous'));
+    assert.equal((await isolatedQuery(failedOptions.restoreUrl, 'SELECT phase FROM tk_recovery.state'))[0].phase, 'prepared');
+    await assert.rejects(holdRuntimeGate(failedOptions.restoreUrl, () => undefined), failure('recovery_incomplete'));
+    await isolatedQuery(failedOptions.restoreUrl, 'SELECT lo_unlink(424242)');
+    await isolatedQuery(failedOptions.restoreUrl, 'CREATE SCHEMA pgx_private');
+    await isolatedQuery(failedOptions.restoreUrl, 'CREATE TABLE pgx_private.synthetic_ambiguous(value text)');
+    await assert.rejects(restoreDatabase(failedOptions), failure('recovery_restore_ambiguous'));
+    assert.equal((await isolatedQuery(failedOptions.restoreUrl, 'SELECT phase FROM tk_recovery.state'))[0].phase, 'prepared');
+    await assert.rejects(holdRuntimeGate(failedOptions.restoreUrl, () => undefined), failure('recovery_incomplete'));
+    checks.push('native prepared targets with functions, enums, large objects or pgx_private tables refuse ambiguous replay and remain gated');
 
     const missingPasswords = join(directory, 'missing-passwords.json');
     await writeFile(missingPasswords, '{}', { mode: 0o600 });
