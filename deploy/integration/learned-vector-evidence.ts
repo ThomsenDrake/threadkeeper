@@ -29,10 +29,10 @@ export function snapshotLearnedVector(row: unknown, expected: {
     preprocessing_version: embeddingPreprocessingVersion, input_sha256: embeddingInputFingerprint(expected.statement), stored_vector_sha256: fingerprint };
 }
 
-/** Prove both persisted revisions match their own direct worker input/result. */
+/** Prove both initial memories and the corrected revision match their own worker input/result. */
 export function verifyLearnedVectorEvidence(evidence: unknown, observations: LearnedObservation[]) {
   assert(evidence && typeof evidence === 'object', 'Missing learned vector evidence');
-  const snapshots = evidence as { original: LearnedVectorSnapshot; corrected: LearnedVectorSnapshot };
+  const snapshots = evidence as { original: LearnedVectorSnapshot; preference: LearnedVectorSnapshot; corrected: LearnedVectorSnapshot };
   function match(snapshot: LearnedVectorSnapshot) {
     assert(snapshot && typeof snapshot === 'object', 'Missing learned vector snapshot');
     assert.match(snapshot.input_sha256, /^[0-9a-f]{64}$/, 'Invalid vector input fingerprint');
@@ -49,10 +49,14 @@ export function verifyLearnedVectorEvidence(evidence: unknown, observations: Lea
     assert.equal(matches[0].fingerprint, snapshot.stored_vector_sha256, 'Persisted vector does not match its direct provider result');
     return { ordinal: matches[0].ordinal, index: matches[0].index };
   }
-  const original = match(snapshots.original), corrected = match(snapshots.corrected);
+  const original = match(snapshots.original), preference = match(snapshots.preference), corrected = match(snapshots.corrected);
+  assert.notEqual(snapshots.preference.memory_id, snapshots.original.memory_id, 'Initial vector snapshots refer to the same memory');
+  assert.equal(snapshots.preference.revision, snapshots.original.revision, 'Initial vector revisions differ');
+  assert.equal(preference.ordinal, original.ordinal, 'Initial memories did not use the same worker response');
+  assert.notEqual(preference.index, original.index, 'Initial memories did not use distinct provider inputs');
   assert.equal(snapshots.original.memory_id, snapshots.corrected.memory_id, 'Vector snapshots refer to different memories');
   assert.equal(snapshots.corrected.revision, snapshots.original.revision + 1, 'Corrected vector revision did not advance');
   assert(corrected.ordinal > original.ordinal, 'Corrected vector did not use a subsequent worker response');
-  return { original, corrected,
+  return { original, preference, corrected,
     normalized_vector_changed: snapshots.original.stored_vector_sha256 !== snapshots.corrected.stored_vector_sha256 };
 }

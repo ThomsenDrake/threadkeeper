@@ -1,9 +1,9 @@
 {
   "schema_version": "threadkeeper.direct-learned-lifecycle.v1",
-  "measured_at": "2026-10-03T21:25:56.975Z",
+  "measured_at": "2026-10-03T20:53:01.663Z",
   "source": {
-    "commit": "28a83b865f8de9fe0c8e55aea61fa74c079d1c74",
-    "tree": "2b657bd15dc9f2489813180feedd876fef581459",
+    "commit": "5db08e59cbdffccd58a643b84e1b14b099abc66b",
+    "tree": "2840bd61d9e3aa6afcd8f688f332e1196964fc00",
     "files": {
       ".dockerignore": "2859d93561c69b21a54342bb8f5114e3f52aeb16f70576aa060b415601e82bee",
       ".env.example": "0d31a15c43007d835bc7fdd2813a725227423b95c5002fba5e6eb9cbc3434ce7",
@@ -42,9 +42,9 @@
       "deploy/integration/learned-extraction-evidence.ts": "866902bad03455e4a4a52d084def08e0150d058fcff282727615d93dd7b76699",
       "deploy/integration/learned-run.d.mts": "6df5efa446a1ed5baa7b777e5a18726b639e0e6e8b0b0690e66c7058423ad8b1",
       "deploy/integration/learned-run.mjs": "4dfd22176de20e95303dca73e2d73adcea05301f146c00887140bf37c770e01a",
-      "deploy/integration/learned-scenarios.ts": "120e69ee43075ffa0d6867787af2b7546b22326fbe5d0027de1adde01cf0b177",
-      "deploy/integration/learned-support.ts": "e71ca216edfb8991ec87ca8a8a9d02bb316b37bee1de91778055f5a796cf2452",
-      "deploy/integration/learned-vector-evidence.ts": "85e046be368d9770e5161867a9988ab5ae4535002b0f18c126b2c3a4fe887cd9",
+      "deploy/integration/learned-scenarios.ts": "f76ab32af407a896d41e2635763efda44b93a501f4a5cab382f561305824a079",
+      "deploy/integration/learned-support.ts": "fe4e8946e26c6c615da30f630504c1ea9594f2b40e19be0fbf35c2af6f60b620",
+      "deploy/integration/learned-vector-evidence.ts": "77c2e8949946179b51bfd355900ca9177b190d0cd4fc9adcd7a706ea8187cbee",
       "deploy/integration/provider-fixture.ts": "cc750099f49648468833c5be29f4f238b5c046eca649cef1051a6cccbf5ab802",
       "deploy/integration/run.ts": "0cf8fc036483396186f650141ea7e05d83d2dcc020e7573e46746293ab7f41b6",
       "deploy/integration/scenarios.ts": "5d49f62a6a880178b8efafb30fcb832aa08fdfccc79941631c4d81c437eff0d4",
@@ -66,7 +66,7 @@
       "deploy/recovery-status.ts": "52063aeb8b5c5b46dbb6d64a12dad6b1f59578eb9ec8f65830f7f20fc9c48648",
       "deploy/reindex.ts": "f150d8a730697a6ea42dd882f12ad4ea222e6b3aeeed31364a083b44792f3dba",
       "deploy/restore.ts": "7a5107a1777d3690cddc8e220513cbaf7ea4ce1e62df6b165df03716b7d09d10",
-      "package.json": "6aff251f6264cd157bd65cc01ac4bc0f0948f974a129e7eea7f73f22c8219186",
+      "package.json": "da172978c978109aef7a056591c42a71824a350048120fa59d56a09281b30d87",
       "packages/contracts/package.json": "271fbcbdb54262e0e373dd5972237daf880aa2b6a6eccafc88f0f047a92f9030",
       "packages/contracts/src/index.ts": "b96feb8d1f4039f74138d0fa5d611e2335851375a577cd5f4d2fd02a2f2f14a5",
       "packages/core/package.json": "97d4c2c1d228093ac627fdae6b42836d0f2bef71798a16059239404785bffc10",
@@ -99,10 +99,9 @@
       "tests/hybrid.test.ts": "2f718e2bc71d7f58455c2471bf9eb43d516a69b75d502ac1d8f255b8aa75b346",
       "tests/learned-acceptance.test.ts": "2c9e6a893a33f8077cea327e0990c7b864e92606386ece2cfa088b27ceed1118",
       "tests/learned-extraction-evidence.test.ts": "3421277407d62c46a62aaa81250036eea45089f9b4129eb6cdfe217fa44f76cc",
-      "tests/learned-harness.test.ts": "52162891f6aaca3a66ebf6c6998a77f87b5ad95981c52c973a049a41491cf62d",
-      "tests/learned-vector-evidence.test.ts": "b4c68fdef2351f73f1e4d1fc0204f0f25f8aaeb6ae045aa87c943c9df138baf0",
+      "tests/learned-harness.test.ts": "049cc81f67ccbad927b2579886aa5dbdd1b8693b30d63ef4df4d17abb48a8735",
+      "tests/learned-vector-evidence.test.ts": "4fec520ea0229c360884e4f0044f5dad2ed079b8601a7b1fb710fb636b70f098",
       "tests/migrations.test.ts": "5accccc751b25f3dbdc5c132611cc75cd76aa8bbaae2567d1b4b7da5f8ab79e2",
-      "tests/nullable-usage-probe.test.ts": "25cfb8a039be6250ccb1a98d81d5cd44a986412fa1a55f94dae4c9a69ee8cbaf",
       "tests/profile-scaling.test.ts": "9851b3aa99c82a500b41c07ac24a763fb3065c2006b30ef60a4ddbb35b945ed5",
       "tests/provider-evaluation.test.ts": "df34e35300cd4f568fe9bc59b75b6c311ad401b6719acbef5037cbf8d596fd31",
       "tests/provider-fixture.test.ts": "4e2ae9cfece6eac8b01abfe7fd07fab1d9a19c914fc2241fa9cae2429679f06c",
@@ -138,8 +137,8 @@
     "compose": "2.40.3",
     "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
     "pgvector": "0.8.7",
-    "application_build_image": "sha256:4a23ab895df1d399959a08d32c440bed2b994b6413cb10693337b4070a8711b4",
-    "application_image": "sha256:4a23ab895df1d399959a08d32c440bed2b994b6413cb10693337b4070a8711b4",
+    "application_build_image": "sha256:633961576bc9f4d740348c4cce217536d8b84f85cd7b6eaf90fd2f591501f89d",
+    "application_image": "sha256:633961576bc9f4d740348c4cce217536d8b84f85cd7b6eaf90fd2f591501f89d",
     "application_repository_digests": [],
     "database_image": "sha256:151aa1c2e849e7828ed8aef2183ae15f692cbe887d2f28921d8b44b26e154d7e",
     "database_repository_digests": [
@@ -170,37 +169,28 @@
   },
   "extraction_evidence": {
     "canonical_version": "threadkeeper-extraction-v1",
-    "input_sha256": "3c5d5fba6bfae5dc26833d42e5e1ba0de036eb7801857981eb3521bedeae789a",
+    "input_sha256": "04aef53ab5632d0765d44cff14d85eb52ee011723d16693075e754dde37184e0",
     "memory_count": 2,
     "memories_sha256": "9e5a91d84ba798b9fcc279e9ba17d0ec0e7ddefc5267af33cc0df4eff4a0ea7f"
   },
   "vector_evidence": {
     "original": {
-      "memory_id": "5c0aa93c-eb71-401c-b736-df1ec7033a99",
+      "memory_id": "49dd3776-4689-4a3d-90eb-2482fd970e25",
       "revision": 1,
       "model": "Qwen/Qwen3-Embedding-8B",
       "dimensions": 256,
       "preprocessing_version": "raw-statement-unit-v1",
       "input_sha256": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
-      "stored_vector_sha256": "2d0597141a55d5d9fd623e83169f9776ababf0dc2e4e0a6f949a2aebf3434c6d"
-    },
-    "preference": {
-      "memory_id": "f572eda7-56bf-4c88-8faa-13ad5f6f7954",
-      "revision": 1,
-      "model": "Qwen/Qwen3-Embedding-8B",
-      "dimensions": 256,
-      "preprocessing_version": "raw-statement-unit-v1",
-      "input_sha256": "62ff7796da575e87e172ba08a89325629486c4fc2bc4a5964a1665a904525a09",
-      "stored_vector_sha256": "9dd4a14d498775210db99938a1ba32fa01cf70dd8e49f3fbd1e994498febd4bb"
+      "stored_vector_sha256": "3de3e2a8ea764dd57b52176e0b702661295d5b0ac0799971615d3c2f577abb50"
     },
     "corrected": {
-      "memory_id": "5c0aa93c-eb71-401c-b736-df1ec7033a99",
+      "memory_id": "49dd3776-4689-4a3d-90eb-2482fd970e25",
       "revision": 2,
       "model": "Qwen/Qwen3-Embedding-8B",
       "dimensions": 256,
       "preprocessing_version": "raw-statement-unit-v1",
       "input_sha256": "8b2e155ace3d2f7555c573fe14bbd5f8f6f2821b8d6f00cea4cf92eecf18775a",
-      "stored_vector_sha256": "48cb549cb6a50392d9c83814b2bdb0b4fdd71afbd3bee3b4a89ed17825260839"
+      "stored_vector_sha256": "995b84cd3206ba91918f9d8db0fb6aca333868fd167ec8e0f16a5095815bce83"
     }
   },
   "surviving_memory": {
@@ -208,21 +198,21 @@
     "revision": 2,
     "authoritative": true
   },
-  "elapsed_ms": 20526,
+  "elapsed_ms": 55521,
   "provider_requests": [
     {
       "event": "direct_provider_request",
       "ordinal": 1,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:42.811Z",
+      "started_at": "2026-10-03T20:52:18.401Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "1265f18ef477537d88391828f2967fe08deb62bffe2c2811ceea03f13ed02af9",
+      "response_sha256": "48098c1ebd26c38200a2778e27f1287a6284cb0b1a074f1c414edb289ed5e653",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -230,7 +220,7 @@
           {
             "index": 0,
             "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "aba95e857b4a309daf1deb21ccb0fd53ce3602aff2277fad5f9bc3839675bfe5"
+            "stored_vector_sha256": "0ddacb413f723637ae692be168fcf42fe3d2a50135f4aef44c3aa5eb9c7d64cf"
           }
         ]
       },
@@ -242,7 +232,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 1008,
+      "elapsed_ms": 2982,
       "service": "api"
     },
     {
@@ -250,14 +240,14 @@
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:44.149Z",
+      "started_at": "2026-10-03T20:52:21.588Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "cb3db8687b920b70d404d2a58e64930a46b4430ac32dc55b5dadcf851587d264",
+      "response_sha256": "338ee423bb2e7d346f54cbde8bf058559e1b78e7af2d463ef241eb154319209e",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -265,7 +255,7 @@
           {
             "index": 0,
             "input_sha256": "706fcb6b830cbc392a4264fd792a34bed7795b658e10292dd87b7e26f41b7e64",
-            "stored_vector_sha256": "8b0e2dc5c33f305b6e6a515f3894b88a4933a3eb9083b1de7ba88e4216ff2bb8"
+            "stored_vector_sha256": "1ded8926db83648e3fe528ebbe4d8ca0f0af10adeb63c1bee717cc33f335ca04"
           }
         ]
       },
@@ -277,7 +267,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 3163,
+      "elapsed_ms": 8884,
       "service": "api"
     },
     {
@@ -285,14 +275,14 @@
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:50.635Z",
+      "started_at": "2026-10-03T20:52:42.046Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "cf1a58acf911f5bf44e56ff5a3470c2120e14bcd8d512e79fa4ac88642bd13bc",
+      "response_sha256": "f9959dc7ba17f8e95bddbd5ff6e17c6f78604970806fd955a33fa24f1f48dc93",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -300,7 +290,7 @@
           {
             "index": 0,
             "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "b984b8dfb04895ab952d2a1b543331fafa6ad9b7c1b422570fc183c3236e1728"
+            "stored_vector_sha256": "0ddacb413f723637ae692be168fcf42fe3d2a50135f4aef44c3aa5eb9c7d64cf"
           }
         ]
       },
@@ -312,7 +302,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 3288,
+      "elapsed_ms": 10515,
       "service": "api"
     },
     {
@@ -320,14 +310,14 @@
       "ordinal": 4,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:53.940Z",
+      "started_at": "2026-10-03T20:52:52.618Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "9745a07f0d89138dfd79db145ddda6c3bd2dce697acfcf72d58e4520d3a0756d",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "82c5657d25d600b4e35ee5ac8fd8c2bb4d641b65db2b02637dfb23deacf1c048",
+      "response_sha256": "e3f8cfe18d48265bdad78efa2d936767e24ac222028ad5412e0d5dfe476f314e",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -335,7 +325,7 @@
           {
             "index": 0,
             "input_sha256": "6132f103239603c4735dea614406d84d6e53e4ae4dcdd2d8b21581da2f2368ad",
-            "stored_vector_sha256": "b984b8dfb04895ab952d2a1b543331fafa6ad9b7c1b422570fc183c3236e1728"
+            "stored_vector_sha256": "6ce72662544bdf271e1a3429e84301e69ee81099aa55cf6933924829ab2f42d0"
           }
         ]
       },
@@ -347,7 +337,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 2313,
+      "elapsed_ms": 7888,
       "service": "api"
     },
     {
@@ -355,14 +345,14 @@
       "ordinal": 5,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:56.266Z",
+      "started_at": "2026-10-03T20:53:00.537Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b8c01ae72e8c9a3fe44de41c3263464a79c884297156dd0c0d17a4ea9ac028a6",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "bcc208fe518645cfd16b086f3db24a77d6dbe64d326e5364ac8c30006bc7436a",
+      "response_sha256": "ace4c38f2896afa06346e18c23d04fb702d7d36e5f31cee956279fea6600cf4a",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -370,7 +360,7 @@
           {
             "index": 0,
             "input_sha256": "706fcb6b830cbc392a4264fd792a34bed7795b658e10292dd87b7e26f41b7e64",
-            "stored_vector_sha256": "9f1e3634d67f0c067ab43f2edb6fffaf39cc669708a2088ac89c3d5aecfdd69d"
+            "stored_vector_sha256": "c17720e51c477787c0aa22719d853c7f259ac03c3f38e067761eda395878962c"
           }
         ]
       },
@@ -382,7 +372,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 297,
+      "elapsed_ms": 680,
       "service": "api"
     },
     {
@@ -390,16 +380,16 @@
       "ordinal": 1,
       "path": "chat/completions",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:37.445Z",
+      "started_at": "2026-10-03T20:52:07.221Z",
       "sent": true,
       "requested_model": "nvidia/Nemotron-3_5-Lightning",
-      "request_sha256": "8b39844567604b1c62780739942b5172bfdfe0daa853f95373591db89a745d15",
+      "request_sha256": "accf8098c215de0b65a3b3d6caae62c893f5ea9f5b5a0fe42f5c0a723e6ec58d",
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "59265b816f9d7bba65f83441ea5b797141873c76cb9f142d90e3545357976f72",
+      "response_sha256": "32a970f320d112abb1c215c3aca7e1a3767b36892dccd7d770829a77c76c7e0d",
       "extraction_fingerprints": {
         "canonical_version": "threadkeeper-extraction-v1",
-        "input_sha256": "3c5d5fba6bfae5dc26833d42e5e1ba0de036eb7801857981eb3521bedeae789a",
+        "input_sha256": "04aef53ab5632d0765d44cff14d85eb52ee011723d16693075e754dde37184e0",
         "memory_count": 2,
         "memories_sha256": "9e5a91d84ba798b9fcc279e9ba17d0ec0e7ddefc5267af33cc0df4eff4a0ea7f"
       },
@@ -407,15 +397,15 @@
       "returned_model": "nvidia/Nemotron-3_5-Lightning",
       "usage": {
         "completion_tokens": 149,
-        "prompt_tokens": 1589,
-        "total_tokens": 1738,
+        "prompt_tokens": 1579,
+        "total_tokens": 1728,
         "completion_tokens_details": {
           "reasoning_tokens": 0
         }
       },
       "finish_reason": "stop",
       "usage_status": "reported",
-      "elapsed_ms": 1252,
+      "elapsed_ms": 1629,
       "service": "worker"
     },
     {
@@ -423,27 +413,27 @@
       "ordinal": 2,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:38.724Z",
+      "started_at": "2026-10-03T20:52:08.921Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
-      "request_sha256": "6b9816358ce1e2487ed8be4442ceb3ad7ccb871b3a2f5f0e4508cb7eae9213d5",
+      "request_sha256": "48a0dd4c45eb093f8985e437fffba5252a0aacc0490b727b0f12c495f20fc07f",
       "input_count": 2,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "6adc69a44b3ab272855787fa455a3942b86e4ff398a28347eef58f6d419de8d2",
+      "response_sha256": "26466e6ac7ae6141c4227528a88eb06e829217093930185d5f895bff3be7da91",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
         "entries": [
           {
             "index": 0,
-            "input_sha256": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
-            "stored_vector_sha256": "2d0597141a55d5d9fd623e83169f9776ababf0dc2e4e0a6f949a2aebf3434c6d"
+            "input_sha256": "62ff7796da575e87e172ba08a89325629486c4fc2bc4a5964a1665a904525a09",
+            "stored_vector_sha256": "7f61f0599f3e6d8d76e67176b57fe328ccda7dc07b45220c6d560fc779333301"
           },
           {
             "index": 1,
-            "input_sha256": "62ff7796da575e87e172ba08a89325629486c4fc2bc4a5964a1665a904525a09",
-            "stored_vector_sha256": "9dd4a14d498775210db99938a1ba32fa01cf70dd8e49f3fbd1e994498febd4bb"
+            "input_sha256": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
+            "stored_vector_sha256": "3de3e2a8ea764dd57b52176e0b702661295d5b0ac0799971615d3c2f577abb50"
           }
         ]
       },
@@ -455,7 +445,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 3407,
+      "elapsed_ms": 8515,
       "service": "worker"
     },
     {
@@ -463,14 +453,14 @@
       "ordinal": 3,
       "path": "embeddings",
       "method": "POST",
-      "started_at": "2026-10-03T21:25:48.218Z",
+      "started_at": "2026-10-03T20:52:31.536Z",
       "sent": true,
       "requested_model": "Qwen/Qwen3-Embedding-8B",
       "request_sha256": "b83ae344d3ca84b892d10b6224c0171056b6ef2a8339c0172a99fcc292624a2a",
       "input_count": 1,
       "http_status": 200,
       "outcome": "http_response",
-      "response_sha256": "6ae75a4fc60bddfe5d46f6c61979475ac210b7eddb3331cd12e5f1fb1137385e",
+      "response_sha256": "a94bcdec556c49eef805793b220200cc1423f14fa56684d37b5a5eecae87f9d2",
       "embedding_fingerprints": {
         "preprocessing_version": "raw-statement-unit-v1",
         "dimensions": 256,
@@ -478,7 +468,7 @@
           {
             "index": 0,
             "input_sha256": "8b2e155ace3d2f7555c573fe14bbd5f8f6f2821b8d6f00cea4cf92eecf18775a",
-            "stored_vector_sha256": "48cb549cb6a50392d9c83814b2bdb0b4fdd71afbd3bee3b4a89ed17825260839"
+            "stored_vector_sha256": "995b84cd3206ba91918f9d8db0fb6aca333868fd167ec8e0f16a5095815bce83"
           }
         ]
       },
@@ -490,7 +480,7 @@
         "completion_tokens": 0
       },
       "usage_status": "reported",
-      "elapsed_ms": 2260,
+      "elapsed_ms": 10318,
       "service": "worker"
     }
   ],
@@ -504,8 +494,8 @@
     "inference_requests_with_invalid_usage": 0,
     "derived_total_tokens_request_count": 0,
     "usage": {
-      "prompt_tokens": 1683,
-      "total_tokens": 1832,
+      "prompt_tokens": 1673,
+      "total_tokens": 1822,
       "completion_tokens": 149,
       "completion_tokens_details": {
         "reasoning_tokens": 0
@@ -514,10 +504,6 @@
   },
   "vector_observation_binding": {
     "original": {
-      "ordinal": 2,
-      "index": 0
-    },
-    "preference": {
       "ordinal": 2,
       "index": 1
     },

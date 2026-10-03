@@ -126,10 +126,12 @@ export async function runLearnedScenarios(options: {
     const { deadline, preference } = assertLearnedExtraction(all, sources, project, grants[0].client.id);
     const extractionEvidence = snapshotLearnedExtraction(all, sources, { project_id: project, subject: 'self' });
     const originalVectors = await options.sql(`SELECT memory_id,revision,provider_model,preprocessing_version,dimensions,embedding::text AS embedding
-      FROM tk_embeddings WHERE memory_id=${literal(deadline.id)}`);
-    assert.equal(originalVectors.length, 1);
-    const originalVector = snapshotLearnedVector(originalVectors[0], { memory_id: deadline.id, revision: deadline.revision,
+      FROM tk_embeddings WHERE memory_id IN (${literal(deadline.id)},${literal(preference.id)})`);
+    assert.equal(originalVectors.length, 2);
+    const originalVector = snapshotLearnedVector(originalVectors.find(row => row.memory_id === deadline.id), { memory_id: deadline.id, revision: deadline.revision,
       statement: deadline.statement, model: embeddingCorpus.model, dimensions: 256 });
+    const preferenceVector = snapshotLearnedVector(originalVectors.find(row => row.memory_id === preference.id), { memory_id: preference.id, revision: preference.revision,
+      statement: preference.statement, model: embeddingCorpus.model, dimensions: 256 });
     assert.deepEqual([...completed.memory_ids].sort(), [deadline.id, preference.id].sort());
     assert.deepEqual([...completed.source_ids].sort(), sources.map(source => source.id).sort());
     const originalDeadline = learnedDetail((await http(`/api/memories/${deadline.id}`)).data);
@@ -220,7 +222,7 @@ export async function runLearnedScenarios(options: {
     checks.push('revision-checked authoritative correction, graph-preview forgetting, fresh independent hybrid recall and export/vector/job cleanup');
     return { checks, queries: learnedQueries, extraction: { accepted: 2, model: 'nvidia/Nemotron-3_5-Lightning' },
       extraction_evidence: extractionEvidence,
-      vector_evidence: { original: originalVector, corrected: correctedVector },
+      vector_evidence: { original: originalVector, preference: preferenceVector, corrected: correctedVector },
       surviving_memory: { statement: corrected, revision: changed.revision, authoritative: true }, elapsed_ms: Math.round(performance.now() - started) };
   } finally {
     options.signal.removeEventListener('abort', abortClients);
