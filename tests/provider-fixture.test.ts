@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { test } from 'node:test';
-import { createFixture, FIXTURE_EMBEDDING_MODEL } from '../deploy/integration/provider-fixture.ts';
+import { createFixture, FIXTURE_EMBEDDING_MODEL, FIXTURE_REJECTED_EMBEDDING_MARKER } from '../deploy/integration/provider-fixture.ts';
 import {
   OpenAICompatibleEmbeddingProvider, OpenAICompatibleProvider, ProviderError, providerConfigFromEnv,
 } from '../packages/providers/src/index.ts';
@@ -112,5 +112,37 @@ test('held provider replies snapshot output and fault mode before configuration 
     assert.equal(reset.chatRequests + reset.embeddingRequests + reset.completedChat + reset.completedEmbeddings, 0);
     assert.deepEqual(reset.models, []);
     assert.deepEqual(reset.dimensions, []);
+  });
+});
+
+test('synthetic input rejection isolates a fixed marker and resets without exposing input', async () => {
+  await withFixture(async (baseUrl, control) => {
+    const provider = embeddings(baseUrl);
+    const poison = `A synthetic preference with ${FIXTURE_REJECTED_EMBEDDING_MARKER}.`;
+    const healthy = 'A newer synthetic deadline remains indexable.';
+    await control('configure', { embeddingMode: 'reject-synthetic-marker' });
+    await assert.rejects(provider.embed([poison, healthy]), error => error instanceof ProviderError && error.code === 'provider_http_error');
+    let status = await control('status');
+    assert.equal(status.lastEmbeddingInputCount, 2);
+    assert.equal(status.rejectedEmbeddingRequests, 1);
+    assert.ok(!JSON.stringify(status).includes(FIXTURE_REJECTED_EMBEDDING_MARKER));
+    assert.ok(!JSON.stringify(status).includes(healthy));
+    assert.deepEqual((await provider.embed([healthy])).vectors, [[1, 0, 0]]);
+    status = await control('status');
+    assert.equal(status.lastEmbeddingInputCount, 1);
+    assert.equal(status.rejectedEmbeddingRequests, 1);
+
+    await control('configure', { holdEmbeddings: true });
+    const rejected = assert.rejects(provider.embed([poison]), error => error instanceof ProviderError && error.code === 'provider_http_error');
+    await waitForHeld(control, 'heldEmbeddings');
+    await control('configure', { embeddingMode: 'ok' });
+    await control('release', {});
+    await rejected;
+    await control('configure', { embeddingMode: 'reject-synthetic-marker' });
+    await control('reset', {});
+    status = await control('status');
+    assert.equal(status.rejectedEmbeddingRequests, 0);
+    assert.equal(status.lastEmbeddingInputCount, 0);
+    assert.deepEqual((await provider.embed([poison])).vectors, [[0, 1, 0]], 'Reset must clear per-input rejection.');
   });
 });

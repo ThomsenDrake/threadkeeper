@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Database } from './index.ts';
 
 /** A structural interface: the core does not depend on any hosted provider. */
@@ -69,6 +69,7 @@ export function createEmbeddingIndex(db: Database, provider?: EmbeddingProvider)
     try {
       // Also verifies that the optional migration has run. No user data is read.
       await db.query('SELECT memory_id,revision,space_id,dimensions,embedding FROM tk_embeddings WHERE false');
+      await db.query('SELECT memory_id,revision,space_id,attempts,claim_token,lease_until,next_attempt_at FROM tk_embedding_attempts WHERE false');
     } catch {
       return { ...base, version, enabled: false, reason: 'embedding_storage_unavailable' };
     }
@@ -105,27 +106,89 @@ export function createEmbeddingIndex(db: Database, provider?: EmbeddingProvider)
     }
   }
 
-  async function processBatch(limit = 16): Promise<{ status: string; indexed: number; skipped: number; reason?: string }> {
+  type BatchReport = { status: string; indexed: number; skipped: number; reason?: string;
+    pending?: number; deferred?: number; retry_after_ms?: number };
+
+  const missingVectors = `m.status IN ('active','candidate') AND NOT EXISTS (
+    SELECT 1 FROM tk_embeddings e WHERE e.memory_id=m.id AND e.revision=m.revision
+      AND e.space_id=$1 AND e.dimensions=$2
+  )`;
+  const sameAttempt = 'a.revision=m.revision AND a.space_id=$1';
+  const eligibleAttempt = `(a.memory_id IS NULL OR NOT (${sameAttempt})
+    OR ((a.lease_until IS NULL OR a.lease_until<=clock_timestamp()) AND a.next_attempt_at<=clock_timestamp()))`;
+
+  async function remaining() {
+    const row = (await db.query(`SELECT count(*) AS pending,
+      count(*) FILTER (WHERE NOT ${eligibleAttempt}) AS deferred,
+      COALESCE(ceil(min(CASE WHEN a.memory_id IS NULL OR NOT (${sameAttempt}) THEN 0
+        ELSE GREATEST(0,EXTRACT(EPOCH FROM (
+          GREATEST(COALESCE(a.lease_until,'-infinity'::timestamptz),a.next_attempt_at)-clock_timestamp()))*1000)
+      END)),0) AS retry_after_ms
+      FROM tk_memories m LEFT JOIN tk_embedding_attempts a ON a.memory_id=m.id
+      WHERE ${missingVectors}`, [spaceId, dimensions])).rows[0];
+    return { pending: Number(row.pending), deferred: Number(row.deferred), retry_after_ms: Number(row.retry_after_ms) };
+  }
+
+  async function processBatch(limit = 16): Promise<BatchReport> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 64) throw new RangeError('embedding_batch_limit_must_be_1_to_64');
     const available = await capability();
-    if (!available.enabled) return { status: 'disabled', reason: available.reason, indexed: 0, skipped: 0 };
+    if (!available.enabled) return { status: 'disabled', reason: available.reason, indexed: 0, skipped: 0, pending: 0, deferred: 0, retry_after_ms: 0 };
     let pending: any[];
     try {
-      pending = (await db.query(`SELECT m.id,m.owner_id,m.revision,m.statement,m.status
-        FROM tk_memories m WHERE m.status IN ('active','candidate') AND NOT EXISTS (
-          SELECT 1 FROM tk_embeddings e WHERE e.memory_id=m.id AND e.revision=m.revision
-            AND e.space_id=$1 AND e.dimensions=$2
-        ) ORDER BY m.updated_at,m.id LIMIT $3`, [spaceId, dimensions, limit])).rows;
+      pending = await db.transaction(async tx => {
+        // Separate from the recovery gate's shared session lock. The short
+        // claim lock keeps workers from paying for the same pending revision.
+        await tx.query('SELECT pg_advisory_xact_lock($1,$2)', [141422, 3]);
+        const rows = (await tx.query(`SELECT m.id,m.owner_id,m.revision,m.statement,m.status,
+          CASE WHEN ${sameAttempt} THEN a.attempts ELSE 0 END AS prior_attempts
+          FROM tk_memories m LEFT JOIN tk_embedding_attempts a ON a.memory_id=m.id
+          WHERE ${missingVectors} AND ${eligibleAttempt}
+          ORDER BY CASE WHEN ${sameAttempt} THEN a.next_attempt_at ELSE m.updated_at END,m.id
+          LIMIT $3`, [spaceId, dimensions, limit])).rows;
+        // A rejected fresh batch is retried one row at a time. Healthy peers
+        // and later captures can progress without repeating a poison batch;
+        // even an outage costs only one provider request per worker cycle.
+        const selected = rows[0]?.prior_attempts > 0 ? rows.slice(0, 1) : rows.filter(row => Number(row.prior_attempts) === 0);
+        const claimed: any[] = [];
+        for (const row of selected) {
+          const token = randomUUID();
+          const attempt = (await tx.query(`INSERT INTO tk_embedding_attempts
+            (memory_id,revision,space_id,attempts,claim_token,lease_until,next_attempt_at)
+            VALUES ($1,$2,$3,1,$4,clock_timestamp()+interval '10 minutes',clock_timestamp())
+            ON CONFLICT (memory_id) DO UPDATE SET
+              attempts=CASE WHEN tk_embedding_attempts.revision=EXCLUDED.revision
+                AND tk_embedding_attempts.space_id=EXCLUDED.space_id
+                THEN LEAST(tk_embedding_attempts.attempts,30)+1 ELSE 1 END,
+              revision=EXCLUDED.revision,space_id=EXCLUDED.space_id,
+              claim_token=EXCLUDED.claim_token,lease_until=EXCLUDED.lease_until,next_attempt_at=clock_timestamp()
+            RETURNING attempts`, [row.id, row.revision, spaceId, token])).rows[0];
+          claimed.push({ ...row, claim_token: token, attempts: Number(attempt.attempts) });
+        }
+        return claimed;
+      });
     } catch {
       return { status: 'storage_failed', reason: 'storage_unavailable', indexed: 0, skipped: 0 };
     }
-    if (!pending.length) return { status: 'idle', indexed: 0, skipped: 0 };
+    if (!pending.length) {
+      try {
+        const state = await remaining();
+        return { status: state.pending ? 'deferred' : 'idle', indexed: 0, skipped: 0, ...state };
+      } catch { return { status: 'storage_failed', reason: 'storage_unavailable', indexed: 0, skipped: 0 }; }
+    }
     let vectors: number[][];
     try {
       // Network calls run outside database transactions and owner locks.
       vectors = validateVectors(await provider!.embed(pending.map(row => row.statement)), pending.length, dimensions!, provider!.config.modelId);
     } catch {
-      return { status: 'provider_failed', reason: 'provider_unavailable', indexed: 0, skipped: pending.length };
+      try {
+        for (const row of pending) {
+          const retryMs = Math.min(30_000 * 2 ** (row.attempts - 1), 3_600_000);
+          await db.query(`UPDATE tk_embedding_attempts SET claim_token=NULL,lease_until=NULL,
+            next_attempt_at=clock_timestamp()+($3::double precision*interval '1 millisecond')
+            WHERE memory_id=$1 AND claim_token=$2 AND lease_until>clock_timestamp()`, [row.id, row.claim_token, retryMs]);
+        }
+        return { status: 'provider_failed', reason: 'provider_unavailable', indexed: 0, skipped: pending.length, ...await remaining() };
+      } catch { return { status: 'storage_failed', reason: 'storage_unavailable', indexed: 0, skipped: pending.length }; }
     }
     let indexed = 0;
     let skipped = 0;
@@ -139,13 +202,25 @@ export function createEmbeddingIndex(db: Database, provider?: EmbeddingProvider)
           const current = (await tx.query('SELECT revision,statement,status FROM tk_memories WHERE id=$1 AND owner_id=$2 FOR UPDATE', [before.id, before.owner_id])).rows[0];
           if (!current || Number(current.revision) !== Number(before.revision)
             || current.statement !== before.statement || current.status !== before.status
-            || !['active', 'candidate'].includes(current.status)) return false;
+            || !['active', 'candidate'].includes(current.status)) {
+            await tx.query('DELETE FROM tk_embedding_attempts WHERE memory_id=$1 AND claim_token=$2', [before.id, before.claim_token]);
+            return false;
+          }
+          const claim = (await tx.query(`SELECT memory_id FROM tk_embedding_attempts
+            WHERE memory_id=$1 AND revision=$2 AND space_id=$3 AND claim_token=$4
+            FOR UPDATE`, [before.id, before.revision, spaceId, before.claim_token])).rows[0];
+          if (!claim) return false;
+          // Check wall-clock expiry after every row lock: transaction-start
+          // time and a predicate evaluated before waiting can admit late work.
+          if (!(await tx.query(`SELECT memory_id FROM tk_embedding_attempts
+            WHERE memory_id=$1 AND lease_until>clock_timestamp()`, [before.id])).rows.length) return false;
           await tx.query(`INSERT INTO tk_embeddings(memory_id,revision,provider_model,preprocessing_version,embedding,space_id,dimensions)
             VALUES ($1,$2,$3,$4,$5::vector,$6,$7)
             ON CONFLICT (memory_id) DO UPDATE SET revision=EXCLUDED.revision,
               provider_model=EXCLUDED.provider_model,preprocessing_version=EXCLUDED.preprocessing_version,
               embedding=EXCLUDED.embedding,space_id=EXCLUDED.space_id,dimensions=EXCLUDED.dimensions`,
           [before.id, before.revision, provider!.config.modelId, preprocessingVersion, JSON.stringify(vectors[index]), spaceId, dimensions]);
+          await tx.query('DELETE FROM tk_embedding_attempts WHERE memory_id=$1 AND claim_token=$2', [before.id, before.claim_token]);
           return true;
         });
         if (committed) indexed++; else skipped++;
@@ -153,7 +228,8 @@ export function createEmbeddingIndex(db: Database, provider?: EmbeddingProvider)
     } catch {
       return { status: 'storage_failed', reason: 'storage_unavailable', indexed, skipped: pending.length - indexed };
     }
-    return { status: 'complete', indexed, skipped };
+    try { return { status: 'complete', indexed, skipped, ...await remaining() }; }
+    catch { return { status: 'storage_failed', reason: 'storage_unavailable', indexed, skipped }; }
   }
 
   return { capability, query, processBatch, spaceId, dimensions };

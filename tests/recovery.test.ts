@@ -17,6 +17,14 @@ test('a newer deletion ledger purges an older database snapshot including duplic
   let restored: Awaited<ReturnType<typeof createTestDatabase>> | undefined;
   try {
     const fixture = await seedRecoveryFixture(source.db);
+    // The older archive can include non-content retry/lease state as well as
+    // vectors. Reconciliation must purge forgotten attempts and retain a
+    // surviving memory's independent retry state.
+    const retryIds = [fixture.corrected.memory_ids[0], fixture.survivor.memory_ids[0]];
+    await source.db.query('DELETE FROM tk_embeddings WHERE memory_id=ANY($1::text[])', [retryIds]);
+    await source.db.query(`INSERT INTO tk_embedding_attempts(memory_id,revision,space_id,attempts,next_attempt_at)
+      SELECT id,revision,$2,2,clock_timestamp()+interval '1 minute'
+      FROM tk_memories WHERE id=ANY($1::text[])`, [retryIds, 'synthetic-recovery-space']);
     const oldSnapshot = await source.pglite.dumpDataDir();
     const ledgers = await fixture.newerLedgers();
     assert.ok(ledgers[0].tombstones.length > 0);
@@ -33,10 +41,11 @@ test('a newer deletion ledger purges an older database snapshot including duplic
     assert.equal((await store.list(fixture.other)).memories.length, fixture.unrelated.memory_ids.length);
     for (const id of [...fixture.corrected.source_ids, ...fixture.duplicate.source_ids]) await assert.rejects(store.getSource(fixture.profile, id), failure('source_not_found'));
     const deleted = [...fixture.corrected.memory_ids, fixture.confirmed, fixture.dismissed];
-    for (const table of ['tk_memories', 'tk_revisions', 'tk_evidence', 'tk_embeddings']) {
+    for (const table of ['tk_memories', 'tk_revisions', 'tk_evidence', 'tk_embeddings', 'tk_embedding_attempts']) {
       const column = table === 'tk_memories' ? 'id' : 'memory_id';
       assert.equal((await restored.db.query(`SELECT 1 FROM ${table} WHERE ${column}=ANY($1::text[])`, [deleted])).rows.length, 0);
     }
+    assert.deepEqual((await restored.db.query('SELECT memory_id FROM tk_embedding_attempts')).rows.map(row => row.memory_id), fixture.survivor.memory_ids);
     assert.equal((await store.captureStatus(fixture.profile, fixture.duplicate.capture_id)).status, 'cancelled');
     assert.equal((await store.processJob({ extract: async () => { throw new Error('Forgotten jobs cannot call a provider'); } })), null);
     const bundle = await store.export(fixture.profile);

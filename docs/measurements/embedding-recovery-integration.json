@@ -1,0 +1,58 @@
+{
+  "result": "PASS",
+  "evidence": "native-full-stack-synthetic-provider",
+  "versions": {
+    "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
+    "pgvector": "0.8.7"
+  },
+  "checks": [
+    "profile and two independently authenticated MCP clients",
+    "worker HTTP extraction and native pgvector hybrid recall",
+    "explicit owner confirmation and dismissal preserve original provenance through independent recall",
+    "authoritative profile correction and complete preference deletion",
+    "owner capture pause rejects new saves and replay while authorized recall and queued extraction continue",
+    "owner, project, source and client permission isolation",
+    "embedding HTTP failure, model and dimension validation with recovery",
+    "rejected oldest embedding batch defers durably while newer context and singleton retries progress",
+    "live capture failure, owner retry and independent recall preserve source and job identity",
+    "correction and deletion during in-flight embedding processing",
+    "correction and deletion during in-flight source extraction",
+    "fresh final context, keyless fixture identity and client revocation",
+    "native reindex rejects unfinished leased work with pending/deferred/retry metadata",
+    "native migrations rerun",
+    "native-enabled hybrid, capture recovery, candidate review, client control, forgetting and profile pagination/import regressions (60 tests)"
+  ],
+  "recorded_at": "2026-10-03T15:45:36.538050+00:00",
+  "implementation_sha256": "ae6c45644d57ec5efded0ea72fb6b28362ddb2a4a4834d05e032143d3cec2c14",
+  "implementation_files": [
+    "apps/worker/src/index.ts",
+    "packages/core/src/embeddings.ts",
+    "deploy/migrations/007_embedding_attempts.sql",
+    "deploy/reindex.ts",
+    "deploy/integration/run.ts",
+    "deploy/integration/scenarios.ts",
+    "deploy/integration/provider-fixture.ts",
+    "tests/embedding-recovery.test.ts",
+    "tests/helpers.ts",
+    "tests/provider-fixture.test.ts",
+    "tests/recovery.test.ts",
+    "tests/api-hybrid.test.ts"
+  ],
+  "local_check": {
+    "tests": 115,
+    "passed": 115,
+    "typecheck": "PASS",
+    "production_build": "PASS",
+    "synthetic_demos": [
+      "full-text",
+      "pgvector hybrid"
+    ]
+  },
+  "limits": [
+    "Native provider responses are deterministic synthetic HTTP fixtures, not learned inference.",
+    "No browser behavior changed; profile production asset remains index-kgeGInNT.js.",
+    "Actual pg_dump/pg_restore was not rerun; older retry state purge is covered by PGlite snapshot reconciliation and native deletion tests.",
+    "No direct hosted-provider, GPU, deployment or publication claim."
+  ],
+  "cleanup": "Disposable containers, networks, volume, application image and credentials removed."
+}

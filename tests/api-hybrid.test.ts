@@ -105,7 +105,7 @@ test('hybrid recall through two authenticated MCP clients reflects profile corre
   // necessary for this cross-client recall, while lexical search works already.
   assert.deepEqual(statements(await recall(b)), []);
   assert.deepEqual(statements(await recall(b, 'deadline')), [deadline]);
-  assert.deepEqual(await store.processEmbeddings(), { status: 'complete', indexed: 3, skipped: 0 });
+  assert.deepEqual(await store.processEmbeddings(), { status: 'complete', indexed: 3, skipped: 0, pending: 0, deferred: 0, retry_after_ms: 0 });
   const first = await recall(b, semanticQuery, { project_id: 'atlas' });
   assert.equal(first.coverage.retrieval, 'postgresql_hybrid');
   assert.deepEqual(statements(first), [deadline, preference].sort());
@@ -145,7 +145,7 @@ test('hybrid recall through two authenticated MCP clients reflects profile corre
   assert.deepEqual(statements(freshApi.data), [correctedDeadline]);
   assert.equal((await request(`/api/sources/${pref.evidence[0].source_id}`, { token: grantB.token })).response.status, 404);
   await toolDenied(b, 'context_get_source', { source_id: pref.evidence[0].source_id });
-  assert.deepEqual(await store.processEmbeddings(), { status: 'complete', indexed: 1, skipped: 0 });
+  assert.deepEqual(await store.processEmbeddings(), { status: 'complete', indexed: 1, skipped: 0, pending: 0, deferred: 0, retry_after_ms: 0 });
   for (const client of [a, b]) {
     const fresh = await recall(client);
     assert.deepEqual(statements(fresh), [correctedDeadline]);
@@ -185,7 +185,7 @@ test('API and MCP enforce owner, project, read/capture and revocation permission
   assert.equal((await request('/api/capture', {
     body: capture(otherOwner, 'atlas', 'other-owner'), token: otherGrant.token,
   })).response.status, 201);
-  assert.deepEqual(await store.processEmbeddings(), { status: 'complete', indexed: 3, skipped: 0 });
+  assert.deepEqual(await store.processEmbeddings(), { status: 'complete', indexed: 3, skipped: 0, pending: 0, deferred: 0, retry_after_ms: 0 });
 
   for (const mode of [
     { query: 'deadline', fail: true, retrieval: 'postgresql_full_text' },

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { DEFAULT_MODEL_ID } from '../../packages/providers/src/index.ts';
-import { FIXTURE_EMBEDDING_MODEL } from './provider-fixture.ts';
+import { FIXTURE_EMBEDDING_MODEL, FIXTURE_REJECTED_EMBEDDING_MARKER } from './provider-fixture.ts';
 
 const deadline = 'The Atlas deadline is 20 October 2026.';
 const correctedDeadline = 'The Atlas deadline is 27 October 2026.';
@@ -513,11 +513,138 @@ export async function runScenarios(options: {
         await poll(`worker rejected ${embeddingMode} embedding`, async () => (await control('status')).completedEmbeddings > baseline);
         const rejected = (await sql(`SELECT count(*) AS n FROM tk_embeddings WHERE memory_id=${literal(pending.memory_ids[0])}`))[0];
         ensure(Number(rejected.n) === 0, `${embeddingMode} response entered the configured vector space`);
+        await poll(`worker persisted ${embeddingMode} cooldown`, async () => {
+          const row = (await sql(`SELECT claim_token,next_attempt_at>now() AS deferred
+            FROM tk_embedding_attempts WHERE memory_id=${literal(pending.memory_ids[0])}`))[0];
+          return row?.claim_token === null && row.deferred === true;
+        });
         await control('configure', { embeddingMode: 'ok' });
+        // This is an isolated synthetic fixture database. Bring only its failed
+        // record due rather than waiting for the production retry cooldown.
+        await sql(`UPDATE tk_embedding_attempts SET next_attempt_at=clock_timestamp()-interval '1 second'
+          WHERE memory_id=${literal(pending.memory_ids[0])} RETURNING memory_id`);
         await indexed();
         const recovered = await recall(b);
         ensure(recovered.coverage.retrieval === 'postgresql_hybrid', `${embeddingMode} prevented provider recovery`);
         sameStatements(recovered, [correctedDeadline], 'recovered hybrid retrieval crossed project scope');
+      }
+    });
+    await stage('rejected oldest embedding batch defers durably while newer context and singleton retries progress', async () => {
+      await indexed();
+      const poisonText = `The synthetic rejected deadline contains ${FIXTURE_REJECTED_EMBEDDING_MARKER}.`;
+      const healthyText = 'The healthy former-batch deadline is 4 November 2026.';
+      const newerText = 'The newer valid deadline is 5 November 2026.';
+      const correctedText = 'The corrected rejected deadline is 6 November 2026.';
+      const forgottenText = `The synthetic forgotten deadline contains ${FIXTURE_REJECTED_EMBEDDING_MARKER}.`;
+      const attempt = async (id: string) => (await sql(`SELECT revision,attempts,claim_token,lease_until,
+        next_attempt_at>now() AS deferred,
+        EXTRACT(EPOCH FROM (next_attempt_at-now())) AS remaining_seconds
+        FROM tk_embedding_attempts WHERE memory_id=${literal(id)}`))[0];
+      const vector = async (id: string, revision = 1) => (await sql(`SELECT memory_id FROM tk_embeddings
+        WHERE memory_id=${literal(id)} AND revision=${revision} AND provider_model=${literal(FIXTURE_EMBEDDING_MODEL)}`)).length === 1;
+      const due = (id: string) => sql(`UPDATE tk_embedding_attempts SET next_attempt_at=clock_timestamp()-interval '1 second'
+        WHERE memory_id=${literal(id)} RETURNING memory_id`);
+      const currentMemory = async (id: string) => (await expected('/api/memories/' + id, 200)).data.memory;
+      const assertCooldown = (row: any, count: number, seconds: number, label: string) => {
+        ensure(row && Number(row.revision) === 1 && Number(row.attempts) === count
+          && row.claim_token === null && row.lease_until === null && row.deferred === true
+          && Number(row.remaining_seconds) > seconds - 5 && Number(row.remaining_seconds) <= seconds,
+        `${label} did not retain the bounded durable cooldown`);
+      };
+      try {
+        await control('configure', { embeddingMode: 'reject-synthetic-marker', holdEmbeddings: true });
+        const captured = await tool(a, 'context_capture', {
+          idempotency_key: 'embedding-poison-batch', project_id: 'atlas',
+          events: [
+            { id: 'embedding-poison', text: poisonText, author_role: 'user', origin: 'user_explicit' },
+            { id: 'embedding-healthy-peer', text: healthyText, author_role: 'user', origin: 'user_explicit' },
+          ],
+          explicit_memories: [
+            { statement: poisonText, kind: 'fact', source_event_id: 'embedding-poison', quote: poisonText, origin: 'user_explicit' },
+            { statement: healthyText, kind: 'fact', source_event_id: 'embedding-healthy-peer', quote: healthyText, origin: 'user_explicit' },
+          ],
+        });
+        const [poisonId, healthyId] = captured.memory_ids;
+        ensure(poisonId && healthyId && captured.memory_ids.length === 2, 'poison scenario did not atomically admit two memories');
+        await poll('held rejected initial embedding batch', async () => (await control('status')).heldEmbeddings === 1, 20_000);
+        ensure((await control('status')).lastEmbeddingInputCount === 2, 'initial rejection was not one fresh two-record batch');
+        for (const id of [poisonId, healthyId]) {
+          const claimed = await attempt(id);
+          ensure(Number(claimed?.attempts) === 1 && claimed.claim_token && claimed.lease_until,
+            'initial fresh batch did not claim each current revision');
+        }
+        await control('release', {});
+        await poll('initial batch durable cooldowns', async () => {
+          const rows = await Promise.all([attempt(poisonId), attempt(healthyId)]);
+          return rows.every(row => row?.claim_token === null && row.deferred === true);
+        });
+        assertCooldown(await attempt(poisonId), 1, 30, 'rejected record');
+        assertCooldown(await attempt(healthyId), 1, 30, 'healthy former-batch member');
+        ensure(!await vector(poisonId) && !await vector(healthyId), 'rejected initial batch admitted vectors');
+
+        const newer = await tool(a, 'context_capture', capture('embedding-newer-valid', newerText));
+        await poll('newer context indexes around rejected oldest batch', () => vector(newer.memory_ids[0]));
+        sameStatements(await recall(b, semanticQuery, { source: newer.source_ids[0] }), [newerText],
+          'independent semantic recall could not reach newer context past the deferred batch');
+        ensure(Number((await attempt(poisonId))?.attempts) === 1 && Number((await attempt(healthyId))?.attempts) === 1,
+          'newer indexing immediately retried the deferred rejected batch');
+
+        await control('configure', { holdEmbeddings: true });
+        await due(healthyId);
+        await poll('held singleton healthy retry', async () => (await control('status')).heldEmbeddings === 1, 20_000);
+        ensure((await control('status')).lastEmbeddingInputCount === 1
+          && Number((await attempt(healthyId))?.attempts) === 2
+          && Number((await attempt(poisonId))?.attempts) === 1,
+        'due former-batch member was not isolated from the still-deferred poison');
+        await control('release', {});
+        await poll('healthy singleton retry admission', async () => await vector(healthyId) && !await attempt(healthyId));
+        sameStatements(await recall(b, semanticQuery, { source: captured.source_ids[1] }), [healthyText],
+          'independent semantic recall lost the recovered former-batch member');
+
+        await due(poisonId);
+        await poll('second rejected singleton cooldown', async () => {
+          const row = await attempt(poisonId);
+          return Number(row?.attempts) === 2 && row.claim_token === null && row.deferred === true;
+        });
+        assertCooldown(await attempt(poisonId), 2, 60, 'second rejected singleton');
+        ensure(!await vector(poisonId), 'rejected singleton entered the vector space');
+
+        await control('configure', { holdEmbeddings: true });
+        await due(poisonId);
+        await poll('held rejected record before owner correction', async () => (await control('status')).heldEmbeddings === 1, 20_000);
+        const corrected = await patch(await currentMemory(poisonId), correctedText);
+        ensure(corrected.revision === 2 && !await attempt(poisonId), 'correction did not immediately clear the obsolete embedding attempt');
+        await control('release', {});
+        await poll('corrected revision indexes without old cooldown', async () => await vector(poisonId, 2) && !await attempt(poisonId));
+        const correctedDetail = (await expected('/api/memories/' + poisonId, 200)).data;
+        const correctedEvidence = correctedDetail.evidence.find((evidence: any) => Number(evidence.revision) === 2);
+        ensure(correctedEvidence?.source_id, 'correction omitted current-revision evidence');
+        sameStatements(await recall(b, semanticQuery, { source: correctedEvidence.source_id }), [correctedText],
+          'independent semantic recall did not admit the corrected poison revision');
+
+        await control('configure', { embeddingMode: 'ok', holdEmbeddings: true });
+        const forgotten = await tool(a, 'context_capture', capture('embedding-poison-forget', forgottenText));
+        const forgottenId = forgotten.memory_ids[0];
+        await poll('held successful embedding before forgetting', async () => (await control('status')).heldEmbeddings === 1, 20_000);
+        ensure((await attempt(forgottenId))?.claim_token, 'forgetting scenario lacked a durable in-flight attempt');
+        await remove(await currentMemory(forgottenId));
+        ensure(!await attempt(forgottenId), 'forgetting retained the deleted embedding attempt');
+        await control('release', {});
+        // The single worker indexes this later capture only after the held
+        // reply settles, fencing its stale admission before the deletion check.
+        const fence = await tool(a, 'context_capture', capture('embedding-poison-forget-fence', 'The synthetic embedding completion deadline fence.'));
+        await poll('embedding forgetting completion fence', () => vector(fence.memory_ids[0]));
+        const remnants = (await sql(`SELECT
+          (SELECT count(*) FROM tk_memories WHERE id=${literal(forgottenId)}) AS memories,
+          (SELECT count(*) FROM tk_sources WHERE id=${literal(forgotten.source_ids[0])}) AS sources,
+          (SELECT count(*) FROM tk_embeddings WHERE memory_id=${literal(forgottenId)}) AS embeddings,
+          (SELECT count(*) FROM tk_embedding_attempts WHERE memory_id=${literal(forgottenId)}) AS attempts`))[0];
+        ensure(Object.values(remnants).every(count => Number(count) === 0), 'in-flight embedding restored forgotten content or retry state');
+        for (const id of [poisonId, healthyId, newer.memory_ids[0], fence.memory_ids[0]]) await remove(await currentMemory(id));
+        await indexed();
+      } finally {
+        await control('configure', { embeddingMode: 'ok', holdEmbeddings: false }, true).catch(() => undefined);
+        await control('release', {}, true).catch(() => undefined);
       }
     });
     await stage('live capture failure, owner retry and independent recall preserve source and job identity', async () => {
@@ -704,7 +831,9 @@ export async function runScenarios(options: {
     return passed;
   } finally {
     options.signal?.removeEventListener('abort', abortClients);
-    // Always release fixture holds before resource teardown, including failure.
+    // Always clear fixture fault modes and release holds before teardown,
+    // including a failure partway through a synthetic rejection stage.
+    await control('configure', { chatMode: 'ok', embeddingMode: 'ok', holdChat: false, holdEmbeddings: false }, true).catch(() => undefined);
     await control('release', {}, true).catch(() => undefined);
     for (const client of clients) await client.close().catch(() => undefined);
   }

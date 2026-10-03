@@ -107,10 +107,34 @@ async function main() {
     console.info(`Application image ${await docker(['image', 'inspect', image, '--format', '{{.Id}}'])}`);
     console.info(`Application image Node ${await compose(['exec', '-T', 'api', 'node', '--version'])}; pnpm ${await compose(['exec', '-T', 'api', 'pnpm', '--version'])}`);
     const checks = await runScenarios({ baseUrl, controlUrl, email: 'owner@example.invalid', password, sql, signal: cancellation.signal });
+    // Exercise the operator command against a genuinely deferred native row.
+    // This synthetic claim simulates another running worker; a rebuild must
+    // not declare success merely because all missing vectors are leased.
+    const deferred = (await sql(`SELECT e.memory_id,e.revision,e.space_id FROM tk_embeddings e
+      JOIN tk_memories m ON m.id=e.memory_id WHERE m.status='active' ORDER BY m.id LIMIT 1`))[0];
+    if (!deferred) throw new Error('Reindex acceptance requires one surviving synthetic vector');
+    const quotedId = "'" + String(deferred.memory_id).replaceAll("'", "''") + "'";
+    const quotedSpace = "'" + String(deferred.space_id).replaceAll("'", "''") + "'";
+    await sql(`INSERT INTO tk_embedding_attempts(memory_id,revision,space_id,attempts,claim_token,lease_until,next_attempt_at)
+      VALUES (${quotedId},${Number(deferred.revision)},${quotedSpace},1,'synthetic-reindex-claim',clock_timestamp()+interval '10 minutes',clock_timestamp())
+      RETURNING memory_id`);
+    await sql(`DELETE FROM tk_embeddings WHERE memory_id=${quotedId} RETURNING memory_id`);
+    await compose(['exec', '-T', 'api', 'node', '--input-type=module', '-e', `
+      import assert from 'node:assert/strict';
+      import { spawnSync } from 'node:child_process';
+      const result=spawnSync(process.execPath,['--import','tsx','deploy/reindex.ts'],{encoding:'utf8',timeout:30000});
+      assert.equal(result.status,1);
+      const report=JSON.parse(result.stderr.trim());
+      assert.equal(report.event,'reindex_failed');
+      assert.equal(report.status,'deferred');
+      assert(report.pending>=1 && report.deferred>=1 && report.retry_after_ms>0);
+    `]);
+    await sql(`DELETE FROM tk_embedding_attempts WHERE memory_id=${quotedId} RETURNING memory_id`);
+    checks.push('native reindex rejects unfinished leased work with pending/deferred/retry metadata');
     // Rerunnable setup must also work on native state after lifecycle operations.
     await compose(['exec', '-T', 'api', 'pnpm', 'migrate']);
     checks.push('native migrations rerun');
-    const nativeOutput = await compose(['exec', '-T', 'api', 'sh', '-c', 'THREADKEEPER_NATIVE_TEST_URL="$DATABASE_URL" node --import tsx --test --test-reporter=tap tests/hybrid.test.ts tests/api-hybrid.test.ts tests/captures.test.ts tests/review.test.ts tests/api-client-control.test.ts tests/deletion.test.ts tests/api-deletion.test.ts tests/profile-scaling.test.ts tests/api-profile-scaling.test.ts']);
+    const nativeOutput = await compose(['exec', '-T', 'api', 'sh', '-c', 'THREADKEEPER_NATIVE_TEST_URL="$DATABASE_URL" node --import tsx --test --test-reporter=tap tests/hybrid.test.ts tests/embedding-recovery.test.ts tests/api-hybrid.test.ts tests/captures.test.ts tests/review.test.ts tests/api-client-control.test.ts tests/deletion.test.ts tests/api-deletion.test.ts tests/profile-scaling.test.ts tests/api-profile-scaling.test.ts']);
     const nativeTests = /^# tests (\d+)$/m.exec(nativeOutput)?.[1];
     if (!nativeTests) throw new Error('Native regression command omitted its test summary');
     checks.push(`native-enabled hybrid, capture recovery, candidate review, client control, forgetting and profile pagination/import regressions (${nativeTests} tests)`);

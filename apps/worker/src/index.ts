@@ -44,8 +44,8 @@ try {
     if (stopping) break;
     try {
       const report = await store.processEmbeddings(32);
-      if (!['disabled', 'idle'].includes(report.status)) {
-        console.info(JSON.stringify({ event: 'embeddings_processed', status: report.status, indexed: report.indexed, skipped: report.skipped }));
+      if (!['disabled', 'idle', 'deferred'].includes(report.status)) {
+        console.info(JSON.stringify({ event: 'embeddings_processed', ...report }));
       }
     } catch {
       console.error(JSON.stringify({ event: 'embedding_iteration_failed' }));

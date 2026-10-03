@@ -22,12 +22,15 @@ try {
     const report = await store.processEmbeddings(32);
     indexed += report.indexed;
     skipped += report.skipped;
-    if (report.status === 'idle') {
+    if (report.status === 'idle' && report.pending === 0) {
       console.info(JSON.stringify({ event: 'reindex_complete', indexed, skipped }));
       break;
     }
     if (report.status !== 'complete') {
-      console.error(JSON.stringify({ event: 'reindex_failed', status: report.status, indexed, skipped }));
+      // A cooldown or another worker's live claim is unfinished work, never a
+      // successful rebuild. Retry later using the sanitized queue metadata.
+      console.error(JSON.stringify({ event: 'reindex_failed', status: report.status, indexed, skipped,
+        pending: report.pending, deferred: report.deferred, retry_after_ms: report.retry_after_ms }));
       process.exitCode = 1;
       break;
     }
