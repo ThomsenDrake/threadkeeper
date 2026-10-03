@@ -56,7 +56,7 @@ test('two clients share persistent memories, and owner correction/deletion chang
   const correction = await store.correct(profile, deadline.memory_ids[0], { statement: correctedDeadline, expected_revision: 1, effective_at: '2026-10-27T12:00:00Z' });
   assert.equal(correction.memory.revision, 2);
   assert.equal(correction.memory.authoritative, true);
-  const deletion = await store.remove(profile, writing.memory_ids[0], { expected_revision: 1 });
+  const deletion = await store.remove(profile, writing.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, writing.memory_ids[0])).preview_hash });
   assert.equal(deletion.deleted_count, 1);
   for (const client of [clientA, clientB]) {
     const fresh = await store.search(client, { query: '', project_id: 'launch' });
@@ -136,7 +136,7 @@ test('stale concurrent corrections and deletes cannot overwrite the current revi
   assert.equal(outcomes.filter(outcome => outcome.status === 'fulfilled').length, 1);
   const rejected = outcomes.find(outcome => outcome.status === 'rejected') as PromiseRejectedResult;
   assert.ok(hasError(409, 'revision_conflict')(rejected.reason));
-  await assert.rejects(store.remove(profile, saved.memory_ids[0], { expected_revision: 1 }), hasError(409, 'revision_conflict'));
+  await assert.rejects(store.remove(profile, saved.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, saved.memory_ids[0])).preview_hash }), hasError(409, 'revision_conflict'));
   assert.equal((await store.detail(profile, saved.memory_ids[0])).memory.revision, 2);
 });
 
@@ -213,7 +213,7 @@ test('deletion cancels pending extraction and prevents content from being reintr
   const queued = await store.capture(clientA, { ...input, explicit_memories: undefined });
   assert.equal(queued.status, 'pending');
   const materialized = await store.capture(clientA, { ...input, idempotency_key: randomUUID() });
-  await store.remove(profile, materialized.memory_ids[0], { expected_revision: 1 });
+  await store.remove(profile, materialized.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, materialized.memory_ids[0])).preview_hash });
   let calls = 0;
   const provider: MemoryProvider = { extract: async () => { calls += 1; return { memories: input.explicit_memories! }; } };
   assert.equal(await store.processJob(provider), null);
@@ -234,7 +234,7 @@ test('deletion during inference prevents an in-flight worker from committing sta
   const inference = new Promise<void>(resolve => { finishInference = resolve; });
   const processing = store.processJob({ extract: async () => { signalStarted(); await inference; return { memories: input.explicit_memories! }; } });
   await started;
-  await store.remove(profile, materialized.memory_ids[0], { expected_revision: 1 });
+  await store.remove(profile, materialized.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, materialized.memory_ids[0])).preview_hash });
   finishInference();
   const result = await processing;
   assert.equal(result?.status, 'cancelled');

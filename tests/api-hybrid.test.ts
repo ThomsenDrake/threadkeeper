@@ -129,7 +129,7 @@ test('hybrid recall through two authenticated MCP clients reflects profile corre
     method: 'PATCH', body: { statement: correctedDeadline, expected_revision: dl.revision },
   })).response.status, 200);
   assert.equal((await request(`/api/memories/${pref.id}`, {
-    method: 'DELETE', body: { expected_revision: pref.revision },
+    method: 'DELETE', body: { expected_revision: pref.revision, preview_hash: (await request(`/api/memories/${pref.id}/deletion-preview`)).data.preview_hash },
   })).response.status, 200);
   assert.equal(Number((await database.db.query('SELECT count(*) AS n FROM tk_embeddings')).rows[0].n), 0);
 

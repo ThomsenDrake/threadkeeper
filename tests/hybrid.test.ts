@@ -172,7 +172,7 @@ test('correction and deletion immediately invalidate vectors and fresh recall re
   await store.processEmbeddings();
   assert.deepEqual(statements(await store.search(clientB, { query })), [oldDeadline, preference].sort());
   await store.correct(profile, deadline.memory_ids[0], { statement: corrected, expected_revision: 1 });
-  await store.remove(profile, writing.memory_ids[0], { expected_revision: 1 });
+  await store.remove(profile, writing.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, writing.memory_ids[0])).preview_hash });
   assert.deepEqual(await storedVectors(), [], 'Stale embeddings must be removed synchronously, before reindexing.');
   for (const client of [clientA, clientB]) {
     assert.deepEqual(statements(await store.search(client, { query })), []);
@@ -230,7 +230,7 @@ test('in-flight embedding output cannot restore a deleted memory or an older rev
   await started;
   try {
     await store.correct(profile, deadline.memory_ids[0], { statement: corrected, expected_revision: 1 });
-    await store.remove(profile, writing.memory_ids[0], { expected_revision: 1 });
+    await store.remove(profile, writing.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, writing.memory_ids[0])).preview_hash });
   } finally { release(); }
   const result = await processing;
   assert.equal(result.indexed, 0);

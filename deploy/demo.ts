@@ -47,7 +47,7 @@ async function demonstrate(hybrid: boolean) {
     for (const memory of first.memories) console.log(`   ${memory.statement} [${memory.origin}; revision ${memory.revision}]`);
 
     await store.correct(profile, deadline.memory_ids[0], { statement: correctedDeadline, expected_revision: 1 });
-    await store.remove(profile, writing.memory_ids[0], { expected_revision: 1 });
+    await store.remove(profile, writing.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, writing.memory_ids[0])).preview_hash });
     console.log('3. The owner profile principal changed the deadline and deleted the preference.');
     if (hybrid) {
       assert.equal((await sourceDatabase.db.query('SELECT count(*)::int AS count FROM tk_embeddings')).rows[0].count, 0);

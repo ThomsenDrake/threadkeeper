@@ -114,7 +114,7 @@ test('saved captures, duplicate source captures and completed extraction report 
     assert.equal(emptyStatus.status, 'saved');
     assert.deepEqual(emptyStatus.memory_ids, []);
     assert.equal(emptyStatus.job, null);
-    await store.remove(profile, explicit.memory_ids[0], { expected_revision: 2 });
+    await store.remove(profile, explicit.memory_ids[0], { expected_revision: 2, preview_hash: (await store.previewRemoval(profile, explicit.memory_ids[0])).preview_hash });
     for (const receipt of [explicit, duplicate]) {
       const deleted = await store.captureStatus(profile, receipt.capture_id);
       assert.equal(deleted.status, 'cancelled');
@@ -233,7 +233,7 @@ test('failed extraction rolls back partial admission and deletion removes retry 
     assert.equal((await store.captureStatus(profile, receipt.capture_id)).job?.error_code, 'evidence_mismatch');
     const explicit = await store.capture(auth, { ...source, idempotency_key: randomUUID(), explicit_memories: memories(source) });
     await store.retryCapture(profile, receipt.capture_id, { expected_attempts: 1 });
-    await store.remove(profile, explicit.memory_ids[0], { expected_revision: 1 });
+    await store.remove(profile, explicit.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, explicit.memory_ids[0])).preview_hash });
     const deleted = await store.captureStatus(profile, receipt.capture_id);
     assert.equal(deleted.status, 'cancelled');
     assert.equal(deleted.job, null);
@@ -267,7 +267,7 @@ test('legacy capture migration backfills complete scopes and keeps unknown scope
       assert.equal((await store.listCaptures(reader)).captures.some(capture => capture.capture_id === unknownId), false);
     }
     assert.equal((await store.captureStatus({ ...profile, permissions: ['*'] }, unknownId)).status, 'cancelled');
-    await store.remove(profile, receipt.memory_ids[0], { expected_revision: 1 });
+    await store.remove(profile, receipt.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, receipt.memory_ids[0])).preview_hash });
     await runMigration(migration);
     assert.equal((await store.captureStatus(client(profile, 'launch-reader', ['read'], ['launch']), receipt.capture_id)).status, 'cancelled');
     await assert.rejects(store.captureStatus(client(profile, 'secret-reader', ['read'], ['secret']), receipt.capture_id), error(404, 'capture_not_found'));

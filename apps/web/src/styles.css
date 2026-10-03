@@ -254,9 +254,23 @@ dd { font-size: 11px; color: #71816d; margin: 0; overflow-wrap: anywhere; }
 .revision-list .revision-extractor { font-size: 9px; color: #8b997d; margin-top: 7px; }
 .memory-id { font-size: 9px; margin: 27px 0 0; overflow-wrap: anywhere; }
 .delete-confirm { background: #fff4ed; border: 1px solid #edccba; border-radius: 7px; padding: 17px; margin-top: 20px; }
-.delete-confirm h3 { color: #a37154; font-size: 13px; }
-.delete-confirm p { color: #ab896f; font-size: 11px; margin-bottom: 12px; }
+.delete-confirm h3 { color: #814f39; font-size: 13px; }
+.delete-confirm p { color: #7e5845; font-size: 11px; margin-bottom: 12px; }
 .delete-confirm .actions { margin-top: 10px; }
+.delete-confirm h4 { font-size: 12px; color: #814f39; margin: 21px 0 10px; }
+.delete-confirm .field-error, .delete-confirm .deletion-stale { color: #943e34; }
+.deletion-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)); gap: 15px; padding: 15px 0; border-top: 1px solid #ecd7c9; border-bottom: 1px solid #ecd7c9; }
+.deletion-counts dt { color: #7e5845; }
+.deletion-counts dd { color: #784c35; font-size: 18px; }
+.deletion-records { padding: 0; margin: 0; list-style: none; display: grid; gap: 11px; }
+.deletion-records li { min-width: 0; border: 1px solid #ebd8cb; border-radius: 5px; background: #fffaf6; padding: 12px; }
+.deletion-records li > p { color: #6e5142; margin: 0 0 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.deletion-records span { font-size: 10px; line-height: 1.6; color: #765c49; display: block; overflow-wrap: anywhere; }
+.deletion-records code { display: block; color: #79604d; font-size: 9px; margin-top: 8px; overflow-wrap: anywhere; }
+.deletion-records summary { font-size: 10px; line-height: 1.6; color: #765c49; cursor: pointer; margin-top: 11px; }
+.deletion-jobs { margin-bottom: 18px; }
+.delete-confirm .button { white-space: normal; text-align: center; }
+.delete-confirm > .actions { align-items: stretch; }
 .modal-backdrop { position: fixed; inset: 0; background: #182d307a; display: flex; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
 .modal { background: #fffefa; border: 1px solid #f1f4e8; border-radius: 14px; padding: 33px; width: min(530px, 100%); max-height: 90vh; overflow: auto; position: relative; box-shadow: 0 24px 90px #0c262d35; }
 .modal-close { position: absolute; top: 18px; right: 18px; }

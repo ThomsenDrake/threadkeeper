@@ -256,7 +256,7 @@ test('capture status returns only live memory/source IDs after profile correctio
   assert.deepEqual(live.memory_ids, before.memory_ids);
   assert.deepEqual(live.source_ids, before.source_ids);
   assert.equal((await request(`/api/memories/${before.memory_ids[0]}`, {
-    method: 'DELETE', body: { expected_revision: corrected.data.memory.revision },
+    method: 'DELETE', body: { expected_revision: corrected.data.memory.revision, preview_hash: (await request(`/api/memories/${before.memory_ids[0]}/deletion-preview`)).data.preview_hash },
   })).response.status, 200);
   const deleted = await status(pending.capture_id);
   assert.deepEqual(deleted.source_ids, []);

@@ -167,8 +167,8 @@ export async function runScenarios(options: {
   const patch = async (memory: any, statement: string) => (await expected(`/api/memories/${memory.id}`, 200, {
     method: 'PATCH', body: { statement, expected_revision: memory.revision },
   })).data.memory;
-  const remove = (memory: any) => expected(`/api/memories/${memory.id}`, 200, {
-    method: 'DELETE', body: { expected_revision: memory.revision },
+  const remove = async (memory: any) => expected(`/api/memories/${memory.id}`, 200, {
+    method: 'DELETE', body: { expected_revision: memory.revision, preview_hash: (await expected(`/api/memories/${memory.id}/deletion-preview`, 200)).data.preview_hash },
   });
 
   try {

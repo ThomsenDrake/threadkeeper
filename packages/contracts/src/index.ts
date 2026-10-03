@@ -53,7 +53,9 @@ export const CorrectSchema = z.object({
   expected_revision: z.number().int().positive(),
   effective_at: Timestamp.nullable().optional(),
 }).strict();
-export const DeleteSchema = z.object({ expected_revision: z.number().int().positive() }).strict();
+const PreviewHash = z.string().regex(/^[a-f0-9]{64}$/);
+export const SourceDeleteSchema = z.object({ preview_hash: PreviewHash }).strict();
+export const DeleteSchema = SourceDeleteSchema.extend({ expected_revision: z.number().int().positive() }).strict();
 export const ReviewSchema = z.object({
   action: z.enum(['confirm', 'dismiss']), expected_revision: z.number().int().positive(),
   statement: z.string().min(1).max(4_000).optional(), effective_at: Timestamp.nullable().optional(),
@@ -101,6 +103,18 @@ export const ExportSourceSchema = z.object({
   capture_method: CaptureMethodSchema,
 }).strict();
 export const EvidenceSchema = z.object({ memory_id: Identifier, revision: z.number().int().positive(), source_id: Identifier, quote: z.string().min(1).max(24_000) }).strict();
+export const DeletionPreviewSchema = z.object({
+  target: z.object({ kind: z.enum(['memory', 'source']), id: Identifier }).strict(),
+  expected_revision: z.number().int().positive().nullable(),
+  snapshot_version: z.number().int().min(0), preview_hash: PreviewHash,
+  blast_radius: z.literal('whole_connected_source_events'),
+  memories: z.array(MemorySchema), sources: z.array(ExportSourceSchema),
+  revision_count: z.number().int().min(0), evidence_count: z.number().int().min(0),
+  jobs: z.array(z.object({
+    id: Identifier, status: z.enum(['pending', 'processing', 'complete', 'failed', 'cancelled']),
+    source_ids: z.array(Identifier), affected_source_ids: z.array(Identifier),
+  }).strict()),
+}).strict();
 export const RevisionSchema = z.object({
   memory_id: Identifier, revision: z.number().int().positive(), statement: z.string().min(1).max(4_000),
   origin: OriginSchema, status: MemoryStatusSchema, effective_at: Timestamp.nullable(), created_at: Timestamp,
@@ -124,3 +138,4 @@ export type SearchInput = z.infer<typeof SearchSchema>;
 export type Memory = z.infer<typeof MemorySchema>;
 export type ExportBundle = z.infer<typeof ExportSchema>;
 export type CaptureStatus = z.infer<typeof CaptureStatusSchema>;
+export type DeletionPreview = z.infer<typeof DeletionPreviewSchema>;

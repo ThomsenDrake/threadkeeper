@@ -1,0 +1,23 @@
+{
+  "browser": "151.0.7922.173",
+  "evidence": "Disposable PGlite and synthetic explicit/held-provider captures; no learned model",
+  "checks": [
+    "Keyboard memory preview lists sibling statements, full source content and exact history counts",
+    "Unchanged-target graph expansion returns 409 without deleting or automatically refreshing",
+    "Explicit refresh requires another confirmation; deletion removes local rows even when follow-up list fetch fails",
+    "Queued source preview works at 390px with no overflow and explains retained sources losing their extraction job",
+    "Queued-source deletion removes its whole job, keeps independent evidence and immediately prunes stale capture links",
+    "In-flight source forgetting prevents held worker output from restoring the source or memories",
+    "Delayed successful retry cannot restore forgotten links or a removed job when capture refresh fails",
+    "Preview failure disables forgetting; explicit refresh recovers with another owner confirmation",
+    "Closing memory details while preview is held ignores the delayed response",
+    "Signing out during delayed preview leaves no owner content or forgetting control visible"
+  ],
+  "errors": [],
+  "screenshots": [
+    "forgetting-memory-preview.png",
+    "forgetting-source-mobile.png"
+  ],
+  "date": "2026-10-03",
+  "scope": "Isolated forgetting branch from main 26c025d; candidate review and client-control work are not integrated in these screenshots."
+}

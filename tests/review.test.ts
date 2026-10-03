@@ -126,7 +126,7 @@ test('dismiss preserves candidate interpretation and evidence, excludes recall, 
     assert.equal((await db.query('SELECT 1 FROM tk_embeddings WHERE memory_id=$1', [seed.memoryId])).rows.length, 0);
     assert.equal((await store.processEmbeddings()).indexed, 0);
     await assert.rejects(store.correct(profile, seed.memoryId, { expected_revision: 2, statement: 'Restore a dismissed proposal.' }), failure(409, 'review_required'));
-    await store.remove(profile, seed.memoryId, { expected_revision: 2 });
+    await store.remove(profile, seed.memoryId, { expected_revision: 2, preview_hash: (await store.previewRemoval(profile, seed.memoryId)).preview_hash });
     assert.equal(JSON.stringify(await store.export(profile)).includes(seed.candidate.statement), false);
     await assert.rejects(store.capture(client(profile), { ...seed.capture, idempotency_key: randomUUID() }), failure(410, 'deleted_source'));
   } finally { await close(); }
@@ -365,7 +365,7 @@ test('import rejects forged confirmation authority, active model interpretations
     const forgotten = source('inferred', 'Synthetic forgotten text cannot become new owner evidence.');
     forgotten.candidate.origin = 'user_explicit';
     const saved = await store.capture(client(profile), { ...forgotten.capture, explicit_memories: [forgotten.candidate] });
-    await store.remove(profile, saved.memory_ids[0], { expected_revision: 1 });
+    await store.remove(profile, saved.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, saved.memory_ids[0])).preview_hash });
     const candidate = await modelCandidate(store, profile, 'inferred', 'Synthetic new candidate unrelated to forgotten text.');
     await assert.rejects(store.review(profile, candidate.memoryId, { action: 'confirm', expected_revision: 1, statement: forgotten.candidate.statement }), failure(410, 'deleted_content'));
     assert.equal((await store.detail(profile, candidate.memoryId)).memory.status, 'candidate');

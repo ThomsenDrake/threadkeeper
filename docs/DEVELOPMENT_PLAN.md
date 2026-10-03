@@ -27,7 +27,9 @@ Priority 2 merged in [PR #5](https://github.com/ThomsenDrake/threadkeeper/pull/5
 
 Priority 3 is implemented and verified on `codex/client-control`, rebased onto merged priority 2: practical endpoint/configuration instructions, separate observed credential use, an explicit capture/recall walkthrough and server-enforced owner capture pause/resume. Its baseline, browser and native full-stack evidence are in [HANDOFF.md](HANDOFF.md); final-head GitHub review/merge remains the delivery checkpoint.
 
-The next default product outcome is priority 4: preview the current connected deletion impact before confirmation and allow forgetting captured sources awaiting extraction. Preserve revision checks, attempt fencing, review provenance and capture controls. Continue through review/merge and then the next unblocked outcome during a broad development task.
+Priority 4 is implemented on `codex/forgetting-preview`, explicitly stacked on client controls: owner memory/source impact previews, required graph-bound confirmation hashes, source-only forgetting and known raw-source-copy cleanup. Its combined verification and remaining prerequisite-aware review are recorded in [HANDOFF.md](HANDOFF.md). Existing deletion callers must obtain a preview first; confirm the final merged head before treating it as main.
+
+The next unblocked implementation outcome is priority 5: larger profile collections, complete loading/recovery states and import reporting. Complete the pending prerequisite-aware review/merge loops for priorities 3–4 before treating them as main.
 
 ## Delivery loop
 
