@@ -8,6 +8,10 @@ The slice contains React profile, Node HTTP/OpenAPI and MCP service, local owner
 
 Codex Cloud preparation is in `docs/CODEX_CLOUD.md`. The portable install script is `bash scripts/codex-cloud-setup.sh`, using Node.js 24 and pnpm 11.25.0. It runs the credential-free checks and synthetic demo. The private GitHub repository is `ThomsenDrake/threadkeeper`, created on 2026-10-03. No Codex Cloud environment or task has been run.
 
+A GitGuardian notification was reported after the initial upload. Its exact incident details have not been retrieved. A source review found synthetic demo/test credentials, an explicit replacement placeholder in `.env.example`, and hardcoded localhost PostgreSQL fallbacks in the API and migration entry points. Both fallbacks have been removed: API, worker and migration CLI require operator-provided `DATABASE_URL`. No actual provider credential was found in the committed source. Existing history still contains the original sample fallbacks; this change does not dismiss or resolve the GitGuardian incident.
+
+Validation after removing both fallbacks: `pnpm check` passed typechecking, all 22 tests and the production build; `pnpm demo` passed the correction/deletion and export/import assertions. Direct startup checks confirmed the API and migration CLI exit with `DATABASE_URL is required` before connecting when the variable is absent.
+
 ## Evidence established during this session
 
 - Typechecking and the Vite production build passed.
