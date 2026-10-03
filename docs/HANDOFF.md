@@ -4,11 +4,113 @@
 
 The user now authorizes future broad development tasks to choose and deliver complete MVP product flows, run the GitHub `@codex review` loop, merge their own qualifying PRs, and continue to the next unblocked outcome. Follow [AGENTS.md](../AGENTS.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for final-head review/check requirements, the product backlog and existing deployment/DNS/spending/publication boundaries. A narrower explicit request still controls its task.
 
-This guidance change is documentation only. `git diff --check` and relative Markdown link checks passed, and an independent local review found no remaining blocking issue. Application, demo, native PostgreSQL/pgvector and browser checks were not rerun for these documentation edits; the results below belong to the earlier hybrid implementation. External Codex review and merge status are recorded on the guidance PR.
+This guidance change is documentation only. `git diff --check` and relative Markdown link checks passed, and an independent local review found no remaining blocking issue. Application, demo, native PostgreSQL/pgvector and browser checks were not rerun for these documentation edits; the results below belong to the earlier hybrid and full-stack implementations. External Codex review and merge status are recorded on the guidance PR.
 
-Hybrid recall is merged in PR #1. [PR #2](https://github.com/ThomsenDrake/threadkeeper/pull/2) contains full-stack integration and extraction attempt fencing and was open when this update was written. Inspect its current status before dependent work; do not duplicate its changes or merge another task's PR. The next default product flow is scoped capture/job status and owner-controlled retry across HTTP/MCP and the profile. Missing real-provider credentials or GPU/installed-host access should block only dependent checks while independent product work continues.
+Hybrid recall is merged in PR #1. [PR #2](https://github.com/ThomsenDrake/threadkeeper/pull/2), containing full-stack integration and extraction attempt fencing, merged while this guidance was under review. This branch includes that main update (`b6b11ef`), and its evidence is retained below. Do not duplicate those changes. The next default product flow is scoped capture/job status and owner-controlled retry across HTTP/MCP and the profile. Missing real-provider credentials or GPU/installed-host access should block only dependent checks while independent product work continues.
 
-## Hybrid implementation evidence — 2026-10-03 Cloud task
+## Full-stack integration evidence — 2026-10-03
+
+Continued fetched `origin/main` **`3f412ea`**, including merged PR #1, on
+`codex/self-hosted-stack`. Read AGENTS.md, README.md, MVP_BRIEF.md, DECISIONS.md,
+HANDOFF.md, CODEX_CLOUD.md and RETRIEVAL.md and inspected the implementation before
+editing. The pinned baseline passed before feature work: Node **24.19.0**, pnpm
+**11.25.0**, all **44 tests**, typecheck/profile build and both `pnpm demo` paths.
+The ambient pnpm was 11.19.0; the existing task-local Corepack shim recipe selected
+11.25.0 without changing pins or reusable Cloud environment settings.
+
+`pnpm integration` now builds and runs the complete application in a disposable
+Compose project: native PostgreSQL/pgvector, API serving the built React profile,
+actual worker and a deterministic OpenAI-compatible **synthetic HTTP fixture**.
+See [requirements, command and evidence boundaries](INTEGRATION.md). The fixture
+is explicitly selected only by the test overlay, and every extraction request
+retains `nvidia/Nemotron-3_5-Lightning`. No configured memory model is substituted.
+
+### Defects fixed
+
+- The application image's Node 24.7.0 `fetch` ignored a custom Host header, causing
+  the original Compose API healthcheck to return 403 and block the worker. The
+  healthcheck now uses `node:http` and preserves the configured Host. The harness
+  selects an available localhost API port and uses that exact external origin.
+- Networked Docker build steps now accept an optional `proxy_ca` BuildKit secret
+  for managed proxy trust. TLS verification stays enabled; the CA and operator
+  `.env` files are absent from image layers.
+- Extraction previously accepted an explicit different response model while
+  reporting the configured model. Chat responses now reject mismatched and
+  malformed identities; compatible endpoints may still omit the optional field.
+- An old extraction attempt could overwrite a reclaimed job's status/result.
+  Claims now return the current attempt counter, and admission and terminal
+  updates are fenced by that counter. Regressions cover older success and failure
+  while the newer attempt remains in flight.
+- Harness diagnosis fixed the SQL aggregation's collision with the jobs `result`
+  column. Failed runs report the stage and sanitized SQL diagnostics. Ambient
+  `THREADKEEPER_INTEGRATION_*` settings cannot override disposable generated
+  settings. Signals cancel active scenarios and preserve cleanup operations.
+
+### Commands and observed results
+
+```sh
+mkdir -p /tmp/threadkeeper-bin
+corepack enable --install-directory /tmp/threadkeeper-bin pnpm
+PATH=/tmp/threadkeeper-bin:$PATH corepack install
+PATH=/tmp/threadkeeper-bin:$PATH pnpm install --frozen-lockfile
+PATH=/tmp/threadkeeper-bin:$PATH pnpm check
+PATH=/tmp/threadkeeper-bin:$PATH pnpm demo
+PATH=/tmp/threadkeeper-bin:$PATH pnpm integration
+git diff --check
+```
+
+| Evidence | Actual result |
+| --- | --- |
+| Credential-free baseline after fixes | `pnpm check` passed **51/51 tests**, typecheck and profile production build; both `pnpm demo` lifecycles/export-import passed. PGlite/fixture results, independent of Docker/provider secrets. |
+| Standard application Compose | Disposable build/startup passed native DB readiness, API health, built profile HTTP 200, generated owner sign-in and worker startup. No queued extraction/provider call in this smoke. |
+| Full application + synthetic HTTP provider | **All 9 scenario stages passed** using separately authenticated MCP SDK clients, profile HTTP writes, actual worker process and native canonical records. |
+| Native regression command within the application image | `THREADKEEPER_NATIVE_TEST_URL="$DATABASE_URL" node --import tsx --test tests/hybrid.test.ts tests/api-hybrid.test.ts` passed **15/15**. Fourteen vector-enabled cases used isolated native schemas; the no-extension fallback intentionally used PGlite. |
+| Native setup | Application migrations applied at startup and `pnpm migrate` reran successfully after the lifecycle. |
+| Cleanup | Successful and failed harness runs removed their project containers, networks, named database volumes, generated app images and private temp credentials. Label checks verify no project resources remain. Shared pulled base images/build cache may remain. |
+| Cancellation | Sending `kill -TERM <runner-pid>` during the active worker lifecycle made the runner exit **1** and verify complete resource/credential cleanup. A separate held MCP request probe confirmed client cancellation settles immediately (3 ms observed). |
+| Real-provider/GPU execution in this task | **Not run.** Runtime status lists no configured secrets/provider variables/identities; no operator `.env` exists. No `nvidia-smi` or GPU device is available. This limits learned-model/embedding and GPU validation, not the independently completed full-stack work. |
+
+Observed runtime versions: host Node **24.19.0**, application image Node
+**24.7.0**, host/image pnpm **11.25.0**, Docker **28.4.0**, Compose **2.40.3**,
+PostgreSQL **17.11 (Debian 17.11-1.pgdg12+2)**, pgvector **0.8.7**. The first
+complete passing application image was
+`sha256:ac4f14d75abe0bb792d1df92d8042f1c78ea273f6d2f958c1f0d3fd4f981ea08`.
+Database image `pgvector/pgvector:pg17` resolved to
+`sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d`;
+Node base `node:24.7.0-bookworm-slim` resolved to
+`sha256:0104d9447ea3ddf7373643be7f9915fc7b7c896e41d0d33229338e457217cd78`.
+The integration command prints its own application ID/database digest per run.
+The final code rerun again passed all nine stages and the native 15-test command,
+using application image
+`sha256:c64c8c3a0e895d3d3a0c53e9468835792ceb41849ce9bbf46da73c3e12c66551`.
+
+Client A captured deadline/preference source events **without explicit memories**.
+The worker's real HTTP adapter extracted two active statements plus a separately
+labeled inference candidate, then indexed three-dimensional synthetic vectors.
+Client B recalled both using `milestones and prose style`, which native SQL
+verified had no lexical match. Profile correction/deletion made fresh retrieval
+from both clients contain only the corrected authoritative deadline; deleted
+source, derived inference and export content disappeared.
+
+Further stages passed owner/project/source/client isolation, capture/read denial,
+revocation before provider invocation, lexical fallback and recovery for HTTP
+failure/wrong model/wrong dimensions, durable failed extraction without accepted
+output, and correction/deletion while extraction and embedding replies were held.
+The fixture received no Authorization header and saw only the intended model IDs
+and dimension. These are synthetic integration assertions, not model-quality
+measurements. Historical real Nemotron/Qwen observations below remain separate.
+
+### Remaining limitations
+
+Real-provider worker execution, learned embedding retrieval quality, local GPU
+feature parity, installed ChatGPT/Codex host behavior, sustained load, operational
+backup/restore and public release remain unverified. Extraction attempt fencing
+is now implemented; embedding work still has no durable attempt/retry ledger.
+Existing exact ranking, conservative whole-source deletion and reconciliation
+limits still apply. OSS license remains undecided. No merge, deployment, DNS,
+paid provisioning or reusable Cloud settings change occurred.
+
+## Earlier hybrid recall increment — 2026-10-03
 
 Continued the private `ThomsenDrake/threadkeeper` repository from fetched `origin/main` commit `5ef67d5` on branch `codex/hybrid-recall`. Read AGENTS.md, README.md, MVP_BRIEF.md, DECISIONS.md, this handoff and CODEX_CLOUD.md, then inspected the provider, database, worker and API implementation before changing behavior. Threadkeeper remains a portable personal-context service for existing clients. No deployment, DNS change, paid provisioning or public release occurred.
 
@@ -84,7 +186,7 @@ Native tests use explicit `THREADKEEPER_NATIVE_TEST_URL`, require pgvector insta
 - Full self-hosted GPU inference/embedding feature parity and installed chatbot/coding-agent integrations remain release gates. No hosted account, feature gate, license check or telemetry requirement was added.
 - OSS license remains undecided; choose one before public release. A previously reported GitGuardian notification has not been resolved by this work; original hardcoded localhost DB fallbacks were removed on main, but their historical incident details were not retrieved.
 
-Continue product development using [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), beginning with observable capture progress and safe retry unless current code or dependencies change that priority. Real embedding quality, full application containers and installed MCP hosts remain verification work; inspect PR #2 for completed integration evidence and run access-dependent checks when their configuration is available. Preserve explicit client-invoked capture/recall, authoritative profile corrections and deletion behavior. Rerun the checks/demo and relevant native/browser tests after behavioral changes; record results instead of treating configuration as proof.
+Continue product development using [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md), beginning with observable capture progress and safe retry unless current code or dependencies change that priority. Full application container validation is now recorded in the full-stack evidence above. Real embedding quality and installed MCP hosts remain verification work; run access-dependent checks when their configuration is available. Preserve explicit client-invoked capture/recall, authoritative profile corrections and deletion behavior. Rerun the checks/demo and relevant native/browser tests after behavioral changes; record results instead of treating configuration as proof.
 
 ## Review follow-up — 2026-10-03
 

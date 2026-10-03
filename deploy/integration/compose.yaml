@@ -1,0 +1,45 @@
+# Overlay the operator stack, with disposable resources and no public ports.
+# The runner supplies a unique project, image and private generated env file.
+services:
+  postgres:
+    ports: !reset []
+    restart: "no"
+  api:
+    image: ${THREADKEEPER_INTEGRATION_IMAGE:?Run pnpm integration}
+    ports: !override
+      - 127.0.0.1:${THREADKEEPER_INTEGRATION_PORT:?Run pnpm integration}:3000
+    environment: &fixture-environment
+      APP_ORIGIN: http://127.0.0.1:${THREADKEEPER_INTEGRATION_PORT:?Run pnpm integration}
+      COOKIE_SECURE: "false"
+      MODEL_BASE_URL: http://fixture:8080/v1/
+      MODEL_ID: nvidia/Nemotron-3_5-Lightning
+      MODEL_API_KEY: ""
+      NEBIUS_API_KEY: ""
+      MODEL_TIMEOUT_MS: "30000"
+      EMBEDDING_BASE_URL: http://fixture:8080/v1/
+      EMBEDDING_MODEL: threadkeeper-fixture-embedding-v1
+      EMBEDDING_DIMENSIONS: "3"
+      EMBEDDING_API_KEY: ""
+      EMBEDDING_TIMEOUT_MS: "30000"
+      WORKER_POLL_MS: "100"
+    depends_on:
+      fixture:
+        condition: service_healthy
+    restart: "no"
+  worker:
+    image: ${THREADKEEPER_INTEGRATION_IMAGE:?Run pnpm integration}
+    environment: *fixture-environment
+    restart: "no"
+  fixture:
+    image: ${THREADKEEPER_INTEGRATION_IMAGE:?Run pnpm integration}
+    command: ["node", "--import", "tsx", "deploy/integration/provider-fixture.ts"]
+    environment:
+      PORT: "8080"
+    ports:
+      - 127.0.0.1::8080
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/control/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+    restart: "no"

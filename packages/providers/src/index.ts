@@ -113,8 +113,10 @@ const UsageSchema = z.object({
   total_tokens: z.number().int().nonnegative().optional(),
 }).passthrough();
 
+const ModelIdentitySchema = z.string().min(1).refine(model => model.trim() === model && !/[\u0000-\u001f\u007f]/.test(model));
+
 const ChatResponseSchema = z.object({
-  model: z.string().optional(),
+  model: ModelIdentitySchema.optional(),
   choices: z.array(z.object({
     finish_reason: z.string().nullable().optional(),
     message: z.object({
@@ -278,6 +280,9 @@ export class OpenAICompatibleProvider {
       max_tokens: request.max_tokens ?? this.config.maxOutputTokens,
     }));
     if (!parsed.success) throw new ProviderError('provider_invalid_chat_response');
+    // Compatible endpoints may omit the optional identity. If supplied, it
+    // must name the selected model: do not relabel substituted model output.
+    if (parsed.data.model !== undefined && parsed.data.model !== this.config.modelId) throw new ProviderError('provider_model_mismatch');
     return parsed.data;
   }
 
@@ -347,7 +352,7 @@ export class OpenAICompatibleEmbeddingProvider {
   async embed(texts: string[]): Promise<{ vectors: number[][]; dimensions: number; model: string; usage?: TokenUsage }> {
     if (!texts.length || texts.length > 64 || texts.some(text => !text || text.length > 16_000)) throw new ProviderError('embedding_input_outside_bounds');
     const result = z.object({
-      model: z.string().min(1).refine(model => model.trim() === model && !/[\u0000-\u001f\u007f]/.test(model)).optional(),
+      model: ModelIdentitySchema.optional(),
       data: z.array(z.object({ index: z.number().int().nonnegative(), embedding: z.array(z.number().finite()).min(1).max(16_000) })),
       usage: UsageSchema.optional(),
     }).safeParse(await requestJson(this.config, 'embeddings', {

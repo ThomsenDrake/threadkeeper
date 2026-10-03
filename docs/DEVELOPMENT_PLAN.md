@@ -6,7 +6,7 @@ The user's standing direction is to develop the full Threadkeeper application au
 
 Read the required project documents, inspect current implementation and open PRs, fetch the latest main branch, and establish the credential-free checks/demo baseline. The backlog below describes product gaps observed on 2026-10-03; reconcile it with current code before implementing anything. Prefer reusing completed work over rebuilding it.
 
-Hybrid recall is merged in PR #1. Full-stack integration and extraction attempt fencing are implemented in [PR #2](https://github.com/ThomsenDrake/threadkeeper/pull/2), which was open when this plan was written. Check its current state rather than assuming it is merged or reproducing its fixes. If it remains open, implement independent work or clearly base a dependent PR on its branch; this guidance does not authorize merging another task's PR.
+Hybrid recall is merged in PR #1. Full-stack integration and extraction attempt fencing are also merged in [PR #2](https://github.com/ThomsenDrake/threadkeeper/pull/2), at main commit `b6b11ef`. Reuse that implementation and its synthetic integration evidence. Inspect current open PRs for newer work before choosing or stacking another increment; this guidance does not authorize merging another task's PR.
 
 ## Default product sequence
 
