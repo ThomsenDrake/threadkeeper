@@ -1,0 +1,39 @@
+{
+  "result": "PASS",
+  "evidence": "native-full-stack-synthetic-provider",
+  "versions": {
+    "postgres": "17.11 (Debian 17.11-1.pgdg12+2)",
+    "pgvector": "0.8.7"
+  },
+  "checks": [
+    "profile and two independently authenticated MCP clients",
+    "worker HTTP extraction and native pgvector hybrid recall",
+    "explicit owner confirmation and dismissal preserve original provenance through independent recall",
+    "authoritative profile correction and complete preference deletion",
+    "owner capture pause rejects new saves and replay while authorized recall and queued extraction continue",
+    "owner, project, source and client permission isolation",
+    "embedding HTTP failure, model and dimension validation with recovery",
+    "live capture failure, owner retry and independent recall preserve source and job identity",
+    "correction and deletion during in-flight embedding processing",
+    "correction and deletion during in-flight source extraction",
+    "fresh final context, keyless fixture identity and client revocation",
+    "native migrations rerun",
+    "native-enabled hybrid, capture recovery, candidate review and client control regressions (37 tests)"
+  ],
+  "recorded_at": "2026-10-03T13:41:27.326110+00:00",
+  "application_image": "sha256:8b85c3e404328c9b06c3671af999c73631b81ee1fe0c8c1ec137f3986a2a4517",
+  "runtime": {
+    "host_node": "24.19.0",
+    "application_node": "24.7.0",
+    "pnpm": "11.25.0",
+    "docker": "28.4.0",
+    "compose": "2.40.3"
+  },
+  "fixture": "Keyless synthetic HTTP extraction/embeddings with exact Nemotron alias; no learned model execution",
+  "cleanup": "Disposable containers, network, volume, application image and generated credentials removed",
+  "limitations": [
+    "Independent MCP SDK transports exercised configured endpoint/header guidance; no installed chatbot or coding-agent host.",
+    "Native-enabled regression invocation includes explicit PGlite fallback checks; existing client-control API fixtures use isolated native schemas when the disposable URL is supplied.",
+    "No real-provider semantic quality, GPU operation or public deployment established."
+  ]
+}

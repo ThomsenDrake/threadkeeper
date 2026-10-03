@@ -5,10 +5,10 @@ MCP clients decide when to invoke capture and recall. Threadkeeper stores and re
 ## Connection and permissions
 
 1. Sign into the profile and open Connections.
-2. Create a separate credential per client. Choose read access and optionally capture access.
+2. Create a separate credential per client. Choose recall (read) access and optionally capture access. A created credential has **Never used** status until a valid bearer request reaches Threadkeeper; an **Active credential** is not proof that an MCP host is installed.
 3. Set permitted project IDs. A restricted client can access those projects **plus global context** (`project_id:null`); an unrestricted client can access every project belonging to its owner.
 4. Save the displayed token securely. It is shown once, and the database stores its hash.
-5. Configure the client's remote MCP endpoint as `http://localhost:3000/mcp` for local operation and send `Authorization: Bearer TOKEN`. Use the deployment's exact configured origin.
+5. Copy the exact **Remote MCP endpoint** from Connections. It is the operator-configured application origin with `/mcp`, for example `http://localhost:3000/mcp` locally. Send `Authorization: Bearer TOKEN`; the one-time token dialog can copy the token and connection JSON. Tokens remain in that transient dialog and are cleared when it closes or you sign out. Store them securely in the client's own configuration.
 
 Client-specific configuration varies. The tested clients are two independent official TypeScript SDK instances using Streamable HTTP and modern protocol negotiation. No installed chatbot or coding-agent host is claimed as tested yet. Some clients cannot send arbitrary headers and will require a supported authentication flow before integration.
 
@@ -41,7 +41,64 @@ Owners can open **Captures** in the profile to inspect recent saves, read eviden
 >
 > Use retrieved evidence and origin labels. If recall reports insufficient context, say so. Preserve pending/failed write states accurately. Respect project scopes, capture pauses established by the user and revoked access. Send profile edits/deletions to the owner's controls when the client lacks those permissions.
 
-The current service has no dedicated capture-pause setting. The client must honor a user's pause request by ceasing captures; a server-enforced setting remains development work.
+## Pause, resume and observed use
+
+Connections shows whether new captures are allowed. **Pause capture** blocks every new HTTP/MCP capture request, including profile entries and replay of an existing receipt, with HTTP 403 `capture_paused` (MCP returns a tool error). The database checks this state under the same owner lock used for capture admission. A request committed before pause remains saved; requests admitted after pause are rejected. Pause keeps existing data and credentials, and permitted recall/source/status reads stay available. It does not remove previously delivered client context.
+
+Already admitted extraction jobs may complete while paused. The owner can retry eligible failed jobs while paused because their sources were already admitted. Current attempt, correction and deletion fences still apply. Profile correction, review, deletion and import of previously exported data remain available. Resume accepts new capture requests again. Revoke a credential to deny all its subsequent requests; pause and revocation serve different controls.
+
+Owner settings use `GET /api/settings/capture` and `PATCH /api/settings/capture` with `{"paused":true,"expected_version":0}` using a signed-in owner session. The result is `{"paused":true,"version":1}`. The independent settings revision changes only when pause state changes, so unrelated memory activity does not invalidate it. A stale revision returns HTTP 409 `capture_settings_conflict`; refresh before retrying. Client credentials cannot read/change these owner controls. `GET /api/settings/connection` returns the exact configured `mcp_endpoint` to the owner.
+
+**Created** records credential issuance. **Last authenticated request** records only admission of a valid, unrevoked bearer credential, even when the requested operation is subsequently denied. It stores a timestamp, no request content, and does not prove a capture, successful tool call, installed host, or ongoing connection. A revoked credential cannot update that timestamp.
+
+## Remote MCP connection JSON
+
+The one-time token dialog supplies a concrete version of this generic connection object:
+
+```json
+{
+  "url": "http://localhost:3000/mcp",
+  "headers": { "Authorization": "Bearer YOUR_CLIENT_TOKEN" }
+}
+```
+
+Use Streamable HTTP transport. Hosts use different configuration wrappers; place these endpoint/header values in that host's supported remote MCP configuration. This object is not a claim that a particular ChatGPT/Codex configuration file has been installed. An SDK connection uses `new StreamableHTTPClientTransport(new URL(config.url), {requestInit:{headers:config.headers}})`. Some hosts cannot send arbitrary headers; they need a supported authentication flow before they can connect.
+
+## First authorized capture and recall
+
+Create one credential with both recall and capture permissions. Connect using the endpoint and bearer header above. Explicitly ask the client to save this **synthetic** writing preference, then invoke `context_capture` with these arguments (the profile can copy them):
+
+```json
+{
+  "idempotency_key": "first-context-v1",
+  "project_id": null,
+  "subject": "self",
+  "events": [{
+    "id": "first-context-note",
+    "text": "Use short paragraphs in my writing.",
+    "author_role": "user",
+    "origin": "user_explicit",
+    "capture_method": "explicit_capture"
+  }],
+  "explicit_memories": [{
+    "statement": "Use short paragraphs in my writing.",
+    "kind": "preference",
+    "source_event_id": "first-context-note",
+    "quote": "Use short paragraphs in my writing.",
+    "origin": "user_explicit"
+  }]
+}
+```
+
+`project_id:null` is global personal context, available to all of this owner's credentials that have read permission, including restricted-project credentials. For a project-only note, set an allowed project ID. Reuse the IDs only for retries of this exact save; choose new stable IDs for new content. The explicit example saves a memory immediately without requiring an extraction model. Omitting `explicit_memories` saves a source and returns `pending`; use `context_capture_status` and the profile Captures view to follow its extraction instead of assuming it is ready.
+
+Next invoke `context_search` with:
+
+```json
+{"query":"short paragraphs","project_id":null}
+```
+
+The result should contain the saved preference with `user_explicit` origin and its source quotation. A separate read credential can make the same recall call. The HTTP equivalents are `POST /api/capture` with the capture JSON and `GET /api/context/search?query=short%20paragraphs`, both with the bearer header; use the MCP example when you specifically need a global-only `project_id:null` search because URL query values are strings. Pause in Connections and try another capture: expect `capture_paused` while recall still works. Resume, then revoke this credential: its next HTTP/MCP request must fail authentication. These are explicit calls, not an automatic transcript feed.
 
 ## Synthetic demonstration payload
 

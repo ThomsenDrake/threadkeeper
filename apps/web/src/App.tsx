@@ -13,7 +13,8 @@ type Source = {
 type Evidence = { source_id: string; quote: string; revision: number };
 type Revision = { revision: number; statement: string; origin: string; status: string; effective_at: string | null; created_at: string; editor_client_id: string | null; extractor?: string | null };
 type Detail = { memory: Memory; sources: Source[]; evidence?: Evidence[]; revisions: Revision[] };
-type Client = { id: string; name: string; permissions: string[]; projects: string[] | null; created_at?: string; revoked_at?: string | null };
+type Client = { id: string; name: string; permissions: string[]; projects: string[] | null; created_at?: string; last_used_at?: string | null; revoked_at?: string | null };
+type CaptureSettings = { paused: boolean; version: number };
 type CaptureStatus = {
   capture_id: string; client_id: string; project_id: string | null; subject: string; created_at: string;
   status: 'saved' | 'pending' | 'processing' | 'complete' | 'failed' | 'cancelled';
@@ -52,7 +53,7 @@ const pageLabels: Record<Page, string> = { memories: 'Your memories', captures: 
 const pageCopy: Record<Page, { eyebrow: string; title: string; description: string }> = {
   memories: { eyebrow: 'THE THREAD YOU KEEP', title: 'Your memory, on your terms.', description: 'Review what is remembered, where it came from, and what needs to change.' },
   captures: { eyebrow: 'FROM SOURCE TO MEMORY', title: 'Follow your captures.', description: 'Inspect current processing, open source evidence, and retry failed extraction.' },
-  connections: { eyebrow: 'CONTEXT, WITH PERMISSION', title: 'Connected clients.', description: 'Give each chatbot or coding agent only the access it needs.' },
+  connections: { eyebrow: 'CONTEXT, WITH PERMISSION', title: 'Client credentials.', description: 'Give each chatbot or coding agent only the access it needs.' },
   portability: { eyebrow: 'TAKE YOUR CONTEXT WITH YOU', title: 'Memory without lock-in.', description: 'Export your sources and memories, or bring them into this deployment.' },
 };
 const readableDate = (date?: string | null) => date ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(date)) : 'Not supplied';
@@ -71,10 +72,19 @@ const errorMessages: Record<string, string> = {
   revision_conflict: 'This memory has changed. Refresh its current revision before reviewing again.',
   review_unavailable: 'This memory is no longer waiting for review.',
   review_required: 'Use the candidate review actions to confirm this memory. Dismissed memories remain available for inspection and deletion.',
+  capture_paused: 'New captures are paused. Resume capture in Connections before saving more context.',
+  capture_settings_conflict: 'Capture settings changed elsewhere. Review the current setting before trying again.',
 };
 
+const walkthroughCapture = JSON.stringify({
+  idempotency_key: 'first-context-v1', project_id: null, subject: 'self',
+  events: [{ id: 'first-context-note', text: 'Use short paragraphs in my writing.', author_role: 'user', origin: 'user_explicit', capture_method: 'explicit_capture' }],
+  explicit_memories: [{ statement: 'Use short paragraphs in my writing.', kind: 'preference', source_event_id: 'first-context-note', quote: 'Use short paragraphs in my writing.', origin: 'user_explicit' }],
+}, null, 2);
+const walkthroughRecall = JSON.stringify({ query: 'short paragraphs', project_id: null, subject: 'self', limit: 10 }, null, 2);
+
 class ApiError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  constructor(message: string, public status: number, public code?: string) { super(message); }
 }
 
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -82,9 +92,14 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
     const reason = typeof result.error === 'string' ? result.error : result.error?.message || result.message || `Request failed (${response.status})`;
-    throw new ApiError(errorMessages[reason] || reason, response.status);
+    throw new ApiError(errorMessages[reason] || reason, response.status, reason);
   }
   return result as T;
+}
+
+function validatedCaptureSettings(result: CaptureSettings): CaptureSettings {
+  if (typeof result.paused !== 'boolean' || !Number.isSafeInteger(result.version) || result.version < 0) throw new Error('Capture controls returned an unreadable response. Refresh before trying again.');
+  return result;
 }
 
 function Icon({ name }: { name: string }) {
@@ -105,6 +120,16 @@ function Icon({ name }: { name: string }) {
 
 function Brand() {
   return <div className="brand"><span className="brand-mark" aria-hidden="true"><span /></span><span>threadkeeper<span className="brand-dot">.</span></span></div>;
+}
+
+function CopyValue({ label, value, rows = 3, disabled = false, copyLabel }: { label: string; value: string; rows?: number; disabled?: boolean; copyLabel?: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const [message, setMessage] = useState('');
+  useEffect(() => setMessage(''), [value, disabled]);
+  return <div className="copy-field"><label>{label}<textarea ref={ref} aria-label={label} readOnly rows={rows} value={value} className="token-value" onFocus={event => event.currentTarget.select()} /></label><div className="copy-actions"><button className="button secondary" type="button" disabled={disabled || !value} onClick={async () => {
+    try { await navigator.clipboard.writeText(value); setMessage(`${label} copied.`); }
+    catch { ref.current?.focus(); ref.current?.select(); setMessage('Text selected. Use your device’s copy command.'); }
+  }}>{copyLabel || `Copy ${label.toLowerCase()}`}</button><span className="fine-print" role="status">{message}</span></div></div>;
 }
 
 function Modal({ title, description, onClose, children }: { title: string; description?: string; onClose: () => void; children: ReactNode }) {
@@ -141,6 +166,18 @@ export default function App() {
   const [page, setPage] = useState<Page>('memories');
   const [memories, setMemories] = useState<Memory[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientsError, setClientsError] = useState<string | null>(null);
+  const [captureSettings, setCaptureSettings] = useState<CaptureSettings | null>(null);
+  const [captureSettingsLoading, setCaptureSettingsLoading] = useState(true);
+  const [captureSettingsError, setCaptureSettingsError] = useState<string | null>(null);
+  const [captureSettingsBusy, setCaptureSettingsBusy] = useState(false);
+  const [mcpEndpoint, setMcpEndpoint] = useState<string | null>(null);
+  const [connectionLoading, setConnectionLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [settingsRefreshVersion, setSettingsRefreshVersion] = useState(0);
+  const [clientScope, setClientScope] = useState<'all' | 'selected'>('all');
+  const [walkthroughAuthorized, setWalkthroughAuthorized] = useState(false);
   const [filters, setFilters] = useState({ query: '', subject: '', project_id: '', source: '', status: 'active' });
   const [busy, setBusy] = useState(false);
   const [listLoading, setListLoading] = useState(false);
@@ -189,6 +226,8 @@ export default function App() {
   const clearOwnerState = () => {
     authGeneration.current++;
     setUser(null); setSelected(null); setMemories([]); setClients([]); setToken(null); setModal(null);
+    setClientsError(null); setClientsLoading(false); setCaptureSettings(null); setCaptureSettingsError(null); setCaptureSettingsLoading(true); setCaptureSettingsBusy(false);
+    setMcpEndpoint(null); setConnectionError(null); setConnectionLoading(true); setWalkthroughAuthorized(false);
     setCaptures([]); setCaptureReceipt(null); setCapturePages(1); setNextCaptureOffset(null);
     setCapturesUpdatedAt(null); setCapturesError(null); setCapturesLoading(false); setRetryingCapture(null);
     setSourceId(null); setSource(null); setSourceError(null); setSourceLoading(false);
@@ -200,7 +239,12 @@ export default function App() {
     setNotice({ type: 'error', text: error instanceof Error ? error.message : 'The request could not be completed.' });
   };
   const refresh = () => setRefreshVersion(v => v + 1);
-  const openCapture = () => { setCaptureMode('explicit'); setModal('capture'); };
+  const captureUnavailable = !captureSettings || captureSettingsLoading || captureSettingsBusy || !!captureSettingsError || captureSettings.paused;
+  const openCapture = () => {
+    if (captureUnavailable) { setPage('connections'); return; }
+    setCaptureMode('explicit'); setModal('capture');
+  };
+  const openClient = () => { setClientScope('all'); setModal('client'); };
   const closeMemory = () => { detailRequest.current++; setSelected(null); setSelectedMemoryId(null); setDetailLoading(false); setDetailError(null); setReviewError(null); setEditing(false); setDeleting(false); setDismissing(false); };
   const closeMemoryRef = useRef(closeMemory);
   closeMemoryRef.current = closeMemory;
@@ -231,8 +275,41 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    api<{ clients: Client[] }>('/clients').then(result => setClients(result.clients)).catch(informError);
+    const controller = new AbortController();
+    setClientsLoading(true); setClientsError(null);
+    api<{ clients: Client[] }>('/clients', { signal: controller.signal }).then(result => { if (!controller.signal.aborted) setClients(result.clients); }).catch(error => {
+      if (controller.signal.aborted) return;
+      setClientsError(error instanceof Error ? error.message : 'Unable to load client credentials.');
+      if (error instanceof ApiError && error.status === 401) informError(error);
+    }).finally(() => { if (!controller.signal.aborted) setClientsLoading(false); });
+    return () => controller.abort();
   }, [user, refreshVersion]);
+
+  useEffect(() => {
+    if (!user) return;
+    const controller = new AbortController();
+    setCaptureSettingsLoading(true); setCaptureSettingsError(null); setConnectionLoading(true); setConnectionError(null);
+    void Promise.allSettled([
+      api<CaptureSettings>('/settings/capture', { signal: controller.signal }).then(validatedCaptureSettings).then(result => { if (!controller.signal.aborted) setCaptureSettings(current => current && current.version > result.version ? current : result); }).catch(error => {
+        if (controller.signal.aborted) return;
+        setCaptureSettingsError(error instanceof Error ? error.message : 'Unable to load capture controls.');
+        if (error instanceof ApiError && error.status === 401) informError(error);
+      }).finally(() => { if (!controller.signal.aborted) setCaptureSettingsLoading(false); }),
+      api<{ mcp_endpoint: string }>('/settings/connection', { signal: controller.signal }).then(result => { if (!controller.signal.aborted) setMcpEndpoint(result.mcp_endpoint); }).catch(error => {
+        if (controller.signal.aborted) return;
+        setConnectionError(error instanceof Error ? error.message : 'Unable to load the connection endpoint.');
+        if (error instanceof ApiError && error.status === 401) informError(error);
+      }).finally(() => { if (!controller.signal.aborted) setConnectionLoading(false); }),
+    ]);
+    return () => controller.abort();
+  }, [user, settingsRefreshVersion]);
+
+  useEffect(() => {
+    if (!user) return;
+    const refreshSettings = () => setSettingsRefreshVersion(value => value + 1);
+    window.addEventListener('focus', refreshSettings);
+    return () => window.removeEventListener('focus', refreshSettings);
+  }, [user]);
 
   useEffect(() => {
     if (!user || page !== 'memories') return;
@@ -384,7 +461,9 @@ export default function App() {
   }
 
   async function capture(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true);
+    event.preventDefault();
+    if (captureUnavailable) { setNotice({ type: 'error', text: 'Capture is unavailable. Check the capture controls in Connections before saving.' }); return; }
+    setBusy(true);
     const generation = authGeneration.current;
     const form = new FormData(event.currentTarget);
     const text = String(form.get('statement') || '').trim();
@@ -404,7 +483,12 @@ export default function App() {
       setCaptureReceipt({ capture_id: result.capture_id, status: result.status, received_at: new Date().toISOString() });
       if (result.status === 'pending') { setPage('captures'); setCapturePages(1); }
       refresh(); setNotice({ type: 'success', text: result.status === 'pending' ? 'Source saved. Check Captures for current processing status.' : 'Saved as your direct statement, with its source evidence.' });
-    } catch (error) { if (generation === authGeneration.current) informError(error); }
+    } catch (error) {
+      if (generation === authGeneration.current) {
+        informError(error);
+        if (error instanceof ApiError && error.code === 'capture_paused') setSettingsRefreshVersion(value => value + 1);
+      }
+    }
     finally { if (generation === authGeneration.current) setBusy(false); }
   }
 
@@ -432,12 +516,35 @@ export default function App() {
 
   async function createClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); const form = new FormData(event.currentTarget);
+    const generation = authGeneration.current;
     try {
       const projects = String(form.get('projects') || '').split(',').map(item => item.trim()).filter(Boolean);
       const permissions = ['read', ...(form.get('capture') ? ['capture'] : [])];
       const result = await api<{ client: Client; token: string }>('/clients', { method: 'POST', body: JSON.stringify({ name: form.get('name'), permissions, projects: form.get('scope') === 'all' ? null : projects }) });
+      if (generation !== authGeneration.current) return;
       setModal(null); setToken({ value: result.token, name: result.client.name }); refresh();
-    } catch (error) { informError(error); } finally { setBusy(false); }
+    } catch (error) { if (generation === authGeneration.current) informError(error); }
+    finally { if (generation === authGeneration.current) setBusy(false); }
+  }
+
+  async function toggleCapture() {
+    if (!captureSettings || captureSettingsLoading || captureSettingsBusy || captureSettingsError) return;
+    const generation = authGeneration.current;
+    const paused = !captureSettings.paused;
+    setCaptureSettingsBusy(true);
+    try {
+      const updated = validatedCaptureSettings(await api<CaptureSettings>('/settings/capture', { method: 'PATCH', body: JSON.stringify({ paused, expected_version: captureSettings.version }) }));
+      if (generation !== authGeneration.current) return;
+      setCaptureSettings(current => current && current.version > updated.version ? current : updated);
+      setNotice({ type: 'success', text: paused ? 'New captures paused for all clients and the profile. Existing context remains available.' : 'New captures resumed. Clients still need capture permission and your authorization.' });
+    } catch (error) {
+      if (generation !== authGeneration.current) return;
+      // A failed or unreadable response can follow a committed mutation. Stop
+      // presenting the old state as current until canonical settings are read.
+      setCaptureSettings(null);
+      informError(error);
+      setSettingsRefreshVersion(value => value + 1);
+    } finally { if (generation === authGeneration.current) setCaptureSettingsBusy(false); }
   }
 
   async function revokeClient(id: string) {
@@ -493,17 +600,18 @@ export default function App() {
       <div className="topbar"><span>Profile <span className="breadcrumb-slash">/</span> {pageLabels[page]}</span><span className="topbar-detail"><Icon name="lock" />Private to your account</span></div>
       <div className="page-content">
         <header className="page-header"><div><span className="eyebrow">{pageCopy[page].eyebrow}</span><h1>{pageCopy[page].title}</h1><p>{pageCopy[page].description}</p></div>
-          {(page === 'memories' || page === 'captures') && <button className="button primary" onClick={openCapture}><Icon name="plus" />{page === 'captures' ? 'Add context' : 'Add memory'}</button>}{page === 'connections' && <button className="button primary" onClick={() => setModal('client')}><Icon name="plus" />Connect a client</button>}
+          {(page === 'memories' || page === 'captures') && <button className="button primary" onClick={openCapture} disabled={captureUnavailable}><Icon name="plus" />{page === 'captures' ? 'Add context' : 'Add memory'}</button>}{page === 'connections' && <button className="button primary" onClick={openClient}><Icon name="plus" />Create credential</button>}
         </header>
         {notice && <div className={`notice ${notice.type}`} role={notice.type === 'error' ? 'alert' : 'status'}><span>{notice.text}</span><button className="icon-button" onClick={() => setNotice(null)} aria-label="Dismiss notification"><Icon name="close" /></button></div>}
+        <div className={`capture-control-banner ${captureSettings?.paused ? 'capture-control-paused' : ''}`} role="status"><span>{captureSettingsLoading ? 'Checking capture controls…' : captureSettingsError ? 'Capture controls unavailable. New profile captures are disabled until refreshed.' : captureSettings?.paused ? 'New captures are paused for all clients and this profile. Existing memories remain available.' : 'New captures are enabled. Each client still needs your authorization and capture permission.'}</span>{page !== 'connections' && <button className="text-button" onClick={() => setPage('connections')}>Capture controls</button>}</div>
         {page === 'memories' && <>
-          <div className="summary-strip"><div><span className="summary-number">{memories.length}</span><span>Memories shown</span></div><div><span className="summary-number">{activeClients.length}</span><span>Connected clients</span></div><button className="summary-review" aria-pressed={filters.status === 'candidate'} onClick={() => { closeMemory(); setFilters(current => ({ ...current, status: 'candidate' })); }}><Icon name="check" />Needs review</button></div>
+          <div className="summary-strip"><div><span className="summary-number">{memories.length}</span><span>Memories shown</span></div><div><span className="summary-number">{activeClients.length}</span><span>Active credentials</span></div><button className="summary-review" aria-pressed={filters.status === 'candidate'} onClick={() => { closeMemory(); setFilters(current => ({ ...current, status: 'candidate' })); }}><Icon name="check" />Needs review</button></div>
           {filters.status === 'candidate' && <div className="review-intro"><div><h2>Your review makes the decision.</h2><p>Confirm a candidate with your own evidence, edit and confirm it, or dismiss it while keeping its history. Unconfirmed candidates stay outside fresh default recall.</p></div><button className="text-button" onClick={() => setFilters(current => ({ ...current, status: 'active' }))}>View active memories</button></div>}
           <section className="memory-panel" aria-label="Memories">
             <div className="filter-bar"><label className="search-field"><Icon name="search" /><span className="sr-only">Search memories</span><input type="search" value={filters.query} onChange={event => setFilters({ ...filters, query: event.target.value })} placeholder="Search your memories…" /></label><label><span>Subject</span><input value={filters.subject} onChange={event => setFilters({ ...filters, subject: event.target.value })} placeholder="All subjects" /></label><label><span>Project</span><input value={filters.project_id} onChange={event => setFilters({ ...filters, project_id: event.target.value })} placeholder="All projects" /></label><label><span>Source</span><select aria-label="Source" value={filters.source} onChange={event => setFilters({ ...filters, source: event.target.value })}><option value="">All sources</option><option value="profile">Profile</option>{clients.map(client => <option key={client.id} value={client.id}>{client.name}{client.revoked_at ? ' (revoked)' : ''}</option>)}</select></label><label><span>Status</span><select aria-label="Status" value={filters.status} onChange={event => setFilters({ ...filters, status: event.target.value })}><option value="">All statuses</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div>
             <div className="list-heading"><span>MEMORY</span><span>CLASSIFICATION</span><span>UPDATED</span><span /></div>
             {listLoading && <div className="list-progress" role="status">Searching…</div>}
-            {!listLoading && memories.length === 0 && <div className="empty-state"><span className="empty-icon"><Icon name="memories" /></span><h3>{filters.status === 'candidate' ? 'No candidates match this view.' : Object.entries(filters).some(([key, value]) => value && key !== 'status') || filters.status !== 'active' ? 'No matching memories.' : 'A fresh thread starts here.'}</h3><p>{filters.status === 'candidate' ? 'Reviewable proposals and model inferences appear here. Check your filters to see candidates in another scope.' : 'Save a direct statement here, or let a connected client capture context you approve.'}</p>{filters.status === 'candidate' ? <button className="button secondary" onClick={() => setFilters(current => ({ ...current, status: 'active' }))}>View active memories</button> : <button className="button secondary" onClick={openCapture}>Add your first memory</button>}</div>}
+            {!listLoading && memories.length === 0 && <div className="empty-state"><span className="empty-icon"><Icon name="memories" /></span><h3>{filters.status === 'candidate' ? 'No candidates match this view.' : Object.entries(filters).some(([key, value]) => value && key !== 'status') || filters.status !== 'active' ? 'No matching memories.' : 'A fresh thread starts here.'}</h3><p>{filters.status === 'candidate' ? 'Reviewable proposals and model inferences appear here. Check your filters to see candidates in another scope.' : 'Save a direct statement here, or let a connected client capture context you approve.'}</p>{filters.status === 'candidate' ? <button className="button secondary" onClick={() => setFilters(current => ({ ...current, status: 'active' }))}>View active memories</button> : <button className="button secondary" onClick={openCapture} disabled={captureUnavailable}>Add your first memory</button>}</div>}
             <div className="memory-list">{memories.map(memory => <button key={memory.id} className={`memory-row ${selected?.memory.id === memory.id ? 'row-selected' : ''}`} onClick={() => openMemory(memory)}><div className="memory-statement"><div className="memory-meta"><span>{kindLabels[memory.kind] || memory.kind}</span><span className="meta-dot">·</span><span>{memory.project_id || 'Personal'}</span><span className="meta-dot">·</span><span>{memory.subject}</span></div><p>{memory.statement}</p></div><div className="classification"><span className={`badge origin-${memory.origin}`}>{originLabels[memory.origin] || memory.origin}</span>{memory.status !== 'active' && <span className={`badge status-${memory.status}`}>{statusLabels[memory.status] || memory.status}</span>}</div><div className="updated"><span>{new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(memory.updated_at || memory.created_at))}</span><small>Revision {memory.revision}</small></div><Icon name="arrow" /></button>)}</div>
           </section><p className="memory-footer">{memories.length === 100 ? "Showing the first 100 matches. Refine your filters to narrow the results. " : ""}Sources are preserved separately from interpretations. Inferences are always labeled.</p>
         </>}
@@ -513,7 +621,7 @@ export default function App() {
           {capturesError && <div className="notice error" role="alert"><span>{capturesError} {captures.length > 0 && 'The displayed records are from the last successful update.'}</span><button className="text-button" onClick={() => setCaptureRefreshVersion(value => value + 1)}>Try again</button></div>}
           <section className="capture-list" aria-label="Recent captures" aria-busy={capturesLoading}>
             {capturesLoading && captures.length === 0 && <div className="empty-state" role="status"><p>Loading captures…</p></div>}
-            {!capturesLoading && !capturesError && captures.length === 0 && <div className="empty-state"><span className="empty-icon"><Icon name="captures" /></span><h3>No captures yet.</h3><p>Save a direct memory or add source context for extraction. Captures from your connected clients appear here too.</p><button className="button secondary" onClick={openCapture}>Add your first context</button></div>}
+            {!capturesLoading && !capturesError && captures.length === 0 && <div className="empty-state"><span className="empty-icon"><Icon name="captures" /></span><h3>No captures yet.</h3><p>Save a direct memory or add source context for extraction. Captures from your connected clients appear here too.</p><button className="button secondary" onClick={openCapture} disabled={captureUnavailable}>Add your first context</button></div>}
             {captures.map(item => <article className="capture-card" key={item.capture_id} aria-labelledby={`capture-${item.capture_id}`} data-capture-id={item.capture_id}>
               <div className="capture-heading"><div><h2 id={`capture-${item.capture_id}`}>{clientName(item.client_id)}</h2><p>{item.project_id || 'Personal'} · {item.subject} · {readableDate(item.created_at)}</p></div><span className={`badge capture-status-${item.status}`}>{captureStatusLabels[item.status]}</span></div>
               <p className="capture-description">{captureStatusDescriptions[item.status]}</p>
@@ -526,11 +634,26 @@ export default function App() {
           {nextCaptureOffset !== null && <div className="capture-pagination"><button className="button secondary" disabled={capturesLoading} onClick={() => setCapturePages(count => count + 1)}>Load older captures</button></div>}
           <p className="memory-footer">Status reflects current records. Forgotten sources and memories are removed from the evidence links.</p>
         </>}
-        {page === 'connections' && <section className="connections-panel"><div className="info-card"><Icon name="connections" /><div><h3>One memory layer. Independent clients.</h3><p>Clients call capture and recall through MCP. Connecting a client does not automatically capture every conversation. <a href="/openapi.json" target="_blank" rel="noreferrer">HTTP API schema</a></p></div></div>
-          {activeClients.length === 0 && <div className="empty-state"><h3>No clients connected yet.</h3><p>Create separate credentials for each chatbot or coding agent.</p><button className="button secondary" onClick={() => setModal('client')}>Connect a client</button></div>}
-          <div className="client-grid">{clients.map(client => <article key={client.id} className={`client-card ${client.revoked_at ? 'client-revoked' : ''}`}><div className="client-heading"><span className="client-icon"><Icon name="connections" /></span><span className={`badge ${client.revoked_at ? '' : 'status-active'}`}>{client.revoked_at ? 'Revoked' : 'Connected'}</span></div><h3>{client.name}</h3><div className="client-permissions">{(client.permissions || []).map(permission => <span className="badge" key={permission}>{permission === 'capture' ? 'Capture context' : permission === 'read' ? 'Recall context' : permission}</span>)}</div><p className="scope-label">Project scope</p><p>{client.projects === null ? 'All projects and personal context' : client.projects?.length ? client.projects.join(', ') : 'Personal context only'}</p><code className="client-id">{client.id}</code>
-            {!client.revoked_at && (pendingRevocation === client.id ? <div className="revoke-confirm"><p>Stop this client’s access immediately?</p><button className="button danger" disabled={busy} onClick={() => revokeClient(client.id)}>Revoke access</button><button className="text-button" onClick={() => setPendingRevocation(null)}>Cancel</button></div> : <button className="text-button danger-text" onClick={() => setPendingRevocation(client.id)}>Revoke access</button>)}</article>)}</div>
-          <div className="client-instructions"><span className="eyebrow">CLIENT INSTRUCTIONS</span><h3>Give your client a clear memory contract.</h3><ul><li>Recall prior context when it could change an answer, decision, or action. Skip recall when that context is already visible.</li><li>Capture explicit requests to remember, durable user statements, confirmed decisions, and corrections, following the user’s capture policy.</li><li>Send minimal relevant evidence with roles and source boundaries. Label summaries as client-reported.</li><li>Fresh retrieval respects corrections, deletion, and revoked permissions.</li></ul><p className="muted">MCP endpoint: <code>{window.location.origin}/mcp</code> · Use the client token as a Bearer credential.</p></div>
+        {page === 'connections' && <section className="connections-panel">
+          <section className="connection-card capture-settings-card" aria-labelledby="capture-controls-title" aria-busy={captureSettingsLoading || captureSettingsBusy}><div className="connection-card-heading"><div><h2 id="capture-controls-title">Capture controls</h2><p>Pause new saves across every client and the profile.</p></div><span className={`badge ${captureSettings?.paused ? 'capture-status-pending' : 'status-active'}`}>{captureSettingsLoading ? 'Checking…' : captureSettingsError || !captureSettings ? 'Unavailable' : captureSettings.paused ? 'Paused' : 'Enabled'}</span></div>
+            {captureSettingsError && <p className="field-error" role="alert">{captureSettingsError}</p>}
+            <p className="fine-print">Existing memories and permitted recall stay available. Already saved sources, queued extraction and owner retries continue while capture is paused.</p><div className="actions"><button className="button primary" disabled={!captureSettings || captureSettingsLoading || captureSettingsBusy || !!captureSettingsError} onClick={toggleCapture}>{captureSettingsBusy ? 'Saving setting…' : captureSettings?.paused ? 'Resume new captures' : 'Pause new captures'}</button><button className="button secondary" disabled={captureSettingsLoading || captureSettingsBusy || connectionLoading} onClick={() => setSettingsRefreshVersion(value => value + 1)}>Refresh controls</button></div>
+          </section>
+          <section className="connection-card" aria-labelledby="mcp-connection-title" aria-busy={connectionLoading}><h2 id="mcp-connection-title">Connect an existing client</h2><p>Use this deployment’s configured endpoint and a separate Bearer credential for each client.</p>
+            {connectionLoading && <p className="muted" role="status">Loading the configured MCP endpoint…</p>}
+            {connectionError && <div><p className="field-error" role="alert">{connectionError}</p><button className="button secondary" disabled={connectionLoading || captureSettingsBusy} onClick={() => setSettingsRefreshVersion(value => value + 1)}>Retry endpoint</button></div>}
+            {mcpEndpoint && !connectionError && <><CopyValue label="MCP endpoint" value={mcpEndpoint} rows={2} /><details className="connection-example"><summary>Generic remote MCP configuration</summary><CopyValue label="Connection example" value={JSON.stringify({ url: mcpEndpoint, headers: { Authorization: 'Bearer YOUR_CLIENT_TOKEN' } }, null, 2)} rows={6} /><p className="fine-print">Replace YOUR_CLIENT_TOKEN with your credential. Your host’s configuration wrapper and remote MCP support may vary; it must support Streamable HTTP and the Authorization header.</p></details></>}
+            <p className="fine-print">Creating a credential or installing MCP does not grant transcript access or save conversations automatically. The client must explicitly invoke the tools with context you authorize. <a href="/openapi.json" target="_blank" rel="noreferrer">HTTP API schema</a></p>
+          </section>
+          <div className="credential-list-heading"><h2>Your client credentials</h2><button className="text-button" disabled={clientsLoading} onClick={refresh}>Refresh credentials</button></div>
+          {clientsLoading && <p className="muted" role="status">Loading client credentials…</p>}
+          {clientsError && <div className="notice error" role="alert"><span>{clientsError} {clients.length > 0 && 'The displayed credentials are from the last successful update.'}</span><button className="text-button" onClick={refresh}>Try again</button></div>}
+          {!clientsLoading && !clientsError && clients.length === 0 && <div className="empty-state"><h3>No client credentials yet.</h3><p>Create a separate credential for each chatbot or coding agent.</p><button className="button secondary" onClick={openClient}>Create credential</button></div>}
+          <div className="client-grid" aria-busy={clientsLoading}>{clients.map(client => <article key={client.id} className={`client-card ${client.revoked_at ? 'client-revoked' : ''}`}><div className="client-heading"><span className="client-icon"><Icon name="connections" /></span><span className={`badge ${client.revoked_at ? '' : 'status-active'}`}>{client.revoked_at ? 'Revoked' : 'Active credential'}</span></div><h3>{client.name}</h3><div className="client-permissions">{(client.permissions || []).map(permission => <span className="badge" key={permission}>{permission === 'capture' ? 'Capture context' : permission === 'read' ? 'Recall context' : permission}</span>)}</div><p className="scope-label">Project scope</p><p>{client.projects === null ? 'All projects and global / personal context' : client.projects?.length ? `${client.projects.join(', ')} + global / personal context` : 'Global / personal context only'}</p><dl className="client-dates"><div><dt>Created</dt><dd>{readableDate(client.created_at)}</dd></div><div><dt>Last authenticated request</dt><dd>{client.last_used_at ? readableDate(client.last_used_at) : 'Never used'}</dd></div></dl><code className="client-id">{client.id}</code>
+            {!client.revoked_at && (pendingRevocation === client.id ? <div className="revoke-confirm"><p>Revoke this credential? Future requests lose access; existing memories remain.</p><button className="button danger" disabled={busy} onClick={() => revokeClient(client.id)}>Revoke access</button><button className="text-button" onClick={() => setPendingRevocation(null)}>Cancel</button></div> : <button className="text-button danger-text" onClick={() => setPendingRevocation(client.id)}>Revoke access</button>)}</article>)}</div>
+          <p className="credential-observation fine-print">Creation records a credential, and last use records an authenticated request. Neither proves a host is installed or that capture has occurred. Open Captures to inspect saved sources.</p>
+          <details className="client-instructions walkthrough"><summary>Try your first authorized capture and recall</summary><ol><li><h3>Choose permissions and connect.</h3><p>Create Client A with recall and capture access. Connect it using the endpoint above. For an independent recall, give Client B a separate recall credential. This example uses global / personal scope (<code>project_id: null</code>), which is included in restricted project scopes too.</p></li><li><h3>Authorize one synthetic save.</h3><p>Tell Client A: “For this synthetic test, remember: use short paragraphs in my writing.” This walkthrough only copies arguments; your client sends the request after you authorize it.</p><label className="check-label"><input type="checkbox" checked={walkthroughAuthorized} onChange={event => setWalkthroughAuthorized(event.target.checked)} /><span>I authorize saving this synthetic preference.</span></label><p className="fine-print">Call <code>context_capture</code> with these arguments. Keep the same idempotency key and event ID for an unchanged retry; use new IDs for a different source.</p><CopyValue label="Capture arguments" value={walkthroughCapture} rows={10} disabled={!walkthroughAuthorized || captureUnavailable} />{captureSettings?.paused && <p className="fine-print">Resume new captures above before trying this save.</p>}</li><li><h3>Recall from an independent client.</h3><p>After the direct save completes, ask Client B to call <code>context_search</code> with these arguments. A recall credential can read this authorized scope while new captures are paused.</p><CopyValue label="Recall arguments" value={walkthroughRecall} rows={6} /><p className="fine-print">HTTP alternatives use <code>POST /api/capture</code> with the capture JSON and <code>GET /api/context/search?query=short%20paragraphs</code>, both with <code>Authorization: Bearer TOKEN</code>. The GET searches permitted scopes, including projects; use MCP’s <code>project_id: null</code> for a global-only search.</p></li><li><h3>Check saved evidence and control access.</h3><p>Open Captures to inspect the source and current memory. Omitting <code>explicit_memories</code> saves source evidence for extraction: <code>pending</code> is a queued save, not a completed memory. Follow live status with <code>context_capture_status</code> using the returned capture ID. A source-only <code>saved</code> state has no extraction job; completed extraction can admit zero memories.</p><p>Pause new captures and verify a new save is rejected while recall still works. Resume to allow authorized captures again. Revoking a credential rejects its future requests and retains already saved context. Previously delivered client copies remain outside Threadkeeper’s control.</p></li></ol></details>
+          <div className="client-instructions"><span className="eyebrow">CLIENT INSTRUCTIONS</span><h3>Give your client a clear memory contract.</h3><ul><li>Recall prior context when it could change an answer, decision, or action. Skip recall when that context is already visible.</li><li>Capture explicit requests to remember, durable user statements, confirmed decisions, and corrections, following the user’s capture policy.</li><li>Send minimal relevant evidence with roles and source boundaries. Label summaries as client-reported. Silence does not confirm an assistant proposal.</li><li>Fresh retrieval respects corrections, deletion, project scopes, capture permissions and revoked access.</li></ul></div>
         </section>}
         {page === 'portability' && <><div className="portability-grid"><section className="portability-card"><span className="small-icon"><Icon name="portability" /></span><h2>Export your memory</h2><p>A versioned JSON bundle preserves sources, memories, evidence, scope labels, and correction history. Credentials are excluded.</p><button className="button primary" onClick={downloadExport} disabled={exportBusy}>{exportBusy ? 'Preparing export…' : 'Download JSON export'}</button><p className="muted fine-print">An export is a copy of your personal context. Future deletions cannot remove copies you already downloaded.</p></section><section className="portability-card"><span className="small-icon"><Icon name="memories" /></span><h2>Import an export</h2><p>Restore a Threadkeeper bundle here. Imported client grants are not enabled, and validation checks source references and versions.</p><label className="file-picker"><input type="file" accept=".json,application/json" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; try { setImportText(await file.text()); setImportName(file.name); } catch (error) { informError(error); } }} /><span>{importName || 'Choose a JSON export'}</span></label><button className="button secondary" disabled={!importText || importBusy} onClick={importBundle}>{importBusy ? 'Validating import…' : 'Validate & import'}</button></section></div><div className="info-card"><Icon name="lock" /><div><h3>Your deployment, your controls.</h3><p>Your operator controls authentication, inference endpoints, data storage, and resource limits. Managed hosting will share the same application features as self-hosting.</p></div></div></>}
       </div>
@@ -556,8 +679,12 @@ export default function App() {
       {sourceError && <div><p className="field-error" role="alert">{sourceError}</p><button className="button secondary" onClick={() => setSourceRefreshVersion(value => value + 1)}>Try again</button></div>}
       {source && <article className="source-card"><div className="source-heading"><strong>{clientName(source.client_id)}</strong><span>{source.author_role}</span></div><blockquote>{source.text}</blockquote><p>{originLabels[source.origin] || source.origin}</p><dl><div><dt>Captured via</dt><dd>{captureMethodLabels[source.capture_method || ''] || 'Not supplied'}</dd></div><div><dt>Subject</dt><dd>{source.subject}</dd></div><div><dt>Project</dt><dd>{source.project_id || 'Personal'}</dd></div><div><dt>Occurred</dt><dd>{readableDate(source.occurred_at)}</dd></div><div><dt>Captured</dt><dd>{readableDate(source.recorded_at)}</dd></div></dl><code>{source.id}</code></article>}
     </Modal>}
-    {modal === 'capture' && <Modal title="Add context" description={captureMode === 'explicit' ? 'Record a direct statement with source evidence for connected clients to remember.' : 'Save source context for a configured worker to extract source-backed memories.'} onClose={() => setModal(null)}><form onSubmit={capture}><label>Save as<select name="capture_mode" aria-label="Save as" value={captureMode} disabled={busy} onChange={event => setCaptureMode(event.target.value as 'explicit' | 'extract')}><option value="explicit">Direct memory</option><option value="extract">Source for extraction</option></select></label><label>{captureMode === 'explicit' ? 'What should be remembered?' : 'Source context'}<textarea name="statement" rows={4} required maxLength={4000} placeholder={captureMode === 'explicit' ? 'State the fact, preference, decision, or constraint in your own words.' : 'Paste the context you want saved as source evidence.'} /></label>{captureMode === 'extract' && <p className="muted fine-print">The source is saved immediately. Extraction waits for an available worker; model inferences remain labeled for review.</p>}<div className="form-row">{captureMode === 'explicit' && <label>Kind<select name="kind" aria-label="Kind">{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}<label>Subject<input name="subject" defaultValue="self" required /></label></div><label>Project <span className="optional">(optional)</span><input name="project" placeholder="Leave blank for personal scope" /></label><div className="actions"><button className="button primary" disabled={busy}>{busy ? 'Saving…' : captureMode === 'explicit' ? 'Save memory' : 'Save source'}</button><button type="button" className="button secondary" onClick={() => setModal(null)} disabled={busy}>Cancel</button></div></form></Modal>}
-    {modal === 'client' && <Modal title="Connect a client" description="Create a separate token for one chatbot or coding agent. You can revoke it at any time." onClose={() => setModal(null)}><form onSubmit={createClient}><label>Client name<input name="name" required maxLength={100} placeholder="e.g. Coding agent" /></label><label className="check-label"><input name="capture" type="checkbox" defaultChecked /><span>Allow capture of approved context</span></label><p className="muted fine-print">Recall is enabled. Profile editing, full exports, and grant management remain owner-only.</p><label>Scope<select name="scope" aria-label="Scope" defaultValue="all" onChange={event => { const input = event.currentTarget.form?.elements.namedItem('projects') as HTMLInputElement; if (input) input.disabled = event.target.value === 'all'; }}><option value="all">All projects and personal context</option><option value="selected">Specific projects and personal context</option></select></label><label>Project IDs<input name="projects" disabled placeholder="Comma-separated project IDs" /></label><div className="actions"><button className="button primary" disabled={busy}>{busy ? 'Creating…' : 'Create client token'}</button><button type="button" className="button secondary" disabled={busy} onClick={() => setModal(null)}>Cancel</button></div></form></Modal>}
-    {token && <Modal title={`${token.name} is ready`} description="Copy this credential now. It is shown only once. Keep it private and configure it in your client as a Bearer token." onClose={() => setToken(null)}><label>Client token<textarea aria-label="Client token" readOnly rows={3} value={token.value} className="token-value" onFocus={event => event.currentTarget.select()} /></label><div className="actions"><button className="button primary" onClick={async () => { try { await navigator.clipboard.writeText(token.value); setNotice({ type: 'success', text: 'Client token copied.' }); } catch { setNotice({ type: 'error', text: 'Select the token and copy it manually.' }); } }}>Copy token</button><button className="button secondary" onClick={() => setToken(null)}>Done</button></div></Modal>}
+    {modal === 'capture' && <Modal title="Add context" description={captureMode === 'explicit' ? 'Record a direct statement with source evidence for connected clients to remember.' : 'Save source context for a configured worker to extract source-backed memories.'} onClose={() => setModal(null)}><form onSubmit={capture}>{captureUnavailable && <div className="notice error" role="alert"><span>{captureSettings?.paused ? 'New captures are paused.' : 'Capture controls must be available before saving.'}</span><button type="button" className="text-button" onClick={() => { setModal(null); setPage('connections'); }}>Open capture controls</button></div>}<label>Save as<select name="capture_mode" aria-label="Save as" value={captureMode} disabled={busy} onChange={event => setCaptureMode(event.target.value as 'explicit' | 'extract')}><option value="explicit">Direct memory</option><option value="extract">Source for extraction</option></select></label><label>{captureMode === 'explicit' ? 'What should be remembered?' : 'Source context'}<textarea name="statement" rows={4} required maxLength={4000} placeholder={captureMode === 'explicit' ? 'State the fact, preference, decision, or constraint in your own words.' : 'Paste the context you want saved as source evidence.'} /></label>{captureMode === 'extract' && <p className="muted fine-print">The source is saved immediately. Extraction waits for an available worker; model inferences remain labeled for review.</p>}<div className="form-row">{captureMode === 'explicit' && <label>Kind<select name="kind" aria-label="Kind">{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}<label>Subject<input name="subject" defaultValue="self" required /></label></div><label>Project <span className="optional">(optional)</span><input name="project" placeholder="Leave blank for personal scope" /></label><div className="actions"><button className="button primary" disabled={busy || captureUnavailable}>{busy ? 'Saving…' : captureMode === 'explicit' ? 'Save memory' : 'Save source'}</button><button type="button" className="button secondary" onClick={() => setModal(null)} disabled={busy}>Cancel</button></div></form></Modal>}
+    {modal === 'client' && <Modal title="Create a client credential" description="Create a separate token for one chatbot or coding agent. You can revoke it at any time." onClose={() => setModal(null)}><form onSubmit={createClient}><label>Client name<input name="name" required maxLength={100} placeholder="e.g. Coding agent" /></label><label className="check-label"><input name="capture" type="checkbox" defaultChecked /><span>Allow capture of approved context</span></label><p className="muted fine-print">Recall is enabled. Profile editing, full exports, and credential management remain owner-only. Capture permission follows your pause setting.</p><label>Scope<select name="scope" aria-label="Scope" value={clientScope} onChange={event => setClientScope(event.target.value as 'all' | 'selected')}><option value="all">All projects and global / personal context</option><option value="selected">Specific projects + global / personal context</option></select></label><label>Project IDs<input name="projects" disabled={clientScope === 'all'} placeholder="Comma-separated project IDs" /></label><p className="muted fine-print">Restricted credentials include the listed project IDs and global / personal context (project_id: null). Leave the IDs empty for global / personal context only.</p><div className="actions"><button className="button primary" disabled={busy}>{busy ? 'Creating…' : 'Create client token'}</button><button type="button" className="button secondary" disabled={busy} onClick={() => setModal(null)}>Cancel</button></div></form></Modal>}
+    {token && <Modal title={`Credential created for ${token.name}`} description="Copy this credential now. It is shown only once. Keep it private and configure it in your client as a Bearer token." onClose={() => setToken(null)}><CopyValue label="Client token" value={token.value} rows={3} copyLabel="Copy token" />
+      {connectionLoading && <p className="muted" role="status">Loading the configured MCP endpoint…</p>}
+      {connectionError && <div><p className="field-error" role="alert">{connectionError} Keep a secure copy of the token while retrying.</p><button className="button secondary" disabled={connectionLoading || captureSettingsBusy} onClick={() => setSettingsRefreshVersion(value => value + 1)}>Retry endpoint</button></div>}
+      {mcpEndpoint && !connectionError && <CopyValue label="MCP connection JSON" value={JSON.stringify({ url: mcpEndpoint, headers: { Authorization: `Bearer ${token.value}` } }, null, 2)} rows={7} copyLabel="Copy connection JSON" />}
+      <p className="muted fine-print">This is a generic remote MCP connection object. The wrapper varies by host; check its Streamable HTTP and Authorization header support. Creating this credential does not install a host or grant access to conversations.</p><div className="actions"><button className="button primary" onClick={() => setToken(null)}>Done</button></div></Modal>}
   </div>;
 }

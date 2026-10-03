@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
 import {
-  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema,
+  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
 } from '@threadkeeper/contracts';
 
@@ -125,6 +125,26 @@ async function insertMemory(tx: Database, auth: Auth, candidate: ExplicitMemory,
 
 export function createStore(db: Database, options: { embeddings?: EmbeddingProvider } = {}) {
   const embeddingIndex = createEmbeddingIndex(db, options.embeddings);
+  async function captureSettings(auth: Auth) {
+    permission(auth, 'admin');
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      const current = (await tx.query('SELECT capture_paused,capture_settings_version FROM tk_owners WHERE id=$1', [auth.ownerId])).rows[0];
+      return { paused: current.capture_paused, version: Number(current.capture_settings_version) };
+    });
+  }
+  async function setCaptureSettings(auth: Auth, raw: unknown) {
+    permission(auth, 'admin');
+    const input = parsed(CaptureSettingsUpdateSchema, raw);
+    return db.transaction(async tx => {
+      await lockOwner(tx, auth.ownerId);
+      const current = (await tx.query('SELECT capture_paused,capture_settings_version FROM tk_owners WHERE id=$1', [auth.ownerId])).rows[0];
+      if (input.expected_version !== undefined && input.expected_version !== Number(current.capture_settings_version)) throw new DomainError(409, 'capture_settings_conflict', 'Capture settings changed. Refresh before trying again.');
+      if (current.capture_paused === input.paused) return { paused: current.capture_paused, version: Number(current.capture_settings_version) };
+      const updated = (await tx.query('UPDATE tk_owners SET capture_paused=$2,capture_settings_version=capture_settings_version+1 WHERE id=$1 RETURNING capture_paused,capture_settings_version', [auth.ownerId, input.paused])).rows[0];
+      return { paused: updated.capture_paused, version: Number(updated.capture_settings_version) };
+    });
+  }
   async function capture(auth: Auth, raw: unknown) {
     permission(auth, 'capture');
     const input = parsed(CaptureSchema, raw) as CaptureInput;
@@ -132,6 +152,10 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     input.events.forEach(validateSource);
     return db.transaction(async tx => {
       await lockOwner(tx, auth.ownerId);
+      // Pause is rechecked under the same owner lock as admission, including
+      // retries of an existing receipt. It affects new capture requests only;
+      // processing/retry of already admitted jobs keeps its existing fences.
+      if ((await tx.query('SELECT capture_paused FROM tk_owners WHERE id=$1', [auth.ownerId])).rows[0].capture_paused) throw new DomainError(403, 'capture_paused', 'capture_paused');
       const payloadHash = hash(canonical(input));
       const prior = await tx.query('SELECT payload_hash,result FROM tk_captures WHERE owner_id=$1 AND client_id=$2 AND idempotency_key=$3', [auth.ownerId, auth.clientId, input.idempotency_key]);
       if (prior.rows[0]) {
@@ -639,5 +663,5 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const result = await db.query(`SELECT j.id,j.project_id,j.subject,j.status,j.attempts,j.created_at,j.started_at,j.completed_at,j.error_code,j.result FROM tk_jobs j WHERE ${scope(auth, params, 'j')} ORDER BY j.created_at DESC LIMIT 100`, params);
     return { jobs: result.rows };
   }
-  return { capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
+  return { captureSettings, setCaptureSettings, capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, remove, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
 }

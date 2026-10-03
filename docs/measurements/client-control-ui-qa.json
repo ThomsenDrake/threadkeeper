@@ -1,0 +1,68 @@
+{
+  "recorded_at": "2026-10-03T13:30:02.775Z",
+  "browser": "151.0.7922.173",
+  "database": "disposable PGlite",
+  "application": "production React build served by actual Express API",
+  "provider": "none; explicit synthetic capture only",
+  "client": "two independent TypeScript MCP SDK clients created from UI-copied generic JSON",
+  "checks": [
+    "Owner signs in with keyboard and copies exact operator-configured MCP endpoint",
+    "One-time token and generic remote connection JSON copy correctly; dialog closure removes token; created credentials show Never used and accurate project/global scopes",
+    "Explicitly authorized copied walkthrough arguments capture through Client A and recall through independent Client B; credential refresh separately shows Last authenticated request",
+    "Pause UI blocks fresh server capture and idempotent replay with HTTP403 capture_paused while independent recall and existing profile memories remain available; profile Add memory disabled",
+    "Concurrent owner change rejects stale UI pause action and refreshes current revision/state instead of overwriting",
+    "Capture settings and endpoint failures have disabled actions and usable retry recovery",
+    "Owner revocation marks credential Revoked and independent HTTP request fails401 while saved context remains",
+    "Desktop1440x1000 and mobile390x844 have no horizontal overflow; mobile signout clears transient token and walkthrough state; no local/session token storage",
+    "Expanded mobile walkthrough remains keyboard reachable with no horizontal overflow; transient token dialog fits390px and Escape removes token; paused mobile controls visually inspected",
+    "Resume committed with an intentionally aborted response recovers actual Enabled state; Pause committed with malformed success JSON and failed recovery read becomes Unavailable, disables profile capture, and recovers actual Paused state after Refresh"
+  ],
+  "observations": [
+    {
+      "name": "desktop connections",
+      "viewport": 1440,
+      "document": 1440,
+      "body": 1440
+    },
+    {
+      "name": "mobile connections",
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "name": "mobile expanded walkthrough",
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    },
+    {
+      "name": "mobile transient token dialog",
+      "viewport": 390,
+      "document": 390,
+      "body": 390
+    }
+  ],
+  "runtime_exceptions": [],
+  "screenshots": [
+    "client-control-desktop.png",
+    "client-control-mobile.png",
+    "client-control-walkthrough-mobile.png",
+    "client-control-paused-mobile.png"
+  ],
+  "limitations": [
+    "No installed ChatGPT/Codex or other MCP host was used; copied generic endpoint/header configuration was exercised with independent SDK transports.",
+    "No provider inference, native PostgreSQL/container deployment or GPU behavior is established.",
+    "Settings/endpoint failure recovery uses intentional browser HTTP503 interception.",
+    "Tokens were synthetic, remained in process memory, and were excluded from screenshots and recorded evidence.",
+    "Post-commit lost/malformed responses and recovery failures were intentionally injected by the browser to validate canonical-state recovery."
+  ],
+  "visual_review": "Desktop/mobile controls, credential cards, expanded walkthrough and paused state inspected; token dialogs excluded from screenshots.",
+  "review_followup": "A local reviewer identified stale state after lost pause/resume responses; response validation and invalidation plus canonical reread fixed it, with both committed-response-loss paths verified.",
+  "integrated_prerequisite": "2f580698a055678bf0d61e7135405c45328ff466 (explicit owner candidate review)",
+  "production_asset": "/assets/index-CpKbef1R.js",
+  "combined_checks": {
+    "pnpm_check": "passed: 79 tests, typecheck and production build",
+    "pnpm_demo": "passed: full-text and synthetic pgvector lifecycle/export-import"
+  }
+}

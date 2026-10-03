@@ -147,6 +147,36 @@ p { line-height: 1.65; }
 .info-card h3 { color: #4c6753; font-size: 13px; margin-bottom: 6px; }
 .info-card p { color: #81917f; font-size: 11px; margin: 0; }
 .client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
+.capture-control-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 24px; padding: 13px 17px; border: 1px solid var(--line); border-radius: 7px; background: #edf4e9; color: #637b5f; font-size: 11px; line-height: 1.7; }
+.capture-control-banner .text-button { flex-shrink: 0; }
+.capture-control-paused { background: #fff5df; border-color: #e5d5a4; color: #7c652e; }
+.connection-card { padding: 26px; border: 1px solid var(--line); background: #fffefa; border-radius: 9px; margin-bottom: 22px; min-width: 0; }
+.connection-card h2 { font-size: 18px; margin-bottom: 9px; }
+.connection-card > p, .connection-card-heading p { font-size: 12px; color: #71836c; }
+.connection-card-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.connection-card-heading .badge { flex-shrink: 0; }
+.connection-example { padding: 17px 0 0; border-top: 1px solid var(--line); margin: 21px 0; }
+.connection-example summary, .walkthrough > summary { font-size: 13px; color: #42634b; cursor: pointer; }
+.connection-example .copy-field { margin-top: 20px; }
+.copy-field { margin: 20px 0; min-width: 0; }
+.copy-field label { margin-bottom: 9px; }
+.copy-field textarea { white-space: pre; overflow: auto; line-height: 1.65; }
+.copy-actions { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; }
+.copy-actions .button { min-height: 35px; padding: 8px 12px; font-size: 10px; }
+.copy-actions > span { color: #627b60; }
+.credential-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 33px 0 17px; }
+.credential-list-heading h2 { font-size: 18px; margin: 0; }
+.client-dates { display: grid; gap: 15px; margin: 20px 0 0; }
+.client-dates dt { color: #78886e; }
+.client-dates dd { color: #596f54; }
+.credential-observation { color: #788a70; margin: 17px 0 0; }
+.walkthrough ol { margin: 24px 0 0; padding-left: 22px; color: #71836c; }
+.walkthrough li { padding-left: 6px; margin-bottom: 25px; }
+.walkthrough li:last-child { margin-bottom: 0; }
+.walkthrough h3 { font-size: 14px; margin: 0 0 8px; }
+.walkthrough li p { font-size: 12px; margin: 10px 0; color: #657a60; }
+.walkthrough .check-label { font-size: 12px; align-items: flex-start; color: #456c4e; }
+.walkthrough .check-label input { flex-shrink: 0; margin-top: 2px; }
 .client-card { padding: 24px; border: 1px solid var(--line); background: #fffefa; border-radius: 9px; }
 .client-revoked { opacity: .72; }
 .client-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
@@ -357,4 +387,13 @@ input:disabled { opacity: .5; }
   .login-card .small-icon { display: none; }
   .login-card h2 { font-size: 24px; }
   .client-instructions { padding: 23px; }
+  .capture-control-banner { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .capture-control-banner .text-button { padding-left: 0; }
+  .connection-card { padding: 22px 18px; }
+  .client-grid { grid-template-columns: minmax(0, 1fr); }
+  .credential-list-heading { align-items: flex-start; }
+  .credential-list-heading h2 { font-size: 16px; }
+  .copy-actions { align-items: flex-start; }
+  .walkthrough { padding: 22px 18px; }
+  .walkthrough ol { padding-left: 18px; }
 }

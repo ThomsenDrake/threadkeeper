@@ -110,8 +110,10 @@ async function main() {
     // Rerunnable setup must also work on native state after lifecycle operations.
     await compose(['exec', '-T', 'api', 'pnpm', 'migrate']);
     checks.push('native migrations rerun');
-    await compose(['exec', '-T', 'api', 'sh', '-c', 'THREADKEEPER_NATIVE_TEST_URL="$DATABASE_URL" node --import tsx --test tests/hybrid.test.ts tests/api-hybrid.test.ts tests/captures.test.ts tests/review.test.ts']);
-    checks.push('native hybrid, capture recovery and candidate review regressions (34 tests)');
+    const nativeOutput = await compose(['exec', '-T', 'api', 'sh', '-c', 'THREADKEEPER_NATIVE_TEST_URL="$DATABASE_URL" node --import tsx --test --test-reporter=tap tests/hybrid.test.ts tests/api-hybrid.test.ts tests/captures.test.ts tests/review.test.ts tests/api-client-control.test.ts']);
+    const nativeTests = /^# tests (\d+)$/m.exec(nativeOutput)?.[1];
+    if (!nativeTests) throw new Error('Native regression command omitted its test summary');
+    checks.push(`native-enabled hybrid, capture recovery, candidate review and client control regressions (${nativeTests} tests)`);
     console.info(JSON.stringify({ result: 'PASS', evidence: 'native-full-stack-synthetic-provider', versions, checks }, null, 2));
   } catch (error) {
     failure = error;

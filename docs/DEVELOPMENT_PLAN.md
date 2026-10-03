@@ -23,9 +23,11 @@ These are implementation outcomes, not an instruction to stop after the first ro
 
 Priority 1 merged in [PR #4](https://github.com/ThomsenDrake/threadkeeper/pull/4), main `26c025d`: scoped live status, the profile Captures view, source-only saves and owner retry preserve canonical identities and attempt fencing. Reuse that flow and its [verification evidence](HANDOFF.md).
 
-Priority 2 is implemented on `codex/candidate-review`: explicit owner confirmation, edit-and-confirm and dismissal preserve original evidence/provider history and create separate authoritative user evidence. Its verification and review state are in [HANDOFF.md](HANDOFF.md); confirm it is merged before treating it as main.
+Priority 2 merged in [PR #5](https://github.com/ThomsenDrake/threadkeeper/pull/5), main `487e4d4`: explicit owner confirmation, edit-and-confirm and dismissal preserve original evidence/provider history and create separate authoritative user evidence. Final-head Codex review and GitGuardian checks passed after the legacy import fix; reuse the merged flow and its [verification evidence](HANDOFF.md).
 
-The next default is priority 3: practical connection instructions, observed credential use and server-enforced capture pause/resume. Complete the flow, review and merge it, then proceed to the next unblocked outcome during a broad development task.
+Priority 3 is implemented and verified on `codex/client-control`, rebased onto merged priority 2: practical endpoint/configuration instructions, separate observed credential use, an explicit capture/recall walkthrough and server-enforced owner capture pause/resume. Its baseline, browser and native full-stack evidence are in [HANDOFF.md](HANDOFF.md); final-head GitHub review/merge remains the delivery checkpoint.
+
+The next default product outcome is priority 4: preview the current connected deletion impact before confirmation and allow forgetting captured sources awaiting extraction. Preserve revision checks, attempt fencing, review provenance and capture controls. Continue through review/merge and then the next unblocked outcome during a broad development task.
 
 ## Delivery loop
 
