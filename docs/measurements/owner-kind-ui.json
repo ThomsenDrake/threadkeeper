@@ -1,0 +1,134 @@
+{
+  "recorded_at": "2026-10-03T22:05:07.768Z",
+  "source_commit": "cbeb71014887b69d37c0c3bb1d5a99c5d8645652",
+  "browser": "151.0.7922.173",
+  "application": "production React build served by actual Express API",
+  "database": "disposable PGlite",
+  "provider": "deterministic synthetic candidate adapter; no provider calls",
+  "checks": [
+    "Keyboard kind-only correction preserves the statement, effective date, original source/evidence, and displays old Fact/new Preference revision kinds",
+    "Mobile edit-and-confirm changes only kind, preserves model/source provenance, creates separate user confirmation, and shows both historical kinds without horizontal overflow",
+    "Ordinary confirmation omits kind and preserves the existing Constraint kind in current record and history",
+    "Dismissal omits kind and retains Decision history while excluding the record from active recall",
+    "Concurrent owner kind correction rejects the stale revision, refreshes the draft selector to current Constraint, and does not replay the obsolete Preference choice",
+    "A failed edit-confirm request keeps the selected kind and unconfirmed revision; explicit retry creates exactly one new confirmation",
+    "Fresh authenticated HTTP recall reflects current kinds and omits the dismissed candidate",
+    "No browser runtime exceptions or external browser requests"
+  ],
+  "observations": [
+    {
+      "name": "desktop kind correction form",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "name": "mobile edit and confirm form",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    },
+    {
+      "name": "mobile confirmed kind history",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    }
+  ],
+  "requests": [
+    {
+      "path": "/api/memories/0419d8e1-97f5-4bff-acd6-ccb46c626e04",
+      "method": "PATCH",
+      "body": {
+        "statement": "For synthetic Aster updates, use short paragraphs.",
+        "kind": "preference",
+        "expected_revision": 1
+      }
+    },
+    {
+      "path": "/api/memories/8ad53e52-2c16-4b8b-8364-fb3915d76433/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1,
+        "statement": "For synthetic Beryl notes, I prefer concise tables.",
+        "kind": "preference"
+      }
+    },
+    {
+      "path": "/api/memories/18300ac7-56fc-496c-9baa-d0a805791a71/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    },
+    {
+      "path": "/api/memories/0a885e21-45dd-4d42-853f-415afa3d764a/review",
+      "method": "POST",
+      "body": {
+        "action": "dismiss",
+        "expected_revision": 1
+      }
+    },
+    {
+      "path": "/api/memories/c958adbe-9e46-40d9-bdfd-def8ad1a250d",
+      "method": "PATCH",
+      "body": {
+        "statement": "For synthetic Elm updates, use bullet lists.",
+        "kind": "preference",
+        "expected_revision": 1
+      }
+    },
+    {
+      "path": "/api/memories/fbbda62e-05c4-4d88-8184-49d457d856a2/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1,
+        "statement": "For synthetic Fern notes, prefer numbered steps.",
+        "kind": "preference"
+      }
+    },
+    {
+      "path": "/api/memories/fbbda62e-05c4-4d88-8184-49d457d856a2/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1,
+        "statement": "For synthetic Fern notes, prefer numbered steps.",
+        "kind": "preference"
+      }
+    }
+  ],
+  "runtime_exceptions": [],
+  "external_requests": [],
+  "screenshots": [
+    "kind-correction-desktop.png",
+    "kind-history-desktop.png",
+    "kind-edit-confirm-mobile.png",
+    "kind-history-mobile.png"
+  ],
+  "production_asset": "/assets/index-BzXX97XK.js",
+  "script_sha256": "124a0636c13154c454a8c7d690e48df2148325f5a48860b9d016485464e13715",
+  "fixture_sha256": "c8967124f8d92a9e0629263bd12cf58d4d5544afaf7a713831e39a2db57f14ba",
+  "finished_at": "2026-10-03T22:05:12.924Z",
+  "cleanup": {
+    "browser_closed": true,
+    "local_api_and_pglite_closed": true,
+    "fixture_exit_code": 0,
+    "local_port_38117_closed": true
+  },
+  "visual_review": "All four screenshots inspected. Desktop and mobile correction/edit-confirm controls, current kind, and preserved supporting evidence are visible without horizontal clipping. Historical revision kinds were asserted in the rendered DOM; the detail screenshots show the upper current-record/evidence region, not the scrolled revision-history section.",
+  "limitations": [
+    "Uses synthetic source records and a deterministic in-process candidate adapter with disposable PGlite. No live model, embedding endpoint, native database, MCP host or GPU was exercised.",
+    "Fresh owner-authenticated HTTP recall was exercised. Browser external requests were blocked and none were observed.",
+    "The deliberately simulated HTTP 503 validates form recovery; the revision conflict came from a real concurrent owner API correction."
+  ]
+}
