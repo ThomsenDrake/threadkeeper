@@ -8,6 +8,7 @@ import { bootstrap } from '../apps/api/src/auth.ts';
 import { createTestDatabase } from '../tests/helpers.ts';
 import { OpenAICompatibleProvider, providerConfigFromEnv, DEFAULT_MODEL_ID } from '../packages/providers/src/index.ts';
 import { evaluationCorpus, type EvaluationCase } from './provider-evaluation-corpus.ts';
+import { evaluateMemoryRubric } from './provider-evaluation-rubric.ts';
 
 type RecordedAttempt = { request: any; response?: any; error?: { code: string; status?: number }; elapsed_ms?: number };
 type Recording = { schema_version: string; cases: Array<{ id: string; attempts: RecordedAttempt[] }> };
@@ -150,25 +151,19 @@ const database = databaseResource = await createTestDatabase();
     const statements = (memories: any[]) => memories.map(memory => memory.statement).sort();
     assert.deepEqual(statements(first), statements(canonical));
     assert.deepEqual(statements(independentHttp), statements(canonical));
-    const checks = item.expected.map(expected => ({
-      pattern: expected.pattern,
-      matched: canonical.some(memory => new RegExp(expected.pattern, 'i').test(memory.statement) && memory.origin === expected.origin
-        && (!expected.kind || memory.kind === expected.kind)
-        && (expected.effective_at === undefined || (expected.effective_at === null ? memory.effective_at === null
-          : typeof memory.effective_at === 'string' && Date.parse(memory.effective_at) === Date.parse(expected.effective_at)))),
-    }));
-    const forbidden = (item.forbidden ?? []).filter(pattern => canonical.some(memory => new RegExp(pattern, 'i').test(memory.statement)));
     const sourceRows = (await database.db.query('SELECT id,event_id,text FROM tk_sources WHERE id=ANY($1::text[])', [canonical.flatMap(memory => memory.evidence.map((evidence: any) => evidence.source_id))])).rows;
     const sourceById = new Map(sourceRows.map(source => [source.id, source]));
-    const exactEvidence = canonical.every(memory => memory.evidence.length === 1 && memory.evidence.every((evidence: any) => sourceById.get(evidence.source_id)?.text.includes(evidence.quote)));
+    const memories = canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status,
+      effective_at: memory.effective_at, evidence: memory.evidence.map((evidence: any) => ({ event_id: sourceById.get(evidence.source_id)?.event_id, quote: evidence.quote })),
+    }));
+    const rubric = evaluateMemoryRubric(item, memories);
     output.push({ id: item.id, job_status: job.status, accepted: job.accepted,
       ...('error_code' in job ? { error_code: job.error_code } : {}),
       ...(observer ? { provider_attempts: observer.records.slice(attemptStart) } : {}),
-      usage: 'usage' in job ? job.usage : undefined, expectations: checks, forbidden_matches: forbidden,
-      empty_expected: item.empty ?? false, exact_evidence: exactEvidence, independent_http_mcp_recall: true,
-      memories: canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status, effective_at: memory.effective_at, evidence: memory.evidence.map((evidence: any) => ({ event_id: sourceById.get(evidence.source_id)?.event_id, quote: evidence.quote })) })),
+      usage: 'usage' in job ? job.usage : undefined, ...rubric,
+      empty_expected: item.empty ?? false, independent_http_mcp_recall: true, memories,
       elapsed_ms: Math.round(performance.now() - start),
-      rubric_passed: job.status === 'complete' && checks.every(check => check.matched) && !forbidden.length && (!item.empty || !canonical.length) && exactEvidence,
+      rubric_passed: job.status === 'complete' && rubric.rubric_passed,
     });
   }
   const lifecycle: Record<string, any> = { status: 'skipped', reason: 'central_records_missing' };
