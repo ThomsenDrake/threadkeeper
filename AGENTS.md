@@ -31,3 +31,7 @@ Keep secrets in operator-managed ignored environment files. Run pnpm check and r
 ## Codex Cloud
 
 Read docs/CODEX_CLOUD.md for environment preparation. Use Node.js 24 and the packageManager pin pnpm@11.25.0. The Install script is bash scripts/codex-cloud-setup.sh. Baseline pnpm check and pnpm demo use synthetic fixtures and PGlite, and require no provider credentials, external database, Docker, Executor or GPU. Keep that baseline usable as optional retrieval features are added. For disposable browser review after the build, use pnpm dev:demo. Record native PostgreSQL/pgvector, container and real-provider checks separately; do not report them as passed from fixture tests. Start services only when the task needs them and the required configuration exists.
+
+## Cursor Cloud Agents
+
+The Cloud Agent install puts Node.js 24.21.0 on `/opt/node-v24.21.0` and activates pnpm 11.25.0, then runs `pnpm install --frozen-lockfile`. Login shells prepend that Node so it is selected ahead of any older `node` already on `PATH`. `pnpm check` and `pnpm demo` remain the credential-free baseline. Run `pnpm dev:demo` only for browser review; it serves `http://127.0.0.1:3000` with `demo@example.invalid` / `threadkeeper-demo-password` and drops its database on exit. Do not start the API or worker without an operator database.
