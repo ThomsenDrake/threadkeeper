@@ -1,0 +1,68 @@
+{
+  "schema_version": "threadkeeper.native-nullable-usage-failure-context.v1",
+  "source_commit": "bea09a52de5f69d8675cf47f183f3a91cc265706",
+  "failure_artifact": "nebius-direct-native-null-usage-failure.json",
+  "failure_artifact_sha256": "a9faeb017e4b0f438a298cec270c2fb52786f9dc4dfc478318ddaec6b4f08947",
+  "failure": "Native accounting rejected invalid raw usage on the Nemotron response; no successful evidence artifact was published.",
+  "reported_request_count": 8,
+  "reported_http_200_count": 8,
+  "reported_usage": {
+    "prompt_tokens": 1677,
+    "completion_tokens": 149,
+    "total_tokens": 1826,
+    "reasoning_tokens": 0
+  },
+  "usage_scope": "Valid primary counts retained in the failed observation; this total does not convert the rejected run into an accounting pass.",
+  "cleanup": true,
+  "independent_cleanup_inspection": "No disposable containers, networks, volumes or application image remained for project ca9a61a26899.",
+  "diagnostic_artifact": "nebius-nullable-usage-probe.json",
+  "diagnostic_reproduction": "nebius-nullable-usage-probe.mjs.txt",
+  "diagnosis": "The bounded separate probe returned valid primary counts and null optional detail fields. The observer incorrectly classified nullable optional detail fields as invalid usage.",
+  "fix_source_commit": "5db08e59cbdffccd58a643b84e1b14b099abc66b",
+  "fix_scope": "Optional null detail fields remain unknown, never zero. Invalid primary counts and negative, fractional or unsafe numeric detail counts remain rejected.",
+  "checkpoints": [
+    {
+      "source_commit": "bea09a52de5f69d8675cf47f183f3a91cc265706",
+      "check": "pnpm check",
+      "tests_passed": 159,
+      "typecheck": "PASS",
+      "build": "PASS",
+      "demos": [
+        "full-text PASS",
+        "hybrid PASS"
+      ]
+    },
+    {
+      "source_commit": "5db08e59cbdffccd58a643b84e1b14b099abc66b",
+      "check": "pnpm check",
+      "tests_passed": 159,
+      "typecheck": "PASS",
+      "build": "PASS",
+      "demos": [
+        "full-text PASS",
+        "hybrid PASS"
+      ]
+    }
+  ],
+  "runtime": {
+    "node": "24.7.0",
+    "pnpm": "11.25.0",
+    "test_concurrency": "default"
+  },
+  "logs": {
+    "failed_native": "/tmp/threadkeeper-direct/native-extraction-live.log",
+    "pre_fix_check": "/tmp/threadkeeper-direct/native-extraction-check.log",
+    "pre_fix_demos": "/tmp/threadkeeper-direct/native-extraction-demo.log",
+    "post_fix_check": "/tmp/threadkeeper-direct/native-extraction-nullable-check.log",
+    "post_fix_demos": "/tmp/threadkeeper-direct/native-extraction-nullable-demo.log"
+  },
+  "limits": [
+    "Failure JSON has no source field; this companion records the coordinating task's immutable run source and preserves its raw bytes.",
+    "The diagnostic retained numeric/null usage shape and hashes, without response content, headers or credentials.",
+    "The separate diagnostic used 24 reported tokens; it is additional to the failed run's 1826 reported tokens."
+  ],
+  "diagnostic_reproduction_sha256": "b633dcc513972d9ef1160ffa00bfd77d06e4660c1378ef8261e63e746a58a315",
+  "diagnostic_artifact_sha256": "de230f1b21ad712abbb2b9df4fb43800f0f7d42eb5f6b1ef8aa6d2d67cd6f704",
+  "hardened_diagnostic": "nebius-nullable-usage-probe.mjs",
+  "hardened_diagnostic_scope": "Later runnable reproduction requires an explicit fresh output path reserved exclusively at mode 0600 before any provider request. It was verified with a mock fetch and synthetic credential only; the 24-token historical measurement belongs to the archived source."
+}

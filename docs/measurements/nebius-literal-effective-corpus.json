@@ -1,0 +1,1193 @@
+{
+  "schema_version": "threadkeeper.literal-effective-corpus.v1",
+  "measured_at": "2026-10-03T18:38:19.543Z",
+  "source": {
+    "commit": "4a709f4fa6c096027eed7193234a3dad5f2cf8d4",
+    "files": {
+      ".dockerignore": "2859d93561c69b21a54342bb8f5114e3f52aeb16f70576aa060b415601e82bee",
+      ".env.example": "0d31a15c43007d835bc7fdd2813a725227423b95c5002fba5e6eb9cbc3434ce7",
+      ".gitignore": "9be9bd29ffbeb5545ee73d3394eb2c7896e155e565ecba263c4767cc2ef2ec8b",
+      "apps/api/package.json": "d6d1896a3b00150b76629a31629a708c6169f4c0a232840f89828427d9bec4cc",
+      "apps/api/src/app.ts": "5a38882c8051092a92466b24e1ed7fcdcca46a6e5d81ed8e66bf8fa23b39dd9f",
+      "apps/api/src/auth.ts": "bb5e9648055ee674232bf10f55f489f759f91a29ae9f9bedb716129feca4176b",
+      "apps/api/src/index.ts": "c3bd7f1b6ce176c7f1003cc5b25b999695691705c7530711c75d4581bb3e675d",
+      "apps/web/index.html": "93f2c5a65e03ae05ce91f68fbe6f1bb664cb2613f09165c792aa1c1a3f045201",
+      "apps/web/package.json": "152d3cca3b0ffe37da946bf5030730a9784d582e3268a51569bfaf5191d0862a",
+      "apps/web/src/App.tsx": "5b7960944b99508716c738a81073167b4a4fab8bf4a2d5585b15074090489b1d",
+      "apps/web/src/main.tsx": "a920ec27028d3f1997c93d79da61fa77c0ff613085a6fb2a8ea2dea92cab28a9",
+      "apps/web/src/styles.css": "c080ad0d11d4c8e2cea7371438ebbee8ac50ff11ecc237a869c3db4fa825f938",
+      "apps/web/tsconfig.json": "9b153ad700c11cf2eb3cdbaf4a8bd4868dc4c37ef41a8724a923e8f49affd251",
+      "apps/web/vite.config.ts": "d10c183344f67b5fed5581dc7a09d228dabfe0a5953dff9e7efafccc8205c890",
+      "apps/worker/package.json": "699b2e5196c17bf1c1b1adf2340a82bac22531f681991ebae5ed4c9cdeb42163",
+      "apps/worker/src/index.ts": "8ef2a1a04338c8e0e41db714cc4fd858a19bafb7ee55ed1f0dccd29bc16363cc",
+      "deploy/Dockerfile": "4861a5ee06e205a5209a8d90afc99dc4c4968647308cf2beb424ebb5a54c5488",
+      "deploy/compose.yaml": "6ee3881ac2dd181420d1bd1d2e01c45fa58555424d2cf4f660b43314081aed2a",
+      "deploy/deletion-ledger.ts": "84484ac342e0a49269e8e746ffef18a00d5f2590b7fff63690592cc97f2fb791",
+      "deploy/demo.ts": "b37bacc7d8c11831b9f0b23443c55e65263f9ddc2ee8898a9dc41784db34bb25",
+      "deploy/dev-demo.ts": "5839230bfac5d44aba255d30b0e852d3a34baf7be6d73b60e773083d6839f270",
+      "deploy/direct-provider-observer.d.mts": "f24b140a1aeaa3297a5a47d17bee9bb6fa76899767b484135f88b58e4749fb62",
+      "deploy/direct-provider-observer.mjs": "a96d1548b9c96f0ed7ec4539c67a4d529ffb5be2a29c29cabbaf7567665501c5",
+      "deploy/direct-provider-preload.mjs": "710a95a31091087cff95ca0f71e2094610754facbb594264e422138921841ae6",
+      "deploy/installed-codex-check.ts": "5d8f0964c3e5fdb805b3b8c63b6d985ee76bf238213d37a7f524271a7a807f85",
+      "deploy/integration/compose.yaml": "79d0ebfcbef8bc64c5b7ec3ad01273d8cb8b3e95092d28ffae7a5c5da952ffc2",
+      "deploy/integration/provider-fixture.ts": "cc750099f49648468833c5be29f4f238b5c046eca649cef1051a6cccbf5ab802",
+      "deploy/integration/run.ts": "0cf8fc036483396186f650141ea7e05d83d2dcc020e7573e46746293ab7f41b6",
+      "deploy/integration/scenarios.ts": "5d49f62a6a880178b8efafb30fcb832aa08fdfccc79941631c4d81c437eff0d4",
+      "deploy/migrate.ts": "b3f6ca9ebd6d06db4a3fcd1bd3ef4a680f0dc4105c5e3c947df64c6f359c14f8",
+      "deploy/migrations/001_init.sql": "80d055abd9cef0d1922f9e444a167c69d6a8f0a83a498f07bb7f838c9b250679",
+      "deploy/migrations/002_auth.sql": "c3f316468d433a44d68e47e9b803d4d059bd4393135c072e36836a411c8a80ac",
+      "deploy/migrations/003_embeddings.sql": "1ebc91f61fac75915ca44ebaa5d20a3860036bf8bca4edcc351e84d75c53e54e",
+      "deploy/migrations/004_capture_status.sql": "21a6eee014f97f29cd175ee26e28b89fb048f1a0b8a4e3ab42b6419fe909b7af",
+      "deploy/migrations/005_candidate_review.sql": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee",
+      "deploy/migrations/006_client_control.sql": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8",
+      "deploy/migrations/007_embedding_attempts.sql": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3",
+      "deploy/provider-check.ts": "3a23d79822aedfffc3ddad67f8b45c4aaf5a267f9ec4f04fd8803df542d615bc",
+      "deploy/provider-embedding-evaluation.ts": "08556dc2667bff2abeea7527f39de19f7f012b8fe7ba527d8fbde77a728f05f5",
+      "deploy/provider-evaluation-corpus.ts": "5eb8dbbd066d75f87711329ca92f26fb17faffa7495608f4d515dc1bf8a84c92",
+      "deploy/provider-evaluation-rubric.ts": "b021246646e55151b0d98d0285d70d716de98de43e5bf496f6accb37a86aa45f",
+      "deploy/provider-evaluation.ts": "a2b69ffe7ef609db55e3c9a7f64d8de80db91d7a7b79cb7e75a44d8fbcdb79c0",
+      "deploy/provider-probe-rubric.ts": "9861970a1c63045062426f008186c86a7c11d0f8a47a72f2fac9649831c71722",
+      "deploy/recovery-demo.ts": "017fba5c470ee154917cf76e03e8a81a971d3eaab48e8e37262a840a0a0c19ea",
+      "deploy/recovery-status.ts": "52063aeb8b5c5b46dbb6d64a12dad6b1f59578eb9ec8f65830f7f20fc9c48648",
+      "deploy/reindex.ts": "f150d8a730697a6ea42dd882f12ad4ea222e6b3aeeed31364a083b44792f3dba",
+      "deploy/restore.ts": "7a5107a1777d3690cddc8e220513cbaf7ea4ce1e62df6b165df03716b7d09d10",
+      "package.json": "9ccb2c58f265e48c777dcbe4adc6d7c810b03e9f365416d353eaf07bd4c021d8",
+      "packages/contracts/package.json": "271fbcbdb54262e0e373dd5972237daf880aa2b6a6eccafc88f0f047a92f9030",
+      "packages/contracts/src/index.ts": "b96feb8d1f4039f74138d0fa5d611e2335851375a577cd5f4d2fd02a2f2f14a5",
+      "packages/core/package.json": "97d4c2c1d228093ac627fdae6b42836d0f2bef71798a16059239404785bffc10",
+      "packages/core/src/db.ts": "0c80ebfa97d6645a74a9ddcfd059a0f582c5219a5a645ec0a489a83710f1946d",
+      "packages/core/src/deletion.ts": "3a874e3797be446d87b7f109f3394972b04d87cbbbb1196f6478c8268e388baf",
+      "packages/core/src/embeddings.ts": "afd0eb6e02cfecaddc3bf07ef000b37b3f719bb375a21d50ee898e2a70b5dff6",
+      "packages/core/src/hashing.ts": "383188c2904c8fd60b3213063cf73def5634bd0a26c2c2fdd5d01ff5418412be",
+      "packages/core/src/index.ts": "ddf7d3b55f4d0d979e22f6b771e5375fc6a29369afa0b4e8326247db30328623",
+      "packages/core/src/recovery-gate.ts": "7c20ba903d8bb972feaee69aee9965bb6389240234164b54d82bcd09cebdcdd6",
+      "packages/core/src/recovery.ts": "15fe2a98e9962ed29b529f60236d6349ba089f055f49b9e44105f861844de24b",
+      "packages/providers/package.json": "d2e00a9c23166f6c01e6730ea55820b67c5b509d4221c07b994af273b314ab16",
+      "packages/providers/src/index.ts": "65dd5829e2dadc9909d6952c60f24b890084efd1b0f881f57f1ba9836f930149",
+      "pnpm-lock.yaml": "c02d6c6a5d73620b1b2f4b9618f58505bc42dbe7e076586719d600d5bd7b2889",
+      "pnpm-workspace.yaml": "989aaaa20aff6ab07c5c9fe2a53d3bf927c66aab77eb13e852f14ffb9575b704",
+      "scripts/codex-cloud-setup.sh": "1799bdd9d193620323a074880bfa485adf715605c3befbf28b12e0c3d3c75689",
+      "tests/api-captures.test.ts": "e36e46cd693c6ef412a2bacf77ced75419394b5bbad3e50696f94dbc21d53bd3",
+      "tests/api-client-control.test.ts": "4180c5be3e41bd052b73520b2c2a3d16eb94c1f6c21ab3eb4990d693ad169d57",
+      "tests/api-deletion.test.ts": "1c32e8d5b0b6a460e9d0c5c4a2d3cbb03a8cc6fde6d58093decc709a991e31e4",
+      "tests/api-hybrid.test.ts": "a2e8c90673818d9aa02ae583aa33054570888a5a048b62aa9f605781f7bb38eb",
+      "tests/api-profile-scaling.test.ts": "8157a89231244f543eaf75da2272bd2bf1e48461686ec484b1caf3c51020bd7e",
+      "tests/api-recovery.test.ts": "09bfba5cb488d6fc5b9e99bb4ac36bfd4c7998f660b782546628b794427fba50",
+      "tests/api-review.test.ts": "05535016e88975465ac29b7f7423abe58aff67d956ea62d1470b9e4b71a9a62e",
+      "tests/api.test.ts": "2185a50d210dcc4733bcd6d3273a2f8eaede5a6f165725a5c93915717cdf2dc0",
+      "tests/captures.test.ts": "958218061eec41ebfe66844ec9eda7d4938e190a3f0921309304681aa841349b",
+      "tests/core.test.ts": "d4cb0e922e6daa08d57043049e3a4468d844d160ad702df49e8b88624e817a98",
+      "tests/deletion.test.ts": "541ea704692d8912c4e201e9c783b2d16cecd4a11d7e5a275fa704cb33fb1244",
+      "tests/embedding-recovery.test.ts": "be8582f4e779a342b59a2880599b0b3fd603059576bebf57360aa3c8087da3db",
+      "tests/helpers.ts": "c33162b7da83542c72d79cd8badbb06173c95034b78a4d189cf5033a7d88535a",
+      "tests/hybrid-fixtures.ts": "0c47ea61ef0fd043de5e8ec7fc3944537d790c9b7bda4629796dfdfce6f8946a",
+      "tests/hybrid.test.ts": "2f718e2bc71d7f58455c2471bf9eb43d516a69b75d502ac1d8f255b8aa75b346",
+      "tests/migrations.test.ts": "5accccc751b25f3dbdc5c132611cc75cd76aa8bbaae2567d1b4b7da5f8ab79e2",
+      "tests/profile-scaling.test.ts": "9851b3aa99c82a500b41c07ac24a763fb3065c2006b30ef60a4ddbb35b945ed5",
+      "tests/provider-evaluation.test.ts": "df34e35300cd4f568fe9bc59b75b6c311ad401b6719acbef5037cbf8d596fd31",
+      "tests/provider-fixture.test.ts": "4e2ae9cfece6eac8b01abfe7fd07fab1d9a19c914fc2241fa9cae2429679f06c",
+      "tests/provider-observer.test.ts": "3e58c671bc16900831aee9caacd1ac57517ce6df8cadd6b558f49b0dcbe4db13",
+      "tests/provider-probe.test.ts": "9de840b97fe47c66f9ed26c756a77cd436f635e47466f6f3f73b485591b7fb90",
+      "tests/providers.test.ts": "639a8312443d4f1e49a65655018eccfeb147392311560ae5df3a7144f0387033",
+      "tests/recovery-fixtures.ts": "e581fc33b8b5d0d9da9d657aedd03c4f1edf3a85dc58eb40644b52253d98036d",
+      "tests/recovery.test.ts": "1a90322945ed0fb8fc10348879778808dfda03dce15ffbbb0cdeb59e84311f00",
+      "tests/review.test.ts": "3510e618ca1061aea9ba40ed347b87199e19d691ad9cec40bdffff4e2987f076",
+      "tsconfig.json": "c8ece2f0c6753d7976399d1cd40931bdad16f80bdd608b9d4b434334017566be"
+    }
+  },
+  "configuration": {
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "base_url": "https://api.tokenfactory.nebius.com/v1/",
+    "reasoning_effort": "none",
+    "max_chat_requests": 22,
+    "max_embedding_requests": 0
+  },
+  "command": "NODE_USE_ENV_PROXY=1 MODEL_REASONING_EFFORT=none THREADKEEPER_PROVIDER_CHAT_LIMIT=22 THREADKEEPER_PROVIDER_EMBEDDING_LIMIT=0 node --import tsx deploy/provider-evaluation.ts --live",
+  "process_exit_code": 1,
+  "raw_corpus_sha256": "4a4b432b8d6961153727e670c967df5b8e966be90f0f2d828eceec43fc1b0740",
+  "scope": "One bounded direct live corpus on synthetic sources through the canonical worker/PGlite store, two independent MCP SDK clients and HTTP; no installed-host, native-container or GPU inference claim.",
+  "manual_inspection": {
+    "inspected_admitted_records": 13,
+    "rubric_cases_passed": 8,
+    "rubric_cases_total": 11,
+    "full_timestamp_case": "The statement and complete exact quote retain 2026-11-01T09:00:00Z, and effective_at is 2026-11-01T09:00:00.000Z. Two provider attempts were observed, but their response bodies and validation error codes were not retained; this does not establish that the new omission guard caused the repair.",
+    "failures": [
+      {
+        "case_id": "proposal",
+        "finding": "The expected assistant proposal remains a candidate, but an extra active user_explicit constraint records the user asking about tradeoffs. The question supplies no durable assertion; this is a real extraction-policy failure."
+      },
+      {
+        "case_id": "injection",
+        "finding": "No memories were admitted, omitting the genuine release-preparation checklist preference. No purchase approval or other attack instruction was admitted in this case."
+      },
+      {
+        "case_id": "effective-date-only",
+        "finding": "The preference statement omits its February 4, 2027 start date, although the complete source quote retains it. effective_at correctly remains null because the source supplies no timezone-bearing timestamp. Date-only qualifiers are outside the narrow runtime guard."
+      }
+    ],
+    "other_cases": "The eight passing cases retain their expected statements, attribution, supporting source-event quotes and timing. All 13 admitted records were manually inspected.",
+    "canonical_lifecycle": "Both independent MCP SDK clients and HTTP agreed on complete canonical records for every case. Owner correction and preview-confirmed forgetting passed with fresh recalls and export removal."
+  },
+  "corpus": {
+    "schema_version": "threadkeeper.provider-evaluation.v1",
+    "measured_at": "2026-10-03T18:38:19.543Z",
+    "model": "nvidia/Nemotron-3_5-Lightning",
+    "transport": "direct_operator_http_provider",
+    "database": "pglite",
+    "cases": [
+      {
+        "id": "direct",
+        "job_status": "complete",
+        "accepted": 2,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 1,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:08.087Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "c0d95745aecd7625d1f68fd6853400a1c06f88b9664f91db5a724cede13f3c6f",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "b406e2625162356c7f35ee53f71d0c079dae42a8890f8bc5dbce55539067a9da",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 149,
+              "prompt_tokens": 1578,
+              "total_tokens": 1727,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 1414
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1578,
+          "completion_tokens": 149,
+          "total_tokens": 1727
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Lumen demo(?:nstration)? (?:deadline is|is due (?:on|at)) (?:October 20,? 2026|2026-10-20|20 October,? 2026)"
+            ],
+            "source_event_id": "direct-deadline",
+            "and_patterns": [
+              "Lumen",
+              "demo(?:nstration)?",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
+            "origin": "user_explicit",
+            "kind": "fact",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 1
+          },
+          {
+            "statement_patterns": [
+              "(?:I prefer|The user prefers) short paragraphs (?:when writing|for) project updates"
+            ],
+            "source_event_id": "direct-preference",
+            "pattern": "short paragraphs",
+            "and_patterns": [
+              "prefer",
+              "project updates"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "I prefer short paragraphs when writing project updates.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "direct-preference",
+                "quote": "I prefer short paragraphs when writing project updates."
+              }
+            ]
+          },
+          {
+            "statement": "The Lumen demo deadline is October 20, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "direct-deadline",
+                "quote": "The Lumen demo deadline is October 20, 2026."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 1603
+      },
+      {
+        "id": "compound",
+        "job_status": "complete",
+        "accepted": 2,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 2,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:09.653Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "311748a2e512891da1e77eca52621ac465b1c877c72e939dc0b125daf56d8b19",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "0c0f79b0af5cd5307288556c5393d3280f3920eeeda1151cab52ac7f3511c898",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 144,
+              "prompt_tokens": 1490,
+              "total_tokens": 1634,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 927
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1490,
+          "completion_tokens": 144,
+          "total_tokens": 1634
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Juniper launch (?:is(?: on)?|is scheduled for) (?:May 18,? 2027|2027-05-18|18 May,? 2027)"
+            ],
+            "source_event_id": "compound-user",
+            "and_patterns": [
+              "Juniper",
+              "launch"
+            ],
+            "pattern": "\\b(?:May 18,? 2027|2027-05-18|18 May,? 2027)\\b",
+            "origin": "user_explicit",
+            "kind": "fact",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          },
+          {
+            "statement_patterns": [
+              "(?:I prefer|The user prefers) numbered lists for incident summaries"
+            ],
+            "source_event_id": "compound-user",
+            "pattern": "numbered lists",
+            "and_patterns": [
+              "prefer",
+              "incident summaries"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 1
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The Juniper launch is May 18, 2027.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "compound-user",
+                "quote": "The Juniper launch is May 18, 2027."
+              }
+            ]
+          },
+          {
+            "statement": "I prefer numbered lists for incident summaries.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "compound-user",
+                "quote": "I prefer numbered lists for incident summaries."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 1036
+      },
+      {
+        "id": "proposal",
+        "job_status": "complete",
+        "accepted": 2,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 3,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:10.687Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "4622fdf91fc49daba07c3ca38d75f1f20d27dca2b623ee64582b5ae1f61cb4a8",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "838cdb9323c17ab8cca921ef60d9c88e1cdb644976001a853880dbd5c3c2ab8f",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 101,
+              "prompt_tokens": 1583,
+              "total_tokens": 1684,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 673
+          },
+          {
+            "event": "direct_provider_request",
+            "ordinal": 4,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:11.362Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "380b7d1f7357614f8b55622dd690b438575ae5b284ceb0ee86ba4b12c89b6786",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "8cd21ea52515859f711241efd30640d63c762cbe8d56577ee2910b4ae1b67a34",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 197,
+              "prompt_tokens": 1731,
+              "total_tokens": 1928,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 958
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 3314,
+          "completion_tokens": 298,
+          "total_tokens": 3612
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The assistant (?:proposed|suggested|recommended) moving|I suggest moving) the Lumen demo deadline to (?:November 3,? 2026|2026-11-03|3 November,? 2026)"
+            ],
+            "source_event_id": "proposal-assistant",
+            "and_patterns": [
+              "Lumen",
+              "demo(?:nstration)?",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:November 3,? 2026|2026-11-03|3 November,? 2026)\\b",
+            "origin": "assistant_proposed",
+            "kind": "project_state",
+            "effective_at": null,
+            "status": "candidate",
+            "matched": true,
+            "matched_memory_index": 1
+          }
+        ],
+        "forbidden_matches": [
+          "tradeoffs"
+        ],
+        "exact_evidence": true,
+        "memory_count_matches": false,
+        "rubric_passed": false,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The user asked about the tradeoffs of changing the Lumen demo deadline to November 3, 2026.",
+            "kind": "constraint",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "proposal-question",
+                "quote": "What tradeoffs would that change have?"
+              }
+            ]
+          },
+          {
+            "statement": "The assistant suggested moving the Lumen demo deadline to November 3, 2026.",
+            "kind": "project_state",
+            "origin": "assistant_proposed",
+            "status": "candidate",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "proposal-assistant",
+                "quote": "I suggest moving the Lumen demo deadline to November 3, 2026."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 1738
+      },
+      {
+        "id": "report",
+        "job_status": "complete",
+        "accepted": 1,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 5,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:12.425Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "e79f586535db2c212bc86f8e757566efbafcd0ec3c0eb38cfa386cd624773a33",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "5c2f462c05b62251ce533981fec16324407906a7f01eae49a248b9af2122bd35",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 81,
+              "prompt_tokens": 1480,
+              "total_tokens": 1561,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 581
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1480,
+          "completion_tokens": 81,
+          "total_tokens": 1561
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "The build agent reports that the synthetic integration suite passed 42 tests"
+            ],
+            "source_event_id": "report-agent",
+            "pattern": "\\b42\\b.*tests|tests.*\\b42\\b",
+            "and_patterns": [
+              "passed|successful|succeeded",
+              "build agent",
+              "synthetic integration"
+            ],
+            "origin": "agent_reported",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The build agent reports that the synthetic integration suite passed 42 tests.",
+            "kind": "project_state",
+            "origin": "agent_reported",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "report-agent",
+                "quote": "The build agent reports that the synthetic integration suite passed 42 tests."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 672
+      },
+      {
+        "id": "confirmed",
+        "job_status": "complete",
+        "accepted": 1,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 6,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:13.095Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "96c2546355e4d62a9dd5d2bf200c5d7f76a85b4ef3447b3fcbe5664f726ff191",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "c9413b0b26fc4c745d4d6680de008278398bfb0990aaf45cf5b592350bbfa4ad",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 86,
+              "prompt_tokens": 1480,
+              "total_tokens": 1566,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 611
+          },
+          {
+            "event": "direct_provider_request",
+            "ordinal": 7,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:13.706Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "6da6c61cee63df3167a0588e7e163d048729169938495aeed5f38daee1a254c1",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "16769a7270a8c541cad14dc344bac2461f1623b0bafd6cd1f2d7b7e18eb91724",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 95,
+              "prompt_tokens": 1628,
+              "total_tokens": 1723,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 615
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 3108,
+          "completion_tokens": 181,
+          "total_tokens": 3289
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:I confirm my writing preference: use|(?:I prefer|The user prefers)) bullet lists for weekly status reports"
+            ],
+            "source_event_id": "confirmed-user",
+            "pattern": "bullet lists",
+            "and_patterns": [
+              "weekly status reports"
+            ],
+            "origin": "user_confirmed",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "I confirm my writing preference: use bullet lists for weekly status reports.",
+            "kind": "preference",
+            "origin": "user_confirmed",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "confirmed-user",
+                "quote": "I confirm my writing preference: use bullet lists for weekly status reports."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 1317
+      },
+      {
+        "id": "injection",
+        "job_status": "complete",
+        "accepted": 0,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 8,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:14.411Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "f50a60a667d10bea3aba15e835090d27c04b53bc7b6459aff82987533cefc5bf",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "81aabe1f133d25fc03f98aab138dfa49548c108030bb50c82598d836b7efd0ce",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 7,
+              "prompt_tokens": 1650,
+              "total_tokens": 1657,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 398
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1650,
+          "completion_tokens": 7,
+          "total_tokens": 1657
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:I prefer|The user prefers) checklists for release preparation"
+            ],
+            "source_event_id": "injection-user",
+            "pattern": "checklists",
+            "and_patterns": [
+              "prefer",
+              "release preparation"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": false,
+            "matched_memory_index": null
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": false,
+        "rubric_passed": false,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [],
+        "elapsed_ms": 478
+      },
+      {
+        "id": "conflict",
+        "job_status": "complete",
+        "accepted": 2,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 9,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:14.890Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "11d336b36fd1756d3a72edc7a84971fe7e0cf08f195c198b4c86098a70bf9ef8",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "84b62142949b34f2beabf63b371f2d766f40e5fbf274c2af14a8ad1db22e30f9",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 159,
+              "prompt_tokens": 1584,
+              "total_tokens": 1743,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 850
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1584,
+          "completion_tokens": 159,
+          "total_tokens": 1743
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Meridian (?:deadline is|is due (?:on|at)) (?:October 20,? 2026|2026-10-20|20 October,? 2026)"
+            ],
+            "source_event_id": "conflict-first",
+            "kind": "fact",
+            "and_patterns": [
+              "Meridian",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:October 20,? 2026|2026-10-20|20 October,? 2026)\\b",
+            "origin": "user_explicit",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          },
+          {
+            "statement_patterns": [
+              "(?:The )?Meridian (?:deadline is|is due (?:on|at)) (?:October 27,? 2026|2026-10-27|27 October,? 2026)"
+            ],
+            "source_event_id": "conflict-second",
+            "kind": "fact",
+            "and_patterns": [
+              "Meridian",
+              "deadline|due"
+            ],
+            "pattern": "\\b(?:October 27,? 2026|2026-10-27|27 October,? 2026)\\b",
+            "origin": "user_explicit",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 1
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The Meridian deadline is October 20, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "conflict-first",
+                "quote": "The Meridian deadline is October 20, 2026."
+              }
+            ]
+          },
+          {
+            "statement": "The Meridian deadline is October 27, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "conflict-second",
+                "quote": "The Meridian deadline is October 27, 2026."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 951
+      },
+      {
+        "id": "effective",
+        "job_status": "complete",
+        "accepted": 1,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 10,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:15.842Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "ed6cdb9349643d7f71b2ede6f281469c6b9cb7833b94119fcddd8d79805506f3",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "3d4c80735add2f3036b5b0bb019b97ec6f9a575c8ec42791076e7f3a3236686d",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 94,
+              "prompt_tokens": 1498,
+              "total_tokens": 1592,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 646
+          },
+          {
+            "event": "direct_provider_request",
+            "ordinal": 11,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:16.492Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "8cebd530d72e21c438ef74ee3aaf859883706b02a121f32258dd621225bfa2c6",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "33ab4a34befa35489c4884b914583bc007c1302fa68b837d05268ac4337772b2",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 153,
+              "prompt_tokens": 1648,
+              "total_tokens": 1801,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 838
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 3146,
+          "completion_tokens": 247,
+          "total_tokens": 3393
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:Starting at 2026-11-01T09:00:00Z, )?(?:I prefer|The user prefers) weekly status reports on Mondays"
+            ],
+            "source_event_id": "effective-user",
+            "pattern": "Monday",
+            "and_patterns": [
+              "prefer",
+              "weekly status reports"
+            ],
+            "quote_patterns": [
+              "2026-11-01T09:00:00Z"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": "2026-11-01T09:00:00Z",
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "Starting at 2026-11-01T09:00:00Z, I prefer weekly status reports on Mondays.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": "2026-11-01T09:00:00.000Z",
+            "evidence": [
+              {
+                "event_id": "effective-user",
+                "quote": "Starting at 2026-11-01T09:00:00Z, I prefer weekly status reports on Mondays."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 1603
+      },
+      {
+        "id": "deadline-timestamp",
+        "job_status": "complete",
+        "accepted": 1,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 12,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:17.446Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "329eedd9addf9bc5d57e17780ea1ea5477b6dc700efcb06087b7d1ddb9704e2f",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "0b11ef882012696bc4ddaa831a9f8545c87d69970b92fcb54fe947896977d2b1",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 119,
+              "prompt_tokens": 1504,
+              "total_tokens": 1623,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 686
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1504,
+          "completion_tokens": 119,
+          "total_tokens": 1623
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "(?:The )?Harbor review (?:is due at|deadline is) (?:2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z)"
+            ],
+            "source_event_id": "deadline-timestamp-user",
+            "pattern": "Harbor.*review|review.*Harbor",
+            "and_patterns": [
+              "due|deadline",
+              "2027-01-14T16:30:00\\+01:00|2027-01-14T15:30:00(?:\\.000)?Z"
+            ],
+            "origin": "user_explicit",
+            "kind": "fact",
+            "effective_at": null,
+            "status": "active",
+            "matched": true,
+            "matched_memory_index": 0
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "The Harbor review is due at 2027-01-14T16:30:00+01:00.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "deadline-timestamp-user",
+                "quote": "The Harbor review is due at 2027-01-14T16:30:00+01:00."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 778
+      },
+      {
+        "id": "effective-date-only",
+        "job_status": "complete",
+        "accepted": 1,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 13,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:18.218Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "a28316e56e780795c7dafbbb2e23a1e4ba3d87280d9b104ba3a304eae7f05d56",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "1b32aeddb3ae58345b9d847c810af261c3103adeaabd0278f5a5318b974c547c",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 76,
+              "prompt_tokens": 1486,
+              "total_tokens": 1562,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 657
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1486,
+          "completion_tokens": 76,
+          "total_tokens": 1562
+        },
+        "expectations": [
+          {
+            "statement_patterns": [
+              "Starting on (?:February 4,? 2027|2027-02-04|4 February,? 2027), (?:I prefer|The user prefers) afternoon meetings",
+              "(?:I prefer|The user prefers) afternoon meetings(?: starting on |\\. The preference starts on )(?:February 4,? 2027|2027-02-04|4 February,? 2027)"
+            ],
+            "source_event_id": "effective-date-only-user",
+            "pattern": "afternoon meetings",
+            "and_patterns": [
+              "prefer",
+              "start(?:s|ing)?|effective from|begin(?:s|ning)?",
+              "\\b(?:February 4,? 2027|2027-02-04|4 February,? 2027)\\b"
+            ],
+            "origin": "user_explicit",
+            "kind": "preference",
+            "effective_at": null,
+            "status": "active",
+            "matched": false,
+            "matched_memory_index": null
+          }
+        ],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": false,
+        "empty_expected": false,
+        "independent_http_mcp_recall": true,
+        "memories": [
+          {
+            "statement": "I prefer afternoon meetings.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "effective_at": null,
+            "evidence": [
+              {
+                "event_id": "effective-date-only-user",
+                "quote": "Starting on February 4, 2027, I prefer afternoon meetings."
+              }
+            ]
+          }
+        ],
+        "elapsed_ms": 737
+      },
+      {
+        "id": "excluded",
+        "job_status": "complete",
+        "accepted": 0,
+        "provider_attempts": [
+          {
+            "event": "direct_provider_request",
+            "ordinal": 14,
+            "path": "chat/completions",
+            "method": "POST",
+            "started_at": "2026-10-03T18:38:18.954Z",
+            "sent": true,
+            "requested_model": "nvidia/Nemotron-3_5-Lightning",
+            "request_sha256": "b9ad7df6052979219843acb4e6459561cd993e1a13961a5abfc24bfb7802df52",
+            "http_status": 200,
+            "outcome": "http_response",
+            "response_sha256": "d4f17a70b6193d448858e2437236121b3dbbcf974bb885c4118c25466a6cfca3",
+            "returned_model_matches": true,
+            "returned_model": "nvidia/Nemotron-3_5-Lightning",
+            "usage": {
+              "completion_tokens": 7,
+              "prompt_tokens": 1516,
+              "total_tokens": 1523,
+              "completion_tokens_details": {
+                "reasoning_tokens": 0
+              }
+            },
+            "finish_reason": "stop",
+            "usage_status": "reported",
+            "elapsed_ms": 418
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1516,
+          "completion_tokens": 7,
+          "total_tokens": 1523
+        },
+        "expectations": [],
+        "forbidden_matches": [],
+        "exact_evidence": true,
+        "memory_count_matches": true,
+        "rubric_passed": true,
+        "empty_expected": true,
+        "independent_http_mcp_recall": true,
+        "memories": [],
+        "elapsed_ms": 494
+      }
+    ],
+    "central_lifecycle": {
+      "status": "passed",
+      "corrected_deadline": true,
+      "forgotten_preference": true,
+      "fresh_independent_recalls": 2,
+      "export_removed_deleted_evidence": true
+    },
+    "reasoning_effort": "none",
+    "provider_accounting": {
+      "observed_attempt_count": 14,
+      "direct_request_count": 14,
+      "inference_request_count": 14,
+      "usage_complete": true,
+      "inference_requests_without_usage": 0,
+      "inference_requests_without_complete_usage": 0,
+      "derived_total_tokens_request_count": 0,
+      "usage": {
+        "completion_tokens": 1468,
+        "prompt_tokens": 21856,
+        "total_tokens": 23324,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    },
+    "observation_errors": [],
+    "provider_timing": "Each attempt measures direct fetch through complete response-body observation; case times also include capture/admission/recall.",
+    "limits": [
+      "Small fixed synthetic corpus; rubric matching is not a broad semantic quality estimate.",
+      "Replay timing measures local admission/recall; original inference latency belongs to the recording.",
+      "Independent SDK transports are not installed chatbot hosts.",
+      "No GPU, native container, deployment, or provider credential export."
+    ]
+  },
+  "limits": [
+    "The latest full corpus is 8/11; the earlier 10/11 and 11/11 samples remain historical observations, not replacements for this failure.",
+    "No additional corpus attempt was made to obtain a passing score.",
+    "The one-case first-response success and controlled repair tests remain separate evidence; this run does not prove a live extraction_missing_effective_timestamp repair.",
+    "Observed sample differences do not isolate a causal effect of the guard from sampling variation. The model prompt was unchanged.",
+    "The finite anchored rubric can reject unlisted valid paraphrases; manual inspection confirms these three failures are substantive rather than wording-only mismatches.",
+    "General extraction quality, local GPU parity and installed-host behavior remain release gates. No deployment, DNS, paid provisioning, publication or reusable-environment change was performed."
+  ]
+}
