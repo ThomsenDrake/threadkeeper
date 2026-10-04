@@ -335,7 +335,8 @@ function parseExtraction(content: string, input: ExtractionInput): ExplicitMemor
     // timestamp is present in the quoted evidence. Profile edits can supply
     // dates directly through their separate user-authored correction contract.
     if (memory.effective_at && !memory.quote.includes(memory.effective_at)) throw new ProviderError('extraction_unsupported_effective_timestamp');
-    let origin = memory.origin;
+    // A model cannot promote evidence already identified as an inference.
+    let origin = source.origin === 'inferred' ? 'inferred' as const : memory.origin;
     if (source.origin === 'agent_reported' && ['user_explicit', 'user_confirmed'].includes(origin)) origin = 'agent_reported';
     if (origin === 'user_explicit' || origin === 'user_confirmed') {
       if (source.author_role !== 'user' || !['user_explicit', 'user_confirmed'].includes(source.origin)) {

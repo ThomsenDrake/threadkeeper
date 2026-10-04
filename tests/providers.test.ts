@@ -201,6 +201,39 @@ test('inferences supported by agent reports retain inference classification', as
   }, [completion(JSON.stringify({ memories: [{ ...memory, origin: 'inferred' }] }))]);
 });
 
+test('inferred sources keep source-owned attribution for every role and returned origin', async () => {
+  for (const author_role of ['user', 'assistant', 'system', 'unknown'] as const) {
+    const source: SourceEvent = { ...event, author_role, origin: 'inferred' };
+    const original = structuredClone(source);
+    for (const origin of ['user_explicit', 'user_confirmed', 'agent_reported', 'assistant_proposed', 'inferred'] as const) {
+      await withFakeEndpoint(async (baseUrl, requests) => {
+        const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+        assert.deepEqual(result.memories, [{ statement: memory.statement, kind: memory.kind,
+          source_event_id: source.id, quote: source.text, origin: 'inferred' }]);
+        assert.equal(requests.length, 1, 'Known source attribution needs no extra model request.');
+        assert.deepEqual(source, original);
+        assert.deepEqual(JSON.parse((requests[0].body.messages as Array<{ content: string }>)[1].content).events, [original]);
+      }, [completion(JSON.stringify({ memories: [{ ...memory, origin }] }))]);
+    }
+  }
+});
+
+test('inferred attribution normalization preserves bounded validation and repair', async () => {
+  const source: SourceEvent = { ...event, author_role: 'assistant', origin: 'inferred' };
+  const promoted = { ...memory, origin: 'agent_reported' };
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+    assert.equal(result.memories[0].origin, 'inferred');
+    assert.equal(requests.length, 2);
+    assert.deepEqual(result.usage, { prompt_tokens: 20, completion_tokens: 40, total_tokens: 60 });
+  }, [completion('invalid JSON'), completion(JSON.stringify({ memories: [promoted] }))]);
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    await assert.rejects(new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] }),
+      error => error instanceof ProviderError && error.code === 'extraction_invalid_evidence');
+    assert.equal(requests.length, 2, 'Attribution normalization cannot admit an unsupported quote.');
+  }, [completion(JSON.stringify({ memories: [{ ...promoted, quote: 'Unsupported synthetic evidence.' }] }))]);
+});
+
 test('truncated or non-JSON thinking output is rejected, bounded repair usage is accumulated', async () => {
   await withFakeEndpoint(async (baseUrl, requests) => {
     const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [event] });

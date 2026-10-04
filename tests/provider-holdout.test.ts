@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { extractionHoldout, extractionHoldoutSha256, extractionHoldoutManifest, assertHoldoutConfig } from '../deploy/provider-extraction-holdout.ts';
 import { evaluateHoldoutOutcome, assertHoldoutRecords, holdoutRequestLimits, assessHoldoutObservations } from '../deploy/provider-holdout-checks.ts';
 import { evaluateMemoryRubric, type EvaluationMemory } from '../deploy/provider-evaluation-rubric.ts';
-import { installDirectProviderObserver, type ProviderObservation } from '../deploy/direct-provider-observer.mjs';
+import { installDirectProviderObserver, numericTokenUsage, type ProviderObservation } from '../deploy/direct-provider-observer.mjs';
 import { providerConfigFromEnv, DEFAULT_MODEL_ID, DEFAULT_MODEL_BASE_URL } from '../packages/providers/src/index.ts';
 
 // Human-authored admissible examples; no provider outputs inform these labels.
@@ -178,4 +178,59 @@ test('observation completeness is independent of rubric scores and preserves fai
   assert.deepEqual(assessHoldoutObservations(cases, withRepair).issues, ['incomplete_token_accounting']);
   assert.equal(withRepair[1], repair, 'Do not discard the unsuccessful original attempt');
   assert(assessHoldoutObservations(cases.slice(1), withRepair).issues.includes('unassigned_provider_attempt'));
+});
+
+function accountingRecords(count: number, usage: ProviderObservation['usage']): ProviderObservation[] {
+  return Array.from({ length: count }, (_, index) => ({ event: 'direct_provider_request', ordinal: index + 1,
+    path: 'chat/completions', method: 'POST', started_at: '2026-10-04T00:00:00Z', sent: true, elapsed_ms: 1,
+    outcome: 'http_response', http_status: 200, usage_status: usage ? 'reported' : 'absent', requested_model: DEFAULT_MODEL_ID,
+    returned_model: DEFAULT_MODEL_ID, returned_model_matches: true, usage,
+  }));
+}
+
+test('bounded holdout and taxonomy accounting reject contradictions without rewriting raw observations', () => {
+  const invalid: ProviderObservation['usage'][] = [
+    { prompt_tokens: 10, completion_tokens: 5, total_tokens: 1 },
+    { prompt_tokens: 10, input_tokens: 11, completion_tokens: 5, total_tokens: 15 },
+    { prompt_tokens: 10, completion_tokens: 5, output_tokens: 6, total_tokens: 15 },
+    { prompt_tokens: Number.MAX_SAFE_INTEGER, completion_tokens: 1 },
+    { prompt_tokens: 10, total_tokens: 9 },
+    { input_tokens: 10, output_tokens: 5, total_tokens: 14 },
+    { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, completion_tokens_details: { reasoning_tokens: 6 } },
+    { total_tokens: 15, prompt_tokens_details: { cached_tokens: 16 } },
+    { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, completion_tokens_details: { input_tokens_details: { audio_tokens: 6 } } },
+  ];
+  for (const count of [7, 8]) for (const usage of invalid) {
+    const records = accountingRecords(count, usage), before = structuredClone(records);
+    const result = assessHoldoutObservations(records.map(record => ({ provider_attempts: [record] })), records, count);
+    assert.equal(result.status, 'incomplete');
+    assert(result.issues.includes('inconsistent_token_accounting'));
+    assert.deepEqual(records, before, 'Do not fix contradictions by altering the provider evidence');
+  }
+});
+
+test('bounded accounting preserves valid partial envelopes and leaves unknown usage incomplete', () => {
+  const cases: Array<{ usage: ProviderObservation['usage']; complete: boolean }> = [
+    { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }, complete: true },
+    { usage: { total_tokens: 15 }, complete: true },
+    { usage: { prompt_tokens: 10, completion_tokens: 5 }, complete: true },
+    { usage: { input_tokens: 10, output_tokens: 5 }, complete: true },
+    { usage: { prompt_tokens: 10, output_tokens: 5, total_tokens: 15 }, complete: true },
+    { usage: { total_tokens: 15, prompt_tokens_details: { cached_tokens: 14 } }, complete: true },
+    { usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15,
+      completion_tokens_details: { reasoning_tokens: 5, audio_tokens: 5 } }, complete: true },
+    { usage: numericTokenUsage({ prompt_tokens: 10, completion_tokens: 5, total_tokens: 15,
+      prompt_tokens_details: null, completion_tokens_details: { reasoning_tokens: null } }), complete: true },
+    { usage: { prompt_tokens: 10 }, complete: false },
+    { usage: { prompt_tokens: 10, output_tokens: 5 }, complete: false },
+    { usage: { completion_tokens_details: { reasoning_tokens: 0 } }, complete: false },
+    { usage: undefined, complete: false },
+  ];
+  for (const { usage, complete } of cases) {
+    const records = accountingRecords(7, usage), before = structuredClone(records);
+    const result = assessHoldoutObservations(records.map(record => ({ provider_attempts: [record] })), records, 7);
+    assert.deepEqual(result.issues, complete ? [] : ['incomplete_token_accounting']);
+    assert.equal(result.status, complete ? 'complete' : 'incomplete');
+    assert.deepEqual(records, before, 'Partial and unknown fields must not be fabricated');
+  }
 });

@@ -91,6 +91,7 @@ function validateAttribution(memory: ExplicitMemory, source: any) {
   if (memory.origin === 'user_confirmed' && source.origin !== 'user_confirmed') throw new DomainError(400, 'unconfirmed_origin');
   if (source.origin === 'agent_reported' && !['agent_reported', 'inferred', 'assistant_proposed'].includes(memory.origin)) throw new DomainError(400, 'report_misattribution');
   if (source.origin === 'assistant_proposed' && !['assistant_proposed', 'inferred'].includes(memory.origin)) throw new DomainError(400, 'proposal_misattribution', 'An unaccepted assistant proposal must remain a proposal or an inference.');
+  if (source.origin === 'inferred' && !['inferred', 'assistant_proposed'].includes(memory.origin)) throw new DomainError(400, 'inference_misattribution', 'Inferred evidence cannot support an active memory without separate user confirmation.');
 }
 function validateSource(event: SourceEvent) {
   if (['user_explicit', 'user_confirmed'].includes(event.origin) && event.author_role !== 'user') throw new DomainError(400, 'author_misattribution');

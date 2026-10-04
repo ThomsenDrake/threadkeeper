@@ -5,7 +5,7 @@ import { MemorySchema } from '../packages/contracts/src/index.ts';
 import { DEFAULT_MODEL_ID } from '../packages/providers/src/index.ts';
 import type { EvaluationCase } from './provider-evaluation-corpus.ts';
 import { evaluateMemoryRubric, type EvaluationMemory } from './provider-evaluation-rubric.ts';
-import { summarizeProviderObservations, type ProviderObservation, type ProviderObserverOptions } from './direct-provider-observer.mjs';
+import { summarizeProviderObservations, verifyProviderUsageTotals, type ProviderObservation, type ProviderObserverOptions } from './direct-provider-observer.mjs';
 
 export const holdoutRequestLimits: NonNullable<ProviderObserverOptions['limits']> = { 'chat/completions': 16, embeddings: 0, models: 0 };
 
@@ -23,6 +23,10 @@ export function assessHoldoutObservations(cases: Array<{ provider_attempts?: Pro
   if (records.length > expectedCases * 2 || records.some(record => !record.sent || record.path !== 'chat/completions' || record.method !== 'POST')) issues.push('request_budget_or_type');
   if (records.some(record => record.requested_model !== DEFAULT_MODEL_ID || (record.http_status !== undefined && record.http_status >= 200 && record.http_status < 300
     && (record.returned_model !== DEFAULT_MODEL_ID || record.returned_model_matches !== true)))) issues.push('unverified_model_identity');
+  // The summary preserves partial/unknown envelopes; known values must also
+  // agree before this bounded measurement can claim complete accounting.
+  try { for (const record of records) verifyProviderUsageTotals(record); }
+  catch { issues.push('inconsistent_token_accounting'); }
   const accounting = summarizeProviderObservations(records);
   if (!accounting.usage_complete) issues.push('incomplete_token_accounting');
   return { status: issues.length ? 'incomplete' : 'complete', issues };

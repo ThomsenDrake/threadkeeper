@@ -73,7 +73,7 @@ export function extractionResponseFingerprint(request, response) {
     const source = events.get(memory.source_event_id);
     if (!source || !source.text.includes(memory.quote) || (memory.subject != null && memory.subject !== context.subject)
       || (memory.effective_at && !memory.quote.includes(memory.effective_at))) return undefined;
-    let origin = memory.origin;
+    let origin = source.origin === 'inferred' ? 'inferred' : memory.origin;
     if (source.origin === 'agent_reported' && ['user_explicit', 'user_confirmed'].includes(origin)) origin = 'agent_reported';
     if (origin === 'user_explicit' || origin === 'user_confirmed') {
       if (source.author_role !== 'user' || !['user_explicit', 'user_confirmed'].includes(source.origin)) {

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { embeddingResponseFingerprints } from './embedding-fingerprints.mjs';
 import { extractionResponseFingerprint } from './extraction-fingerprints.mjs';
@@ -62,6 +63,57 @@ function inspectNumericTokenUsage(value, depth = 0) {
     }
   }
   return { usage: Object.keys(result).length ? result : undefined, invalid };
+}
+
+// Reconcile only known sanitized counts; absence is not zero or completeness.
+// Shared by native acceptance and the bounded extraction probes.
+export function verifyProviderUsageTotals(item) {
+  const usage = item.usage;
+  if (!usage) return;
+  const count = (name) => {
+    const value = usage[name];
+    if (value !== undefined) assert(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0, 'Provider token count must be a nonnegative safe integer');
+    return value;
+  };
+  const total = count('total_tokens');
+  const prompt = count('prompt_tokens'), completion = count('completion_tokens');
+  const input = count('input_tokens'), output = count('output_tokens');
+  if (prompt !== undefined && input !== undefined) assert.equal(prompt, input, 'Provider input token counts contradict each other');
+  if (completion !== undefined && output !== undefined) assert.equal(completion, output, 'Provider output token counts contradict each other');
+  {
+    const before = prompt ?? input, after = completion ?? output;
+    if (before !== undefined && after !== undefined) assert(Number.isSafeInteger(before + after), 'Provider token component sum is unsafe');
+    if (item.path === 'embeddings') {
+      assert(after === undefined || after === 0, 'Embedding usage unexpectedly reports generated completion tokens');
+      if (total !== undefined && before !== undefined) assert.equal(total, before, 'Embedding total contradicts input tokens');
+    } else if (total !== undefined) {
+      if (before !== undefined && after !== undefined) assert.equal(total, before + after, 'Provider total contradicts token components');
+      else {
+        if (before !== undefined) assert(total >= before, 'Provider total is smaller than input tokens');
+        if (after !== undefined) assert(total >= after, 'Provider total is smaller than output tokens');
+      }
+    }
+  }
+  // Breakdown categories can overlap, so bound each count independently.
+  // A missing parent is unknown; a reported total still supplies an upper bound.
+  const detailParents = {
+    prompt_tokens_details: prompt ?? input ?? total,
+    input_tokens_details: input ?? prompt ?? total,
+    completion_tokens_details: completion ?? output ?? total,
+    output_tokens_details: output ?? completion ?? total,
+  };
+  function verifyDetails(details, parent) {
+    assert(details && typeof details === 'object' && !Array.isArray(details), 'Provider token details must be an object');
+    for (const [key, value] of Object.entries(details)) {
+      if (COUNT_KEYS.has(key)) {
+        assert(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0, 'Provider token detail must be a nonnegative safe integer');
+        if (parent !== undefined) assert(value <= parent, 'Provider token detail exceeds its parent count');
+      } else if (Object.hasOwn(detailParents, key)) verifyDetails(value, parent);
+    }
+  }
+  for (const [key, parent] of Object.entries(detailParents)) {
+    if (usage[key] !== undefined) verifyDetails(usage[key], parent);
+  }
 }
 
 export function summarizeProviderObservations(records) {

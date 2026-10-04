@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, rmSync } from 'node:fs';
 import { lstat, open, readFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { summarizeProviderObservations, type ProviderObservation } from '../direct-provider-observer.mjs';
+import { summarizeProviderObservations, verifyProviderUsageTotals, type ProviderObservation } from '../direct-provider-observer.mjs';
 
 /** Reserve before any billable work. Never unlink another process's replacement. */
 export async function reserveEvidence(path: string) {
@@ -76,56 +76,6 @@ export function verifyLearnedApplicationImages(builtImage: string, apiImage: str
   assert.equal(workerImage, builtImage, 'Worker image differs from the recorded archive build');
 }
 
-function verifyUsageTotals(item: ProviderObservation) {
-  const usage = item.usage;
-  if (!usage) return;
-  const count = (name: string) => {
-    const value = usage[name];
-    if (value !== undefined) assert(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0, 'Provider token count must be a nonnegative safe integer');
-    return value as number | undefined;
-  };
-  const total = count('total_tokens');
-  const prompt = count('prompt_tokens'), completion = count('completion_tokens');
-  const input = count('input_tokens'), output = count('output_tokens');
-  if (prompt !== undefined && input !== undefined) assert.equal(prompt, input, 'Provider input token counts contradict each other');
-  if (completion !== undefined && output !== undefined) assert.equal(completion, output, 'Provider output token counts contradict each other');
-  {
-    const before = prompt ?? input, after = completion ?? output;
-    if (before !== undefined && after !== undefined) assert(Number.isSafeInteger(before + after), 'Provider token component sum is unsafe');
-    if (item.path === 'embeddings') {
-      assert(after === undefined || after === 0, 'Embedding usage unexpectedly reports generated completion tokens');
-      if (total !== undefined && before !== undefined) assert.equal(total, before, 'Embedding total contradicts input tokens');
-    } else if (total !== undefined) {
-      if (before !== undefined && after !== undefined) assert.equal(total, before + after, 'Provider total contradicts token components');
-      else {
-        if (before !== undefined) assert(total >= before, 'Provider total is smaller than input tokens');
-        if (after !== undefined) assert(total >= after, 'Provider total is smaller than output tokens');
-      }
-    }
-  }
-  // Breakdown categories can overlap, so bound each count independently.
-  // A missing parent is unknown; a reported total still supplies an upper bound.
-  const recognizedCounts = new Set(['prompt_tokens', 'completion_tokens', 'total_tokens', 'input_tokens', 'output_tokens',
-    'cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens']);
-  const detailParents: Record<string, number | undefined> = {
-    prompt_tokens_details: prompt ?? input ?? total,
-    input_tokens_details: input ?? prompt ?? total,
-    completion_tokens_details: completion ?? output ?? total,
-    output_tokens_details: output ?? completion ?? total,
-  };
-  function verifyDetails(details: unknown, parent: number | undefined) {
-    assert(details && typeof details === 'object' && !Array.isArray(details), 'Provider token details must be an object');
-    for (const [key, value] of Object.entries(details)) {
-      if (recognizedCounts.has(key)) {
-        assert(typeof value === 'number' && Number.isSafeInteger(value) && value >= 0, 'Provider token detail must be a nonnegative safe integer');
-        if (parent !== undefined) assert(value <= parent, 'Provider token detail exceeds its parent count');
-      } else if (Object.hasOwn(detailParents, key)) verifyDetails(value, parent);
-    }
-  }
-  for (const [key, parent] of Object.entries(detailParents)) {
-    if (usage[key] !== undefined) verifyDetails(usage[key], parent);
-  }
-}
 
 export type LearnedObservation = ProviderObservation & { service: 'api' | 'worker' };
 export function parseLearnedObservations(logs: string, service: LearnedObservation['service']): LearnedObservation[] {
@@ -144,7 +94,7 @@ export function verifyLearnedObservations(observations: LearnedObservation[]) {
     assert.equal(item.requested_model, expected, 'Unexpected requested provider model');
     assert.equal(item.returned_model_matches, true, 'Provider returned model identity was not verified');
     assert(item.usage_invalid !== true, 'Provider reported invalid raw usage counts');
-    verifyUsageTotals(item);
+    verifyProviderUsageTotals(item);
   }
   const api = observations.filter(item => item.service === 'api');
   const worker = observations.filter(item => item.service === 'worker');
