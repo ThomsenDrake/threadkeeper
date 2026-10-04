@@ -1,0 +1,51 @@
+import os,json,secrets,subprocess,time,pathlib,datetime,hashlib
+root='/workspace/threadkeeper-kind-correction'
+base=pathlib.Path('/tmp/threadkeeper-kind-native')
+name='threadkeeper-kind-'+secrets.token_hex(4)
+env=os.environ.copy()
+for key in list(env):
+ if key.startswith(('NEBIUS_', 'MODEL_', 'EMBEDDING_')):env.pop(key,None)
+for key in ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']:env.pop(key,None)
+env['PATH']='/tmp/threadkeeper-node24.7-check:'+env['PATH']
+docker=['docker','--host=unix:///var/run/docker.sock']
+def run(args,**kwargs):
+ return subprocess.run(args,check=True,env=env,cwd=root,capture_output=True,text=True,timeout=kwargs.pop('timeout',60),**kwargs).stdout.strip()
+password=secrets.token_hex(24)
+credentials=base/'postgres.env'
+credentials.write_text('POSTGRES_USER=kind\nPOSTGRES_DB=kind\nPOSTGRES_PASSWORD='+password+'\n')
+credentials.chmod(0o600)
+result={'result':'FAIL','recorded_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'provider_requests':0}
+created=False
+try:
+ image=run(docker+['image','inspect','pgvector/pgvector:pg17','--format','{{.Id}}'])
+ run(docker+['run','--detach','--name',name,'--env-file',str(credentials),'--publish','127.0.0.1::5432',image]);created=True
+ port=json.loads(run(docker+['inspect',name,'--format','{{json .NetworkSettings.Ports}}']))['5432/tcp'][0]['HostPort']
+ for _ in range(60):
+  ready=subprocess.run(docker+['exec',name,'pg_isready','-U','kind','-d','kind'],env=env,capture_output=True,timeout=10)
+  if ready.returncode==0:break
+  time.sleep(.25)
+ else:raise RuntimeError('postgres_readiness_failed')
+ env['THREADKEEPER_NATIVE_TEST_URL']='postgresql://kind:'+password+'@127.0.0.1:'+port+'/kind'
+ result=json.loads(run(['node','--import',root+'/node_modules/tsx/dist/loader.mjs',str(base/'upgrade.mjs')],timeout=120))
+ result['recorded_at']=datetime.datetime.now(datetime.timezone.utc).isoformat()
+ result['database_image']=image
+ result['actual_container_image']=run(docker+['inspect',name,'--format','{{.Image}}'])
+ result['pnpm']=run(['corepack','pnpm@11.25.0','--version'])
+ test=subprocess.run(['node','--import','tsx','--test','--test-name-pattern=kind-only owner|kind-only changes|upgrade backfills','tests/kind-correction.test.ts'],env=env,cwd=root,capture_output=True,text=True,timeout=120)
+ (base/'native-tests.log').write_text(test.stdout+test.stderr)
+ if test.returncode!=0:raise RuntimeError('native_regressions_failed')
+ result['native_regressions']={'passed':3,'failed':0,'log_sha256':hashlib.sha256((test.stdout+test.stderr).encode()).hexdigest(),'groups':['owner_kind_correction_provenance_identity_deletion','held_embedding_response_revision_fence','structural_legacy_backfill_and_rerun']}
+ result['result']='PASS'
+except Exception as error:
+ result['result']='FAIL';result['error_type']=type(error).__name__
+ (base/'failure.log').write_text(str(error))
+finally:
+ if created:
+  try:run(docker+['rm','--force','--volumes',name])
+  except Exception:result['result']='FAIL';result['container_cleanup_failed']=True
+ credentials.unlink(missing_ok=True)
+ result['cleanup']={'credential_file_removed':not credentials.exists(),'container_removed':name not in run(docker+['ps','--all','--format','{{.Names}}']).splitlines(),'anonymous_volume_removal_requested':created}
+ result['control_driver_sha256']=hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
+ (base/'evidence.json').write_text(json.dumps(result,indent=2)+'\n')
+ print(json.dumps({'result':result['result'],'checks':len(result.get('checks',[])),'native_regressions':result.get('native_regressions',{}).get('passed'),'cleanup':result['cleanup']}))
+ if result['result']!='PASS':raise SystemExit(1)

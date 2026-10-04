@@ -63,6 +63,7 @@ export const MemoryListSchema = SearchSchema.extend({
 });
 export const CorrectSchema = z.object({
   statement: z.string().min(1).max(4_000),
+  kind: MemoryKindSchema.optional(),
   expected_revision: z.number().int().positive(),
   effective_at: Timestamp.nullable().optional(),
 }).strict();
@@ -71,10 +72,11 @@ export const SourceDeleteSchema = z.object({ preview_hash: PreviewHash }).strict
 export const DeleteSchema = SourceDeleteSchema.extend({ expected_revision: z.number().int().positive() }).strict();
 export const ReviewSchema = z.object({
   action: z.enum(['confirm', 'dismiss']), expected_revision: z.number().int().positive(),
+  kind: MemoryKindSchema.optional(),
   statement: z.string().min(1).max(4_000).optional(), effective_at: Timestamp.nullable().optional(),
 }).strict().superRefine((input, ctx) => {
-  if (input.action === 'dismiss' && (input.statement !== undefined || input.effective_at !== undefined)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Dismissal retains the current statement and effective date.' });
+  if (input.action === 'dismiss' && (input.statement !== undefined || input.effective_at !== undefined || input.kind !== undefined)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Dismissal retains the current statement, kind and effective date.' });
   }
 });
 export const CaptureSettingsSchema = z.object({
@@ -144,12 +146,13 @@ export const DeletionPreviewSchema = z.object({
 }).strict();
 export const RevisionSchema = z.object({
   memory_id: Identifier, revision: z.number().int().positive(), statement: z.string().min(1).max(4_000),
+  kind: MemoryKindSchema,
   origin: OriginSchema, status: MemoryStatusSchema, effective_at: Timestamp.nullable(), created_at: Timestamp,
   editor_client_id: Identifier,
   extractor: z.string().max(500).nullable().default(null),
 }).strict();
 export const ExportSchema = z.object({
-  schema_version: z.literal('threadkeeper.export.v1'),
+  schema_version: z.literal('threadkeeper.export.v2'),
   exported_at: Timestamp,
   sources: z.array(ExportSourceSchema).max(10_000),
   memories: z.array(MemorySchema).max(10_000),
@@ -157,6 +160,14 @@ export const ExportSchema = z.object({
   revisions: z.array(RevisionSchema).max(50_000),
   tombstones: z.array(z.object({ kind: z.enum(['source_identity', 'source_content', 'memory_content']), hash: z.string().regex(/^[a-f0-9]{64}$/), deleted_at: Timestamp }).strict()).max(100_000),
 }).strict();
+
+// Before kind corrections, kind was immutable and appeared only on the memory.
+// Keep v1 strict and distinct so a new-format history cannot omit revision kinds.
+export const LegacyExportSchema = ExportSchema.extend({
+  schema_version: z.literal('threadkeeper.export.v1'),
+  revisions: z.array(RevisionSchema.omit({ kind: true })).max(50_000),
+});
+export const ImportSchema = z.discriminatedUnion('schema_version', [LegacyExportSchema, ExportSchema]);
 
 export const DeletionLedgerSchema = z.object({
   schema_version: z.literal('threadkeeper.deletion-ledger.v1'),

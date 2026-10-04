@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+type MemoryKind = 'fact' | 'preference' | 'decision' | 'constraint' | 'project_state';
 type Memory = {
   id: string; statement: string; subject: string; project_id: string | null;
-  kind: string; origin: string; status: string; revision: number;
+  kind: MemoryKind; origin: string; status: string; revision: number;
   effective_at: string | null; created_at: string; updated_at: string; authoritative?: boolean;
 };
 type Source = {
@@ -11,7 +12,7 @@ type Source = {
   project_id: string | null; subject: string; capture_method?: string;
 };
 type Evidence = { source_id: string; quote: string; revision: number };
-type Revision = { revision: number; statement: string; origin: string; status: string; effective_at: string | null; created_at: string; editor_client_id: string | null; extractor?: string | null };
+type Revision = { revision: number; statement: string; kind: MemoryKind; origin: string; status: string; effective_at: string | null; created_at: string; editor_client_id: string | null; extractor?: string | null };
 type Detail = { memory: Memory; sources: Source[]; evidence?: Evidence[]; revisions: Revision[] };
 type Client = { id: string; name: string; permissions: string[]; projects: string[] | null; created_at?: string; last_used_at?: string | null; revoked_at?: string | null };
 type CaptureSettings = { paused: boolean; version: number };
@@ -40,7 +41,7 @@ const originLabels: Record<string, string> = {
   agent_reported: 'Client-reported context', inferred: 'Model inference',
 };
 const statusLabels: Record<string, string> = { active: 'Active', candidate: 'Needs review', disputed: 'Disputed', superseded: 'Superseded', dismissed: 'Dismissed' };
-const kindLabels: Record<string, string> = { fact: 'Fact', preference: 'Preference', decision: 'Decision', constraint: 'Constraint', project_state: 'Project state' };
+const kindLabels: Record<MemoryKind, string> = { fact: 'Fact', preference: 'Preference', decision: 'Decision', constraint: 'Constraint', project_state: 'Project state' };
 const captureMethodLabels: Record<string, string> = { explicit_capture: 'Explicit capture', client_summary: 'Client summary', profile_entry: 'Profile entry', profile_correction: 'Profile correction', profile_confirmation: 'Profile confirmation', import: 'Import' };
 const captureStatusLabels: Record<CaptureStatus['status'], string> = { saved: 'Saved', pending: 'Pending', processing: 'Processing', complete: 'Completed', failed: 'Failed', cancelled: 'Cancelled' };
 const captureStatusDescriptions: Record<CaptureStatus['status'], string> = {
@@ -245,6 +246,7 @@ export default function App() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [editKind, setEditKind] = useState<MemoryKind>('fact');
   const [editDate, setEditDate] = useState('');
   const [dismissing, setDismissing] = useState(false);
   const [reviewingAction, setReviewingAction] = useState<'confirm' | 'dismiss' | null>(null);
@@ -582,7 +584,7 @@ export default function App() {
     try {
       await api(`/memories/${encodeURIComponent(memory.id)}/review`, { method: 'POST', body: JSON.stringify({
         action, expected_revision: memory.revision,
-        ...(withEdits ? { statement: editText.trim(), ...(editDate ? { effective_at: new Date(editDate).toISOString() } : {}) } : {}),
+        ...(action === 'confirm' && withEdits ? { statement: editText.trim(), kind: editKind, ...(editDate ? { effective_at: new Date(editDate).toISOString() } : {}) } : {}),
       }) });
       if (generation !== authGeneration.current) return;
       refresh();
@@ -622,7 +624,7 @@ export default function App() {
     event.preventDefault(); if (!selected) return; setBusy(true);
     const memory = selected.memory; const generation = authGeneration.current; const request = detailRequest.current;
     try {
-      await api(`/memories/${encodeURIComponent(memory.id)}`, { method: 'PATCH', body: JSON.stringify({ statement: editText.trim(), expected_revision: memory.revision, ...(editDate ? { effective_at: new Date(editDate).toISOString() } : {}) }) });
+      await api(`/memories/${encodeURIComponent(memory.id)}`, { method: 'PATCH', body: JSON.stringify({ statement: editText.trim(), kind: editKind, expected_revision: memory.revision, ...(editDate ? { effective_at: new Date(editDate).toISOString() } : {}) }) });
       if (generation !== authGeneration.current) return;
       refresh();
       const detail = await api<Detail>(`/memories/${encodeURIComponent(memory.id)}`);
@@ -636,7 +638,7 @@ export default function App() {
         try {
           const detail = await api<Detail>(`/memories/${encodeURIComponent(memory.id)}`);
           if (generation !== authGeneration.current || request !== detailRequest.current) return;
-          setSelected(detail);
+          setSelected(detail); setEditText(detail.memory.statement); setEditKind(detail.memory.kind); setEditDate('');
         } catch { /* Keep the edit visible for recovery. */ }
         if (generation !== authGeneration.current || request !== detailRequest.current) return;
         setNotice({ type: 'error', text: 'Someone changed this memory. The current revision has been loaded. Review it before saving again.' });
@@ -920,16 +922,16 @@ export default function App() {
       {detailLoading && <p className="muted" role="status">Loading evidence…</p>}{detailError && <div><p className="field-error" role="alert">{detailError}</p>{selectedMemoryId && <button className="button secondary" onClick={() => openMemory({ id: selectedMemoryId })} disabled={busy || deletionBusy}>Refresh memory</button>}</div>}
       {reviewError && <div className="review-error" role="alert"><p>{reviewError}</p>{!detailError && selectedMemoryId && <button className="text-button" disabled={busy || deletionBusy} onClick={() => openMemory({ id: selectedMemoryId })}>Refresh memory</button>}</div>}
       {selected && <><div className="detail-badges"><span className={`badge origin-${selected.memory.origin}`}>{originLabels[selected.memory.origin]}</span><span className={`badge status-${selected.memory.status}`}>{statusLabels[selected.memory.status]}</span></div>
-        {editing ? <form onSubmit={selected.memory.status === 'candidate' ? event => { event.preventDefault(); void reviewMemory('confirm', true); } : editMemory} className="edit-form"><h2>{selected.memory.status === 'candidate' ? 'Edit and confirm this candidate' : 'Correct this memory'}</h2><p className="muted">{selected.memory.status === 'candidate' ? 'Your edited statement becomes separate user-authored confirmation evidence. The original proposal or inference remains in its history.' : 'Your edit creates a direct user correction in the same scope.'}</p><label>Statement<textarea aria-label="Statement" rows={5} value={editText} onChange={event => setEditText(event.target.value)} required maxLength={4000} disabled={busy || deletionBusy} /></label><label>Effective date <span className="optional">(optional)</span><input type="datetime-local" value={editDate} onChange={event => setEditDate(event.target.value)} disabled={busy || deletionBusy} /></label><div className="actions"><button className="button primary" disabled={busy || !editText.trim()}>{busy ? 'Saving…' : selected.memory.status === 'candidate' ? 'Save and confirm' : 'Save correction'}</button><button className="button secondary" type="button" onClick={() => setEditing(false)} disabled={busy || deletionBusy}>Cancel</button></div></form> : <><h2 className="detail-statement">{selected.memory.statement}</h2>
-          {selected.memory.status === 'candidate' && <section className="candidate-review" aria-label="Candidate review"><h3>Review this candidate</h3><p>Confirming records your acceptance as separate user-authored evidence. The original proposal or inference and its sources remain inspectable.</p><div className="actions"><button className="button primary" disabled={busy || deletionBusy} onClick={() => reviewMemory('confirm')}>{reviewingAction === 'confirm' ? 'Confirming…' : 'Confirm'}</button><button className="button secondary" disabled={busy || deletionBusy} onClick={() => { setEditText(selected.memory.statement); setEditDate(''); setEditing(true); clearDeletion(); setDismissing(false); setReviewError(null); }}>Edit and confirm</button><button className="text-button" disabled={busy || deletionBusy} onClick={() => { setDismissing(true); clearDeletion(); }}>Dismiss</button></div></section>}
+        {editing ? <form onSubmit={selected.memory.status === 'candidate' ? event => { event.preventDefault(); void reviewMemory('confirm', true); } : editMemory} className="edit-form"><h2>{selected.memory.status === 'candidate' ? 'Edit and confirm this candidate' : 'Correct this memory'}</h2><p className="muted">{selected.memory.status === 'candidate' ? 'Your edited statement becomes separate user-authored confirmation evidence. The original proposal or inference remains in its history.' : 'Your edit creates a direct user correction in the same scope.'}</p><label>Statement<textarea aria-label="Statement" rows={5} value={editText} onChange={event => setEditText(event.target.value)} required maxLength={4000} disabled={busy || deletionBusy} /></label><label>Kind<select aria-label="Kind" value={editKind} onChange={event => setEditKind(event.target.value as MemoryKind)} disabled={busy || deletionBusy}>{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Effective date <span className="optional">(optional)</span><input type="datetime-local" value={editDate} onChange={event => setEditDate(event.target.value)} disabled={busy || deletionBusy} /></label><div className="actions"><button className="button primary" disabled={busy || !editText.trim()}>{busy ? 'Saving…' : selected.memory.status === 'candidate' ? 'Save and confirm' : 'Save correction'}</button><button className="button secondary" type="button" onClick={() => setEditing(false)} disabled={busy || deletionBusy}>Cancel</button></div></form> : <><h2 className="detail-statement">{selected.memory.statement}</h2>
+          {selected.memory.status === 'candidate' && <section className="candidate-review" aria-label="Candidate review"><h3>Review this candidate</h3><p>Confirming records your acceptance as separate user-authored evidence. The original proposal or inference and its sources remain inspectable.</p><div className="actions"><button className="button primary" disabled={busy || deletionBusy} onClick={() => reviewMemory('confirm')}>{reviewingAction === 'confirm' ? 'Confirming…' : 'Confirm'}</button><button className="button secondary" disabled={busy || deletionBusy} onClick={() => { setEditText(selected.memory.statement); setEditKind(selected.memory.kind); setEditDate(''); setEditing(true); clearDeletion(); setDismissing(false); setReviewError(null); }}>Edit and confirm</button><button className="text-button" disabled={busy || deletionBusy} onClick={() => { setDismissing(true); clearDeletion(); }}>Dismiss</button></div></section>}
           {selected.memory.status === 'dismissed' && <div className="dismissed-note"><p>This candidate was dismissed. Its evidence and history are retained, and it is excluded from Needs review and fresh default recall.</p></div>}
-          <div className="actions">{!['candidate', 'dismissed'].includes(selected.memory.status) && <button className="button secondary" disabled={busy || deletionBusy} onClick={() => { setEditText(selected.memory.statement); setEditDate(''); setEditing(true); clearDeletion(); }}>Edit memory</button>}<button className="text-button danger-text" disabled={busy || deletionBusy || deletionTarget?.kind === 'memory'} onClick={() => { beginDeletion({ kind: 'memory', id: selected.memory.id }); setDismissing(false); }}>Delete</button></div>
+          <div className="actions">{!['candidate', 'dismissed'].includes(selected.memory.status) && <button className="button secondary" disabled={busy || deletionBusy} onClick={() => { setEditText(selected.memory.statement); setEditKind(selected.memory.kind); setEditDate(''); setEditing(true); clearDeletion(); }}>Edit memory</button>}<button className="text-button danger-text" disabled={busy || deletionBusy || deletionTarget?.kind === 'memory'} onClick={() => { beginDeletion({ kind: 'memory', id: selected.memory.id }); setDismissing(false); }}>Delete</button></div>
         </>}
         {dismissing && selected.memory.status === 'candidate' && <div className="dismiss-confirm"><h3>Dismiss this candidate?</h3><p>Remove it from Needs review and fresh default recall. Its source evidence and revision history remain available under Dismissed.</p><div className="actions"><button className="button secondary" disabled={busy || deletionBusy} onClick={() => reviewMemory('dismiss')}>{reviewingAction === 'dismiss' ? 'Dismissing…' : 'Dismiss candidate'}</button><button className="text-button" disabled={busy || deletionBusy} onClick={() => setDismissing(false)}>Keep for review</button></div></div>}
         {deletionTarget?.kind === 'memory' && deletionTarget.id === selected.memory.id && <DeletionPanel target={deletionTarget} preview={deletionPreview} loading={deletionLoading} error={deletionError} stale={deletionStale} deleting={deletionBusy} clientName={clientName} onRefresh={() => setDeletionRefreshVersion(value => value + 1)} onConfirm={confirmDeletion} onCancel={clearDeletion} />}
         <dl className="detail-properties"><div><dt>Subject</dt><dd>{selected.memory.subject}</dd></div><div><dt>Project</dt><dd>{selected.memory.project_id || 'Personal'}</dd></div><div><dt>Kind</dt><dd>{kindLabels[selected.memory.kind] || selected.memory.kind}</dd></div><div><dt>Effective</dt><dd>{readableDate(selected.memory.effective_at)}</dd></div><div><dt>Recorded</dt><dd>{readableDate(selected.memory.created_at)}</dd></div><div><dt>Revision</dt><dd>{selected.memory.revision}{selected.memory.authoritative ? selected.memory.origin === 'user_confirmed' ? ' · User confirmation' : ' · User correction' : ''}</dd></div></dl>
         <section className="detail-section"><h3>Supporting evidence <span>{selected.sources.length}</span></h3>{selected.sources.map(source => { const quote = selected.evidence?.find(item => item.source_id === source.id)?.quote; return <article className="source-card" key={source.id}><div className="source-heading"><strong>{clientName(source.client_id)}</strong><span>{source.author_role}</span></div><blockquote>{quote || source.text}</blockquote><p>{originLabels[source.origin] || source.origin}</p><dl><div><dt>Captured via</dt><dd>{captureMethodLabels[source.capture_method || ""] || "Not supplied"}</dd></div><div><dt>Occurred</dt><dd>{readableDate(source.occurred_at)}</dd></div><div><dt>Captured</dt><dd>{readableDate(source.recorded_at)}</dd></div></dl><details><summary>Source identity & full text</summary><code>{source.id}</code><p className="source-fulltext">{source.text}</p></details></article>; })}{selected.sources.length === 0 && <p className="muted">No supporting source was returned.</p>}</section>
-        <section className="detail-section"><h3>Revision history <span>{selected.revisions.length}</span></h3><ol className="revision-list">{[...selected.revisions].sort((a, b) => b.revision - a.revision).map(revision => <li key={revision.revision}><div><strong>Revision {revision.revision}</strong><span>{readableDate(revision.created_at)}</span></div><p>{revision.statement}</p><small>{originLabels[revision.origin] || revision.origin} · {statusLabels[revision.status] || revision.status}</small>{revision.extractor && <p className="revision-extractor">Extracted by <code>{revision.extractor}</code></p>}</li>)}</ol></section><p className="muted memory-id">Memory ID: {selected.memory.id}</p>
+        <section className="detail-section"><h3>Revision history <span>{selected.revisions.length}</span></h3><ol className="revision-list">{[...selected.revisions].sort((a, b) => b.revision - a.revision).map(revision => <li key={revision.revision}><div><strong>Revision {revision.revision}</strong><span>{readableDate(revision.created_at)}</span></div><p>{revision.statement}</p><small>{kindLabels[revision.kind] || revision.kind} · {originLabels[revision.origin] || revision.origin} · {statusLabels[revision.status] || revision.status}</small>{revision.extractor && <p className="revision-extractor">Extracted by <code>{revision.extractor}</code></p>}</li>)}</ol></section><p className="muted memory-id">Memory ID: {selected.memory.id}</p>
       </>}
     </aside></div>}
     {sourceId && <Modal title="Source evidence" description="The saved source is preserved independently from memory interpretations." onClose={closeSource}>

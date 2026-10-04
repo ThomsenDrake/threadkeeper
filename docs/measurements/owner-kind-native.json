@@ -1,0 +1,120 @@
+{
+  "result": "PASS",
+  "source": {
+    "commit": "cbeb71014887b69d37c0c3bb1d5a99c5d8645652",
+    "files": {
+      "packages/contracts/src/index.ts": "9dd41d774f672aa7c2bb3eed47e6209c3ebc8fac08a52594f3c1b1d25487054b",
+      "packages/core/src/index.ts": "4e6a1ab610d86e63a2247b14253d261e38e0a9fc1685277a283e428c656cedd8",
+      "packages/core/src/embeddings.ts": "afd0eb6e02cfecaddc3bf07ef000b37b3f719bb375a21d50ee898e2a70b5dff6",
+      "deploy/migrate.ts": "b3f6ca9ebd6d06db4a3fcd1bd3ef4a680f0dc4105c5e3c947df64c6f359c14f8",
+      "deploy/migrations/001_init.sql": "80d055abd9cef0d1922f9e444a167c69d6a8f0a83a498f07bb7f838c9b250679",
+      "deploy/migrations/002_auth.sql": "c3f316468d433a44d68e47e9b803d4d059bd4393135c072e36836a411c8a80ac",
+      "deploy/migrations/003_embeddings.sql": "1ebc91f61fac75915ca44ebaa5d20a3860036bf8bca4edcc351e84d75c53e54e",
+      "deploy/migrations/004_capture_status.sql": "21a6eee014f97f29cd175ee26e28b89fb048f1a0b8a4e3ab42b6419fe909b7af",
+      "deploy/migrations/005_candidate_review.sql": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee",
+      "deploy/migrations/006_client_control.sql": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8",
+      "deploy/migrations/007_embedding_attempts.sql": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3",
+      "deploy/migrations/008_revision_kind.sql": "8f29ad081e3a4243dd346321d05e4125fb491f16202d59b010c3e3196c5378c6",
+      "tests/kind-correction.test.ts": "637246a1d8e4338fbae6a3567c9877a50021dcaa68ad0ea7ec27f2fb78c8f09d"
+    }
+  },
+  "driver_sha256": "5df228fc07232c07da0e9bd41e130c57f67c750724c4d3dd9cc0ebff4ba77b37",
+  "node": "v24.7.0",
+  "version": {
+    "postgres": "PostgreSQL 17.11 (Debian 17.11-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+    "pgvector": "0.8.7"
+  },
+  "checks": [
+    "actual_007_ledger_schema_without_revision_kind",
+    "legacy_data_backfill_only",
+    "008_checksum_and_exactly_one_migration",
+    "owner_kind_correction_after_upgrade",
+    "repeat_migration_zero_and_kind_history_preserved",
+    "v2_export_and_initial_content_key_preserved"
+  ],
+  "legacy_ledger": [
+    {
+      "name": "001_init.sql",
+      "checksum": "80d055abd9cef0d1922f9e444a167c69d6a8f0a83a498f07bb7f838c9b250679"
+    },
+    {
+      "name": "002_auth.sql",
+      "checksum": "c3f316468d433a44d68e47e9b803d4d059bd4393135c072e36836a411c8a80ac"
+    },
+    {
+      "name": "003_embeddings.sql",
+      "checksum": "1ebc91f61fac75915ca44ebaa5d20a3860036bf8bca4edcc351e84d75c53e54e"
+    },
+    {
+      "name": "004_capture_status.sql",
+      "checksum": "21a6eee014f97f29cd175ee26e28b89fb048f1a0b8a4e3ab42b6419fe909b7af"
+    },
+    {
+      "name": "005_candidate_review.sql",
+      "checksum": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee"
+    },
+    {
+      "name": "006_client_control.sql",
+      "checksum": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8"
+    },
+    {
+      "name": "007_embedding_attempts.sql",
+      "checksum": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3"
+    }
+  ],
+  "current_ledger": [
+    {
+      "name": "001_init.sql",
+      "checksum": "80d055abd9cef0d1922f9e444a167c69d6a8f0a83a498f07bb7f838c9b250679"
+    },
+    {
+      "name": "002_auth.sql",
+      "checksum": "c3f316468d433a44d68e47e9b803d4d059bd4393135c072e36836a411c8a80ac"
+    },
+    {
+      "name": "003_embeddings.sql",
+      "checksum": "1ebc91f61fac75915ca44ebaa5d20a3860036bf8bca4edcc351e84d75c53e54e"
+    },
+    {
+      "name": "004_capture_status.sql",
+      "checksum": "21a6eee014f97f29cd175ee26e28b89fb048f1a0b8a4e3ab42b6419fe909b7af"
+    },
+    {
+      "name": "005_candidate_review.sql",
+      "checksum": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee"
+    },
+    {
+      "name": "006_client_control.sql",
+      "checksum": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8"
+    },
+    {
+      "name": "007_embedding_attempts.sql",
+      "checksum": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3"
+    },
+    {
+      "name": "008_revision_kind.sql",
+      "checksum": "8f29ad081e3a4243dd346321d05e4125fb491f16202d59b010c3e3196c5378c6"
+    }
+  ],
+  "provider_requests": 0,
+  "recorded_at": "2026-10-03T22:04:32.995701+00:00",
+  "database_image": "sha256:151aa1c2e849e7828ed8aef2183ae15f692cbe887d2f28921d8b44b26e154d7e",
+  "actual_container_image": "sha256:151aa1c2e849e7828ed8aef2183ae15f692cbe887d2f28921d8b44b26e154d7e",
+  "pnpm": "11.25.0",
+  "native_regressions": {
+    "passed": 3,
+    "failed": 0,
+    "log_sha256": "d91c7ee1aca914a61c55ac02a1bb41337e94b67901c2530b75c22852f8bf5e1d",
+    "groups": [
+      "owner_kind_correction_provenance_identity_deletion",
+      "held_embedding_response_revision_fence",
+      "structural_legacy_backfill_and_rerun"
+    ]
+  },
+  "cleanup": {
+    "credential_file_removed": true,
+    "container_removed": true,
+    "anonymous_volume_removal_requested": true
+  },
+  "control_driver_sha256": "45e1610bddaf9243d5583d0aadf7a6e341937f504d6abfd98bec930c9001108c"
+}

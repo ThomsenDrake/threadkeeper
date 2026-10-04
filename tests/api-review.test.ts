@@ -72,6 +72,46 @@ async function captureCandidates(store: ReturnType<typeof createApp>['store'], c
   return recall(client, 'candidate');
 }
 
+test('owner HTTP kind corrections and confirmations reach independent MCP clients with historical kinds intact', async t => {
+  const { store, request, grant, connect, review } = await startApp(t);
+  const writer = await grant('Kind writer', ['read', 'capture']);
+  const reader = await grant('Kind reader', ['read']);
+  const a = await connect('kind-client-a', writer.token), b = await connect('kind-client-b', reader.token);
+  const statement = 'The synthetic owner prefers written planning notes.';
+  const captured = await a.callTool({ name: 'context_capture', arguments: {
+    idempotency_key: 'kind-active', project_id: 'atlas', events: [{ id: 'kind-active-source', text: statement, author_role: 'user', origin: 'user_explicit' }],
+    explicit_memories: [{ statement, kind: 'fact', origin: 'user_explicit', source_event_id: 'kind-active-source', quote: statement }],
+  } });
+  assert.equal(captured.isError, undefined);
+  const id = (captured.structuredContent as any).memory_ids[0];
+  const body = { expected_revision: 1, statement, kind: 'preference' };
+  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body, token: writer.token })).response.status, 403);
+  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body: { ...body, kind: 'invalid' } })).response.status, 400);
+  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body })).response.status, 200);
+  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body })).response.status, 409);
+  for (const client of [a, b]) {
+    const current = (await recall(client)).find(memory => memory.id === id)!;
+    assert.equal(current.kind, 'preference'); assert.equal(current.revision, 2);
+    assert.equal(current.statement, statement); assert.equal(current.authoritative, true);
+  }
+  const detail = await request(`/api/memories/${id}`);
+  assert.deepEqual(detail.data.revisions.map((revision: any) => revision.kind), ['fact', 'preference']);
+  const [candidate] = await captureCandidates(store, a, ['Synthetic candidate describes a project constraint.']);
+  assert.equal((await review(candidate.id, 'dismiss', 1, { kind: 'constraint' })).response.status, 400);
+  const confirmed = await review(candidate.id, 'confirm', 1, { kind: 'constraint' });
+  assert.equal(confirmed.response.status, 200);
+  assert.equal((await recall(b)).find(memory => memory.id === candidate.id)!.kind, 'constraint');
+  const confirmedDetail = await request(`/api/memories/${candidate.id}`);
+  assert.deepEqual(confirmedDetail.data.revisions.map((revision: any) => revision.kind), ['preference', 'constraint']);
+  assert.equal(confirmedDetail.data.revisions[0].extractor, 'synthetic-review-model');
+  const exported = await request('/api/export');
+  assert.equal(exported.data.schema_version, 'threadkeeper.export.v2');
+  assert.equal((await request('/api/import', { body: exported.data })).response.status, 200);
+  const schema = (await request('/openapi.json', { anonymous: true })).data;
+  assert.deepEqual(schema.paths['/api/memories/{memory_id}'].patch.requestBody.content['application/json'].schema.properties.kind.enum,
+    ['fact', 'preference', 'decision', 'constraint', 'project_state']);
+});
+
 test('explicit owner confirm and edit-and-confirm admit model candidates with separate user evidence through fresh independent MCP recall', async t => {
   const { store, request, grant, connect, review } = await startApp(t);
   const writer = await grant('Synthetic client A', ['read', 'capture']);
