@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+const root = '/workspace/threadkeeper-kind-correction';
+const source = 'cbeb71014887b69d37c0c3bb1d5a99c5d8645652';
+assert.equal(execFileSync('git', ['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),source);
+assert.equal(execFileSync('git', ['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim(),'');
+const { connectDatabase } = await import(pathToFileURL(root+'/packages/core/src/db.ts'));
+const { createStore } = await import(pathToFileURL(root+'/packages/core/src/index.ts'));
+const { loadMigrations,migrate } = await import(pathToFileURL(root+'/deploy/migrate.ts'));
+const { canonical,normalize } = await import(pathToFileURL(root+'/packages/core/src/hashing.ts'));
+const hash = value => createHash('sha256').update(value).digest('hex');
+const db=connectDatabase(process.env.THREADKEEPER_NATIVE_TEST_URL);
+try {
+ const scripts=await loadMigrations(); assert.equal(scripts.length,8);
+ assert.deepEqual(await migrate(db,scripts.slice(0,7)),{applied:7,current:'007_embedding_attempts.sql'});
+ const ledgerBefore=(await db.query('SELECT name,checksum FROM tk_schema_migrations ORDER BY name')).rows;
+ const columns=(await db.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='tk_revisions'")).rows;
+ assert(!columns.some(row=>row.column_name==='kind'));
+ const statement='I prefer synthetic written status updates.';
+ const contentKey=hash(canonical(['kind-upgrade-source',normalize(statement),'fact','user_explicit','self']));
+ await db.query("INSERT INTO tk_owners(id) VALUES ('kind-upgrade-owner')");
+ await db.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,subject,text,author_role,origin,checksum,capture_method)
+ VALUES ('kind-upgrade-source','kind-upgrade-owner','synthetic-client','kind-upgrade-event','self',$1,'user','user_explicit',$2,'explicit_capture')`,[statement,hash(statement)]);
+ await db.query(`INSERT INTO tk_memories(id,owner_id,subject,statement,kind,origin,status,extractor,content_key)
+ VALUES ('kind-upgrade-memory','kind-upgrade-owner','self',$1,'fact','user_explicit','active','synthetic-legacy-extractor',$2)`,[statement,contentKey]);
+ await db.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,editor_client_id,extractor)
+ VALUES ('kind-upgrade-memory',1,$1,'user_explicit','active','synthetic-client','synthetic-legacy-extractor')`,[statement]);
+ await db.query("INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ('kind-upgrade-memory',1,'kind-upgrade-source',$1)",[statement]);
+ const before=(await db.query('SELECT * FROM tk_revisions')).rows;
+ assert.deepEqual(await migrate(db),{applied:1,current:'008_revision_kind.sql'});
+ const ledgerAfter=(await db.query('SELECT name,checksum FROM tk_schema_migrations ORDER BY name')).rows;
+ assert.deepEqual(ledgerAfter.slice(0,7),ledgerBefore);
+ assert.equal(ledgerAfter[7].checksum,hash(scripts[7].sql));
+ assert.deepEqual((await db.query('SELECT * FROM tk_revisions')).rows.map(({kind,...revision})=>revision),before);
+ assert.equal((await db.query('SELECT kind FROM tk_revisions')).rows[0].kind,'fact');
+ const profile={ownerId:'kind-upgrade-owner',clientId:'profile',permissions:['*'],projects:null};
+ const store=createStore(db);
+ await store.correct(profile,'kind-upgrade-memory',{statement,expected_revision:1,kind:'preference'});
+ assert.deepEqual(await migrate(db),{applied:0,current:'008_revision_kind.sql'});
+ const bundle=await store.export(profile);
+ assert.deepEqual(bundle.revisions.map(revision=>revision.kind),['fact','preference']);
+ assert.equal(bundle.memories[0].kind,'preference');
+ assert.equal(bundle.revisions[0].extractor,'synthetic-legacy-extractor');
+ assert.equal((await db.query('SELECT content_key FROM tk_memories')).rows[0].content_key,contentKey);
+ assert.equal(bundle.schema_version,'threadkeeper.export.v2');
+ const version=(await db.query("SELECT version() AS postgres,(SELECT extversion FROM pg_extension WHERE extname='vector') AS pgvector")).rows[0];
+ const files={};
+ for(const name of ['packages/contracts/src/index.ts','packages/core/src/index.ts','packages/core/src/embeddings.ts','deploy/migrate.ts',...scripts.map(s=>'deploy/migrations/'+s.name),'tests/kind-correction.test.ts'])files[name]=hash(await readFile(root+'/'+name));
+ console.log(JSON.stringify({result:'PASS',source:{commit:source,files},driver_sha256:hash(await readFile(new URL(import.meta.url))),node:process.version,version,
+ checks:['actual_007_ledger_schema_without_revision_kind','legacy_data_backfill_only','008_checksum_and_exactly_one_migration','owner_kind_correction_after_upgrade','repeat_migration_zero_and_kind_history_preserved','v2_export_and_initial_content_key_preserved'],
+ legacy_ledger:ledgerBefore,current_ledger:ledgerAfter,provider_requests:0}));
+} finally {await db.close();}

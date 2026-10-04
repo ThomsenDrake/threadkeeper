@@ -1,0 +1,168 @@
+{
+  "schema_version": "threadkeeper.assertion-kind-probe-assessment.v1",
+  "assessment_kind": "derived_independent_semantic_review",
+  "assessor": "Author, independent local reviewer and root independently inspected all seven outcomes, all five canonical statements/quotes and seven original sources against the unchanged pre-inference obligations; this is qualitative review, not another provider run.",
+  "assessed_at": "2026-10-03T21:55:52.545135+00:00",
+  "derived_from": {
+    "report_file": "nebius-assertion-kind-probe-v1.json",
+    "report_sha256": "521c48ff674a4e6f83cbf826645c7f389dbde7dae185ed9e0e6e28daf937f7fd",
+    "source_commit": "81c1159c5694e70434aadbe9bfa0c777380ec95a",
+    "manifest_freeze_commit": "8e025891e736d00cece644ce2ef2f28b6ccaba1a",
+    "manifest_sha256": "9c7a600b1883bce8359af7ac0f9471d0ef14fb7d66a98b9c3e5b00fbd5398077"
+  },
+  "strict_frozen_score": {
+    "passed": 4,
+    "total": 7,
+    "changed": false
+  },
+  "completed_jobs": 7,
+  "failed_jobs": 0,
+  "admitted_records": 5,
+  "original_sources": 7,
+  "template_only_false_negatives": [],
+  "cases": [
+    {
+      "id": "case-01",
+      "strict_rubric_passed": true,
+      "result": "pass",
+      "categories": [],
+      "reason": "The complete Tuesday tram journey to the studio is retained as fact, without an inferred preference, exclusive mode or additional days.",
+      "automated_dimensions_unchanged": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "job_status": "complete",
+      "record_count": 1,
+      "attempt_count": 1
+    },
+    {
+      "id": "case-02",
+      "strict_rubric_passed": true,
+      "result": "pass",
+      "categories": [],
+      "reason": "The complete tram-over-driving studio preference is retained as preference, with the comparison and scope unchanged.",
+      "automated_dimensions_unchanged": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "job_status": "complete",
+      "record_count": 1,
+      "attempt_count": 1
+    },
+    {
+      "id": "case-03",
+      "strict_rubric_passed": false,
+      "result": "fail",
+      "categories": [
+        "taxonomy"
+      ],
+      "reason": "The entry restriction before 11:30 and its exact evidence are faithful, but kind is fact rather than the frozen constraint label. No later access window, date or timezone is invented.",
+      "automated_dimensions_unchanged": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "failed"
+      },
+      "job_status": "complete",
+      "record_count": 1,
+      "attempt_count": 1
+    },
+    {
+      "id": "case-04",
+      "strict_rubric_passed": false,
+      "result": "fail",
+      "categories": [
+        "omitted_explicit_assertion"
+      ],
+      "reason": "The job completed with zero records, omitting the explicit fact that the bicycle has a cargo rack. This is a real completeness failure, not a failed job or a legitimate empty control.",
+      "automated_dimensions_unchanged": {
+        "content": "failed",
+        "provenance": "not_measured",
+        "taxonomy": "not_measured"
+      },
+      "job_status": "complete",
+      "record_count": 0,
+      "attempt_count": 1
+    },
+    {
+      "id": "case-05",
+      "strict_rubric_passed": false,
+      "result": "fail",
+      "categories": [
+        "missing_explicit_report_attribution"
+      ],
+      "reason": "The validation-phase assertion and accepted project_state kind survive, but statement and quote omit the deployment-agent report framing required by the frozen labels. Canonical source/record/evidence still retain agent_reported origin, assistant role and client_summary capture method. This is explicit report-attribution loss, not corrupted source identity, user-origin promotion, fabricated completion or invented confirmation.",
+      "automated_dimensions_unchanged": {
+        "content": "failed",
+        "provenance": "failed",
+        "taxonomy": "passed"
+      },
+      "job_status": "complete",
+      "record_count": 1,
+      "attempt_count": 1
+    },
+    {
+      "id": "case-06",
+      "strict_rubric_passed": true,
+      "result": "pass",
+      "categories": [],
+      "reason": "The job completes with zero records; the irrelevant grammar demonstration is not treated as a personal preference or durable commentary.",
+      "automated_dimensions_unchanged": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "job_status": "complete",
+      "record_count": 0,
+      "attempt_count": 1
+    },
+    {
+      "id": "case-07",
+      "strict_rubric_passed": true,
+      "result": "pass",
+      "categories": [],
+      "reason": "The toolbox-in-hallway fact survives independently, with the irrelevant grammar demonstration excluded.",
+      "automated_dimensions_unchanged": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "job_status": "complete",
+      "record_count": 1,
+      "attempt_count": 1
+    }
+  ],
+  "execution": {
+    "direct_http200_chats": 7,
+    "embedding_requests": 0,
+    "model_list_requests": 0,
+    "usage": {
+      "completion_tokens": 388,
+      "prompt_tokens": 10639,
+      "total_tokens": 11027,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "observation_evidence": {
+      "status": "complete",
+      "issues": []
+    },
+    "cleanup": {
+      "status": "passed"
+    },
+    "central_lifecycle": {
+      "status": "not_measured",
+      "reason": "assertion_kind_probe_only"
+    },
+    "all_unknown_source_occurrence_times_preserved": true,
+    "all_effective_times_null": true
+  },
+  "interpretation": [
+    "The generic kind clarification did not make this bounded probe pass. A faithful constraint still received fact kind, and independent completeness/explicit-attribution failures remain.",
+    "Correct habit/preference and demonstration controls in this one fresh set do not establish improvement caused by the prompt: the set was not measured before the change.",
+    "Frozen labels, templates and strict score are unchanged. No retry selected a green result. Finite-template limitations remain, although no template-only false negatives were identified here.",
+    "This is PGlite extraction and full-text recall with two MCP SDK clients and HTTP. It does not measure learned embeddings, native containers, correction/forgetting, installed-host selection or GPU parity."
+  ]
+}

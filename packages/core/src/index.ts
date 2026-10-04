@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import { normalizeCaptureSource } from './capture.ts';
 import { hash, canonical, normalize, sourceIdentity, sourceContent, memoryContent } from './hashing.ts';
 import { connectedDeletionRecords, applyDeletionRecords } from './deletion.ts';
 import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
 import {
-  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, SourceDeleteSchema, DeletionPreviewSchema, ExportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema, MemoryListSchema,
+  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, SourceDeleteSchema, DeletionPreviewSchema, ExportSchema, ImportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema, MemoryListSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
 } from '@threadkeeper/contracts';
 
@@ -39,7 +40,7 @@ const sourceRow = (row: any) => ({
   capture_method: row.capture_method,
 });
 const revisionRow = (row: any) => ({
-  memory_id: row.memory_id, revision: Number(row.revision), statement: row.statement, origin: row.origin,
+  memory_id: row.memory_id, revision: Number(row.revision), statement: row.statement, kind: row.kind, origin: row.origin,
   status: row.status, effective_at: date(row.effective_at), created_at: date(row.created_at), editor_client_id: row.editor_client_id,
   extractor: row.extractor ?? null,
 });
@@ -112,8 +113,8 @@ async function insertMemory(tx: Database, auth: Auth, candidate: ExplicitMemory,
   const status = ['inferred', 'assistant_proposed'].includes(candidate.origin) ? 'candidate' : 'active';
   await tx.query(`INSERT INTO tk_memories(id,owner_id,project_id,subject,statement,kind,origin,status,effective_at,extractor,content_key)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [id, auth.ownerId, source.project_id, subject, candidate.statement, candidate.kind, candidate.origin, status, candidate.effective_at ?? null, extractor, contentKey]);
-  await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor)
-    VALUES ($1,1,$2,$3,$4,$5,$6,$7)`, [id, candidate.statement, candidate.origin, status, candidate.effective_at ?? null, auth.clientId, extractor]);
+  await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor,kind)
+    VALUES ($1,1,$2,$3,$4,$5,$6,$7,$8)`, [id, candidate.statement, candidate.origin, status, candidate.effective_at ?? null, auth.clientId, extractor, candidate.kind]);
   await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,1,$2,$3)', [id, source.id, candidate.quote]);
   return { id, skipped: null };
 }
@@ -160,19 +161,19 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       const sources = new Map<string, any>();
       for (const event of input.events) {
         if (['profile_correction', 'profile_confirmation'].includes(event.capture_method ?? '') || (event.capture_method === 'profile_entry' && auth.clientId !== 'profile')) throw new DomainError(400, 'invalid_capture_method');
-        const captureMethod = auth.clientId === 'profile' ? 'profile_entry' : event.origin === 'agent_reported' ? 'client_summary' : event.capture_method ?? 'explicit_capture';
+        const normalizedSource = normalizeCaptureSource(event, auth.clientId);
         if (await tombstoned(tx, auth.ownerId, 'source_identity', sourceIdentity(auth.clientId, event.id))
           || await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(event.text))) throw new DomainError(410, 'deleted_source', 'This source was deleted and cannot be replayed.');
         const checksum = hash(event.text);
         const old = await tx.query('SELECT * FROM tk_sources WHERE owner_id=$1 AND client_id=$2 AND event_id=$3', [auth.ownerId, auth.clientId, event.id]);
         if (old.rows[0]) {
           const row = old.rows[0];
-          if (row.checksum !== checksum || row.author_role !== event.author_role || row.origin !== event.origin || row.capture_method !== captureMethod || row.project_id !== input.project_id || row.subject !== input.subject || date(row.occurred_at) !== date(event.occurred_at)) throw new DomainError(409, 'event_conflict', 'A stable event ID cannot be reused with changed content or scope.');
+          if (row.checksum !== checksum || row.author_role !== event.author_role || row.origin !== event.origin || row.capture_method !== normalizedSource.capture_method || row.project_id !== input.project_id || row.subject !== input.subject || date(row.occurred_at) !== date(normalizedSource.occurred_at)) throw new DomainError(409, 'event_conflict', 'A stable event ID cannot be reused with changed content or scope.');
           sources.set(event.id, row);
           continue;
         }
         const source = (await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,capture_method)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, [uuid(), auth.ownerId, auth.clientId, event.id, input.project_id, input.subject, event.text, event.author_role, event.origin, event.occurred_at ?? null, checksum, captureMethod])).rows[0];
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, [uuid(), auth.ownerId, auth.clientId, event.id, input.project_id, input.subject, event.text, event.author_role, event.origin, normalizedSource.occurred_at, checksum, normalizedSource.capture_method])).rows[0];
         sources.set(event.id, source);
       }
       const memoryIds: string[] = [];
@@ -420,6 +421,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       await tx.query('UPDATE tk_revisions SET extractor=COALESCE(extractor,$2) WHERE memory_id=$1 AND revision=$3', [id, memory.extractor, memory.revision]);
       if (input.action === 'confirm') {
         const statement = input.statement ?? memory.statement;
+        const kind = input.kind ?? memory.kind;
         const effectiveAt = input.effective_at === undefined ? memory.effective_at : input.effective_at;
         if (await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(statement, memory.project_id, memory.subject))) throw new DomainError(410, 'deleted_content');
         if (await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(statement))) throw new DomainError(410, 'deleted_source');
@@ -428,15 +430,15 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         const sourceId = uuid();
         await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,extraction_blocked,capture_method)
           VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_confirmed',now(),$8,true,'profile_confirmation')`, [sourceId, auth.ownerId, auth.clientId, `confirmation:${id}:${revision}`, memory.project_id, memory.subject, statement, hash(statement)]);
-        const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,origin='user_confirmed',status='active',authoritative=true,revision=$3,effective_at=$4,updated_at=now(),extractor=NULL WHERE id=$1 RETURNING *`, [id, statement, revision, effectiveAt])).rows[0];
-        await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor) VALUES ($1,$2,$3,'user_confirmed','active',$4,$5,NULL)`, [id, revision, statement, effectiveAt, auth.clientId]);
+        const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,kind=$5,origin='user_confirmed',status='active',authoritative=true,revision=$3,effective_at=$4,updated_at=now(),extractor=NULL WHERE id=$1 RETURNING *`, [id, statement, revision, effectiveAt, kind])).rows[0];
+        await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor,kind) VALUES ($1,$2,$3,'user_confirmed','active',$4,$5,NULL,$6)`, [id, revision, statement, effectiveAt, auth.clientId, kind]);
         await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,$2,$3,$4)', [id, revision, sourceId, statement]);
         await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, revision]);
         return { memory: memoryRow(updated), superseded_memory_ids: siblings.map(row => row.id), snapshot_version: await bump(tx, auth.ownerId) };
       }
       await blockExtraction(tx, auth.ownerId, id);
       const updated = (await tx.query("UPDATE tk_memories SET status='dismissed',authoritative=false,revision=$2,updated_at=now() WHERE id=$1 RETURNING *", [id, revision])).rows[0];
-      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor) VALUES ($1,$2,$3,$4,'dismissed',$5,$6,$7)`, [id, revision, memory.statement, memory.origin, memory.effective_at, auth.clientId, memory.extractor]);
+      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor,kind) VALUES ($1,$2,$3,$4,'dismissed',$5,$6,$7,$8)`, [id, revision, memory.statement, memory.origin, memory.effective_at, auth.clientId, memory.extractor, memory.kind]);
       await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) SELECT memory_id,$2,source_id,quote FROM tk_evidence WHERE memory_id=$1 AND revision=$3', [id, revision, memory.revision]);
       await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, revision]);
       return { memory: memoryRow(updated), snapshot_version: await bump(tx, auth.ownerId) };
@@ -460,9 +462,10 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,extraction_blocked,capture_method)
         VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_explicit',now(),$8,true,'profile_correction')`, [sourceId, auth.ownerId, auth.clientId, `correction:${id}:${input.expected_revision + 1}`, memory.project_id, memory.subject, input.statement, hash(input.statement)]);
       const effectiveAt = input.effective_at === undefined ? memory.effective_at : input.effective_at;
-      const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,origin='user_explicit',status='active',authoritative=true,revision=revision+1,effective_at=$3,updated_at=now(),extractor=NULL
-        WHERE id=$1 RETURNING *`, [id, input.statement, effectiveAt])).rows[0];
-      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id) VALUES ($1,$2,$3,'user_explicit','active',$4,$5)`, [id, updated.revision, input.statement, effectiveAt, auth.clientId]);
+      const kind = input.kind ?? memory.kind;
+      const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,kind=$4,origin='user_explicit',status='active',authoritative=true,revision=revision+1,effective_at=$3,updated_at=now(),extractor=NULL
+        WHERE id=$1 RETURNING *`, [id, input.statement, effectiveAt, kind])).rows[0];
+      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,kind) VALUES ($1,$2,$3,'user_explicit','active',$4,$5,$6)`, [id, updated.revision, input.statement, effectiveAt, auth.clientId, kind]);
       await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,$2,$3,$4)', [id, updated.revision, sourceId, input.statement]);
       await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, updated.revision]);
       return { memory: memoryRow(updated), superseded_memory_ids: siblings.map(row => row.id), snapshot_version: await bump(tx, auth.ownerId) };
@@ -542,13 +545,22 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       const evidence = await tx.query('SELECT e.* FROM tk_evidence e JOIN tk_memories m ON m.id=e.memory_id WHERE m.owner_id=$1 ORDER BY e.memory_id,e.revision', [auth.ownerId]);
       const revisions = await tx.query('SELECT r.* FROM tk_revisions r JOIN tk_memories m ON m.id=r.memory_id WHERE m.owner_id=$1 ORDER BY r.memory_id,r.revision', [auth.ownerId]);
       const tombstones = await tx.query('SELECT kind,hash,deleted_at FROM tk_tombstones WHERE owner_id=$1 ORDER BY kind,hash', [auth.ownerId]);
-      return parsed(ExportSchema, { schema_version: 'threadkeeper.export.v1', exported_at: new Date().toISOString(), sources: sources.rows.map(sourceRow), memories: memories.rows.map(memoryRow), evidence: evidence.rows, revisions: revisions.rows.map(revisionRow), tombstones: tombstones.rows.map(row => ({ ...row, deleted_at: date(row.deleted_at) })) });
+      return parsed(ExportSchema, { schema_version: 'threadkeeper.export.v2', exported_at: new Date().toISOString(), sources: sources.rows.map(sourceRow), memories: memories.rows.map(memoryRow), evidence: evidence.rows, revisions: revisions.rows.map(revisionRow), tombstones: tombstones.rows.map(row => ({ ...row, deleted_at: date(row.deleted_at) })) });
     });
   }
   async function importData(auth: Auth, raw: unknown) {
     permission(auth, 'import');
     if (auth.projects !== null) throw new DomainError(403, 'owner_import_required');
-    const bundle = parsed(ExportSchema, raw);
+    const incoming = parsed(ImportSchema, raw);
+    const legacyMemories = new Map(incoming.memories.map(memory => [memory.id, memory]));
+    const bundle: ExportBundle = incoming.schema_version === 'threadkeeper.export.v2' ? incoming : {
+      ...incoming, schema_version: 'threadkeeper.export.v2',
+      revisions: incoming.revisions.map(revision => {
+        const memory = legacyMemories.get(revision.memory_id);
+        if (!memory) throw new DomainError(400, 'orphan_revision');
+        return { ...revision, kind: memory.kind };
+      }),
+    };
     const sources = new Map(bundle.sources.map(source => [source.id, source]));
     const memories = new Map(bundle.memories.map(memory => [memory.id, memory]));
     const revisions = new Map(bundle.revisions.map(revision => [`${revision.memory_id}:${revision.revision}`, revision]));
@@ -568,7 +580,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       if (history.length !== memory.revision || history.some((revision, index) => revision.revision !== index + 1
         || (revision.revision < memory.revision && revision.status !== 'superseded'))) throw new DomainError(400, 'invalid_revision_history');
       const current = revisions.get(`${memory.id}:${memory.revision}`);
-      if (!current || current.statement !== memory.statement || current.origin !== memory.origin || current.status !== memory.status || current.effective_at !== memory.effective_at) throw new DomainError(400, 'revision_mismatch');
+      if (!current || current.statement !== memory.statement || current.kind !== memory.kind || current.origin !== memory.origin || current.status !== memory.status || current.effective_at !== memory.effective_at) throw new DomainError(400, 'revision_mismatch');
       if (memory.status === 'active' && ['inferred', 'assistant_proposed'].includes(memory.origin)
         || history.some(revision => revision.status === 'active' && ['inferred', 'assistant_proposed'].includes(revision.origin))) throw new DomainError(400, 'unconfirmed_memory');
       if (current.extractor !== null && current.extractor !== memory.extractor) throw new DomainError(400, 'revision_mismatch');
@@ -597,7 +609,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       const revision = revisions.get(`${evidence.memory_id}:${evidence.revision}`);
       if (!source || !memory || !revision) throw new DomainError(400, 'orphan_evidence');
       if (source.project_id !== memory.project_id || source.subject !== memory.subject) throw new DomainError(400, 'evidence_scope_mismatch');
-      validateAttribution({ statement: revision.statement, kind: memory.kind, source_event_id: source.event_id, quote: evidence.quote, origin: revision.origin }, source);
+      validateAttribution({ statement: revision.statement, kind: revision.kind, source_event_id: source.event_id, quote: evidence.quote, origin: revision.origin }, source);
     }
     return db.transaction(async tx => {
       await lockOwner(tx, auth.ownerId);
@@ -644,7 +656,8 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
           if (old.rows[0].owner_id !== auth.ownerId || canonical(memoryRow(old.rows[0])) !== canonical(memory)) throw new DomainError(409, 'import_memory_conflict');
           existingMemories++;
         } else {
-          const contentKey = hash(canonical([supporting.find(evidence => evidence.revision === 1)?.source_id, normalize(bundle.revisions.find(revision => revision.memory_id === memory.id && revision.revision === 1)?.statement ?? memory.statement), memory.kind, bundle.revisions.find(revision => revision.memory_id === memory.id && revision.revision === 1)?.origin ?? memory.origin, memory.subject]));
+          const initial = revisions.get(`${memory.id}:1`)!;
+          const contentKey = hash(canonical([supporting.find(evidence => evidence.revision === 1)?.source_id, normalize(initial.statement), initial.kind, initial.origin, memory.subject]));
           await tx.query(`INSERT INTO tk_memories(id,owner_id,project_id,subject,statement,kind,origin,status,revision,authoritative,effective_at,created_at,updated_at,extractor,content_key)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, [memory.id, auth.ownerId, memory.project_id, memory.subject, memory.statement, memory.kind, memory.origin, memory.status, memory.revision, memory.authoritative, memory.effective_at, memory.created_at, memory.updated_at, memory.extractor, contentKey]);
           imported++;
@@ -658,8 +671,8 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         if (old && (old.extractor !== null && revision.extractor !== null && old.extractor !== revision.extractor
           || canonical({ ...revisionRow(old), extractor: null }) !== canonical({ ...revision, extractor: null }))) throw new DomainError(409, 'import_revision_conflict');
         if (old && old.extractor === null && revision.extractor !== null) await tx.query('UPDATE tk_revisions SET extractor=$3 WHERE memory_id=$1 AND revision=$2', [revision.memory_id, revision.revision, revision.extractor]);
-        if (!old) await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,created_at,editor_client_id,extractor)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [revision.memory_id, revision.revision, revision.statement, revision.origin, revision.status, revision.effective_at, revision.created_at, revision.editor_client_id, revision.extractor]);
+        if (!old) await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,created_at,editor_client_id,extractor,kind)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [revision.memory_id, revision.revision, revision.statement, revision.origin, revision.status, revision.effective_at, revision.created_at, revision.editor_client_id, revision.extractor, revision.kind]);
       }
       for (const evidence of bundle.evidence) if (allowedMemories.has(evidence.memory_id)) {
         const old = (await tx.query('SELECT * FROM tk_evidence WHERE memory_id=$1 AND revision=$2 AND source_id=$3', [evidence.memory_id, evidence.revision, evidence.source_id])).rows[0];

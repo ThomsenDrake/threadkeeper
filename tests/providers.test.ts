@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ExplicitMemory, SourceEvent } from '../packages/contracts/src/index.ts';
+import { literalReportBoundaryControls, literalReportRepairControls, literalReportSkipControls } from './fixtures/literal-report-controls.ts';
 import {
   OpenAICompatibleEmbeddingProvider,
   OpenAICompatibleProvider,
@@ -35,6 +36,78 @@ function completion(content: string) {
 
 const event = { id: 'event-1', text: 'I prefer short paragraphs.', author_role: 'user' as const, origin: 'user_explicit' as const };
 const memory = { statement: 'Prefers short paragraphs.', kind: 'preference', source_event_id: event.id, quote: event.text, origin: 'user_explicit', subject: null, effective_at: null };
+
+test('literal reports repair stripped attribution without filling or mutating source evidence', async () => {
+  for (const sample of literalReportRepairControls) for (const fullQuote of [false, true]) {
+    const source: SourceEvent = { id: 'report-source', author_role: 'assistant', origin: 'agent_reported',
+      text: `${sample.reporter} reports: "${sample.assertion}"${sample.outsidePeriod ? '.' : ''}` };
+    const before = structuredClone(source);
+    const missing = { ...memory, source_event_id: source.id, statement: sample.assertion,
+      kind: 'project_state', origin: fullQuote ? 'user_explicit' : 'agent_reported', quote: fullQuote ? source.text : sample.assertion };
+    const repaired = { ...missing, origin: 'agent_reported', statement: source.text, quote: source.text };
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+      assert.equal(requests.length, 2);
+      assert.deepEqual(result.memories, [{ statement: source.text, kind: 'project_state', source_event_id: source.id, quote: source.text, origin: 'agent_reported' }]);
+      assert.deepEqual(result.usage, { prompt_tokens: 20, completion_tokens: 40, total_tokens: 60 });
+      assert.deepEqual(source, before);
+      const initial = requests[0].body.messages as Array<{ content: string }>;
+      const repair = requests[1].body.messages as Array<{ content: string }>;
+      assert.deepEqual(JSON.parse(initial[1].content).events, [before]);
+      assert.equal(repair[1].content, initial[1].content);
+      assert.match(repair.at(-1)!.content, /extraction_missing_report_attribution/);
+      assert.match(repair.at(-1)!.content, /Retain the original named reporter/);
+      assert.equal(requests[1].body.model, requests[0].body.model);
+    }, [completion(JSON.stringify({ memories: [missing] })), completion(JSON.stringify({ memories: [repaired] }))]);
+  }
+});
+
+test('repeated literal report omission rejects the entire batch after exactly one repair', async () => {
+  const source: SourceEvent = { id: 'report-source', author_role: 'assistant', origin: 'agent_reported', text: 'Iris reports: "The backup is complete."' };
+  const missing = { ...memory, source_event_id: source.id, statement: 'The backup is complete.', quote: 'The backup is complete.', kind: 'fact', origin: 'agent_reported' };
+  await withFakeEndpoint(async (baseUrl, requests) => {
+    let admitted: unknown;
+    await assert.rejects(async () => { admitted = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [event, source] }); },
+      error => error instanceof ProviderError && error.code === 'extraction_missing_report_attribution'
+        && error.message === 'extraction_missing_report_attribution');
+    assert.equal(requests.length, 2);
+    assert.equal(admitted, undefined, 'A valid first memory cannot escape a failed extraction batch.');
+  }, [completion(JSON.stringify({ memories: [memory, missing] }))]);
+});
+
+test('literal report attribution preserves attributed records and conservative skip controls', async () => {
+  type Control = { name: string; source: string; statement: string; quote: string; author_role?: SourceEvent['author_role']; origin?: SourceEvent['origin']; memory_origin?: ExplicitMemory['origin'] };
+  const controls: readonly Control[] = [...literalReportSkipControls,
+    { name: 'indefinite role descriptor', source: 'The someone monitor reports: "The backup is complete."', statement: 'The backup is complete.', quote: 'The backup is complete.' },
+    { name: 'unknown role descriptor', source: 'The unknown worker reports: "The backup is complete."', statement: 'The backup is complete.', quote: 'The backup is complete.' },
+    { name: 'wrong original role', source: 'Iris reports: "The backup is complete."', statement: 'The backup is complete.', quote: 'The backup is complete.', author_role: 'system' },
+  ];
+  for (const sample of controls) {
+    const source: SourceEvent = { id: 'report-source', text: sample.source,
+      author_role: sample.author_role ?? 'assistant', origin: sample.origin ?? 'agent_reported' };
+    const candidate = { ...memory, source_event_id: source.id, statement: sample.statement,
+      kind: 'fact', origin: sample.memory_origin ?? source.origin, quote: sample.quote };
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      const result = await new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+      assert.equal(requests.length, 1, sample.name);
+      const { subject: _subject, effective_at: _time, ...expected } = candidate;
+      assert.deepEqual(result.memories, [expected], sample.name);
+    }, [completion(JSON.stringify({ memories: [candidate] }))]);
+  }
+});
+
+test('literal report guard respects its name token, whitespace and length envelope', async () => {
+  for (const sample of literalReportBoundaryControls) {
+    const source: SourceEvent = { id: 'report-source', text: `${sample.reporter} reports: "${sample.assertion}"`, author_role: 'assistant', origin: 'agent_reported' };
+    const candidate = { ...memory, source_event_id: source.id, statement: sample.statement, quote: sample.assertion, origin: 'agent_reported' };
+    await withFakeEndpoint(async (baseUrl, requests) => {
+      const extract = () => new OpenAICompatibleProvider(config(baseUrl)).extract({ events: [source] });
+      if (sample.reject) await assert.rejects(extract, error => error instanceof ProviderError && error.code === 'extraction_missing_report_attribution');
+      else assert.equal((await extract()).memories[0].statement, sample.statement);
+      assert.equal(requests.length, sample.reject ? 2 : 1);
+    }, [completion(JSON.stringify({ memories: [candidate] }))]);
+  }
+});
 
 test('provider refuses fabricated evidence after one retry and preserves the model', async () => {
   await withFakeEndpoint(async (baseUrl, requests) => {

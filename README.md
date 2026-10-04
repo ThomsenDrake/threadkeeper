@@ -24,7 +24,7 @@ The profile works on a phone, too.
 
 ### Fix it in one step
 
-Open any memory to see the exact words it came from and every change made to it. When you correct something, your correction takes effect immediately. There is no approval step. The original wording is kept alongside it, so you can always see what changed and why.
+Open any memory to see the exact words it came from and every change made to it. When you correct something, your correction takes effect immediately. There is no approval step. You can also change what kind of memory it is, for example turning a "fact" into a "preference." The original wording and kind are kept alongside your correction, so you can always see what changed and why.
 
 ![A corrected launch date, shown with the original note and the correction](docs/images/memory-detail.png)
 

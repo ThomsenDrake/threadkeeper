@@ -72,8 +72,8 @@ test('date-only clauses stay together and conflicting assertions stay separate',
 test('distinct matching handles overlapping slots and rejects reuse or fabricated evidence', () => {
   const source = { id: 'source', text: 'Morning or afternoon meetings.', origin: 'user_explicit' as const, author_role: 'user' as const };
   const entry: EvaluationCase = { id: 'overlap', events: [source], expected: [
-    { source_event_id: source.id, pattern: 'morning|afternoon', origin: 'user_explicit' },
-    { source_event_id: source.id, pattern: 'morning', origin: 'user_explicit' },
+    { source_event_id: source.id, pattern: 'morning|afternoon', kinds: ['fact'], origin: 'user_explicit' },
+    { source_event_id: source.id, pattern: 'morning', kinds: ['fact'], origin: 'user_explicit' },
   ] };
   const values: EvaluationMemory[] = ['Morning meetings.', 'Afternoon meetings.'].map(statement => ({ statement, kind: 'fact', origin: 'user_explicit', effective_at: null,
     evidence: [{ event_id: source.id, quote: source.text }] }));

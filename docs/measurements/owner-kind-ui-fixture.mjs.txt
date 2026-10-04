@@ -1,0 +1,36 @@
+import { writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { createTestDatabase } from '/workspace/threadkeeper-kind-correction/tests/helpers.ts';
+import { bootstrap } from '/workspace/threadkeeper-kind-correction/apps/api/src/auth.ts';
+import { createApp } from '/workspace/threadkeeper-kind-correction/apps/api/src/app.ts';
+const root='/workspace/threadkeeper-kind-correction';
+const source=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+if(source!==process.env.TK_UI_SOURCE_COMMIT)throw new Error('Unexpected source commit');
+if(execFileSync('git',['status','--porcelain','--untracked-files=normal'],{cwd:root,encoding:'utf8'}).trim())throw new Error('Source is not clean');
+const database=await createTestDatabase();
+await bootstrap(database.db,'demo@example.invalid','threadkeeper-demo-password');
+const ownerId=(await database.db.query('SELECT id FROM tk_users')).rows[0].id;
+const origin='http://127.0.0.1:38117';
+const {app,store}=createApp(database.db,{origin,staticDir:root+'/apps/web/dist'});
+const profile={ownerId,clientId:'profile',permissions:['*'],projects:null};
+const client={...profile,clientId:'synthetic-kind-browser-client',permissions:['read','capture']};
+const seeds={
+ active:{statement:'For synthetic Aster updates, use short paragraphs.',kind:'fact',candidate:false},
+ edit:{statement:'For synthetic Beryl notes, I prefer concise tables.',kind:'fact',candidate:true},
+ confirm:{statement:'Synthetic Cedar budget must stay below 50 units.',kind:'constraint',candidate:true},
+ dismiss:{statement:'The synthetic Dune review may be weekly.',kind:'decision',candidate:true},
+ race:{statement:'For synthetic Elm updates, use bullet lists.',kind:'fact',candidate:false},
+ failure:{statement:'For synthetic Fern notes, prefer numbered steps.',kind:'fact',candidate:true},
+};
+for(const [name,seed] of Object.entries(seeds)){
+ const eventId='synthetic-kind-'+name;
+ const candidate={statement:seed.statement,kind:seed.kind,source_event_id:eventId,quote:seed.statement,origin:seed.candidate?'inferred':'user_explicit',effective_at:'2026-10-03T12:00:00Z'};
+ const receipt=await store.capture(client,{idempotency_key:eventId,project_id:'synthetic-kind-ui',subject:'self',events:[{id:eventId,text:seed.statement,author_role:'user',origin:'user_explicit'}],...(seed.candidate?{}:{explicit_memories:[candidate]})});
+ if(seed.candidate){const result=await store.processJob({extract:async()=>({memories:[candidate],model:'synthetic-kind-browser-fixture'})});if(result?.accepted!==1)throw new Error('Synthetic candidate not accepted');}
+ const status=await store.captureStatus(profile,receipt.capture_id);
+ seed.id=status.memory_ids[0];seed.before=await store.detail(profile,seed.id);
+}
+await writeFile('/tmp/threadkeeper-kind-ui/fixture.json',JSON.stringify({source_commit:source,origin,seeds},null,2));
+const server=app.listen(38117,'127.0.0.1',()=>console.log('READY disposable synthetic kind profile'));
+let closing=false;
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{if(closing)return;closing=true;server.close(async()=>{await database.close();console.log('CLEANUP complete');process.exit(0);});});

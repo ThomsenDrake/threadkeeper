@@ -1,0 +1,13 @@
+import type { LearnedInstallation, LearnedSource } from './integration/learned-run.mjs';
+export const OPENCODE_VERSION: string;
+export const OPENCODE_SHA256: string;
+export type OpenCodeBinary = { path: string; sha256: string; version: string };
+export type OpenCodeManifest = { root: string; directory: string; source: LearnedSource; output: string; binary: OpenCodeBinary; host_dependencies: LearnedInstallation['evidence'] };
+export function openCodeEnvironment(environment: NodeJS.ProcessEnv, includeCredential?: boolean): NodeJS.ProcessEnv;
+export function archiveOpenCodeSource(root: string, destination: string, expectedCommit: string): Promise<LearnedSource>;
+export function verifyOpenCodeSource(root: string, source: LearnedSource): Promise<void>;
+export function runOpenCodeProcess(executable: string, args: string[], options: { cwd: string; environment: NodeJS.ProcessEnv; signal: AbortSignal; forward?: boolean; timeoutMs?: number; killAfterMs?: number; onMessage?: (message: any, reply: (message: any) => void, childPid: number) => void }): Promise<string>;
+export function copyOpenCodeBinary(binaryPath: string, destination: string, signal: AbortSignal, environment?: NodeJS.ProcessEnv, expectedSha256?: string): Promise<OpenCodeBinary>;
+export function prepareOpenCodeDependencies(root: string, directory: string, source: LearnedSource, signal: AbortSignal, environment?: NodeJS.ProcessEnv, cacheContext?: string): Promise<LearnedInstallation>;
+export function runOpenCodeChild(manifest: OpenCodeManifest, installation: LearnedInstallation, signal: AbortSignal, environment?: NodeJS.ProcessEnv, onMessage?: (message: any) => void): Promise<string>;
+export function parseOpenCodeArguments(args: string[]): { sourceRef: string; binary: string; output: string };

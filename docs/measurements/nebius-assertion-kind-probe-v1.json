@@ -1,0 +1,1141 @@
+{
+  "schema_version": "threadkeeper.provider-evaluation.v1",
+  "measured_at": "2026-10-03T21:53:30.753Z",
+  "model": "nvidia/Nemotron-3_5-Lightning",
+  "transport": "direct_operator_http_provider",
+  "database": "pglite",
+  "cases": [
+    {
+      "id": "case-01",
+      "job_status": "complete",
+      "accepted": 1,
+      "status": "measured",
+      "canonical_memories": [
+        {
+          "id": "f08995e8-b364-496b-848d-4a435f2126f4",
+          "project_id": "project-01",
+          "subject": "self",
+          "statement": "On Tuesdays, I ride the tram to my studio.",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "revision": 1,
+          "authoritative": false,
+          "effective_at": null,
+          "created_at": "2026-10-03T21:51:47.343Z",
+          "updated_at": "2026-10-03T21:51:47.343Z",
+          "extractor": "nvidia/Nemotron-3_5-Lightning",
+          "evidence": [
+            {
+              "quote": "On Tuesdays, I ride the tram to my studio.",
+              "origin": "user_explicit",
+              "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+              "source_id": "bee3af67-0222-44a3-8935-6c04fbf17892",
+              "author_role": "user",
+              "occurred_at": null,
+              "recorded_at": "2026-10-03T21:51:36.126+00:00",
+              "capture_method": "explicit_capture"
+            }
+          ]
+        }
+      ],
+      "source_events": [
+        {
+          "id": "bee3af67-0222-44a3-8935-6c04fbf17892",
+          "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+          "event_id": "event-01",
+          "project_id": "project-01",
+          "subject": "self",
+          "text": "On Tuesdays, I ride the tram to my studio.",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "capture_method": "explicit_capture",
+          "occurred_at": null,
+          "recorded_at": "2026-10-03T21:51:36.126Z",
+          "checksum": "a3010c5659f0e3bd31ad92a3d78a16709d6ef35e075fa5b19c9c7cdc2d0a8127",
+          "extraction_blocked": false
+        }
+      ],
+      "provider_attempts": [
+        {
+          "event": "direct_provider_request",
+          "ordinal": 1,
+          "path": "chat/completions",
+          "method": "POST",
+          "started_at": "2026-10-03T21:51:36.158Z",
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "request_sha256": "f8c609df5e61fe013c367666190124897c3f13a121d16bc06691ec0cb205621b",
+          "http_status": 200,
+          "outcome": "http_response",
+          "response_sha256": "874c63f9c90bca887818f3025bba21650510b75c3600674e85a5c1f9e8089899",
+          "returned_model_matches": true,
+          "returned_model": "nvidia/Nemotron-3_5-Lightning",
+          "usage": {
+            "completion_tokens": 78,
+            "prompt_tokens": 1517,
+            "total_tokens": 1595,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish_reason": "stop",
+          "usage_status": "reported",
+          "elapsed_ms": 11179
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1517,
+        "completion_tokens": 78,
+        "total_tokens": 1595
+      },
+      "expectations": [
+        {
+          "source_event_id": "event-01",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "statement_patterns": [
+            "On Tuesdays, (?:I ride|the user rides) the tram to (?:my|the user's) studio",
+            "(?:I ride|The user rides) the tram to (?:my|the user's) studio on Tuesdays",
+            "(?:I take|The user takes) the tram to (?:my|the user's) studio on Tuesdays"
+          ],
+          "pattern": "tram",
+          "and_patterns": [
+            "Tuesdays",
+            "studio"
+          ],
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true,
+      "assessment_dimensions": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "empty_expected": false,
+      "independent_http_mcp_recall": true,
+      "memories": [
+        {
+          "statement": "On Tuesdays, I ride the tram to my studio.",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "evidence": [
+            {
+              "event_id": "event-01",
+              "quote": "On Tuesdays, I ride the tram to my studio."
+            }
+          ]
+        }
+      ],
+      "elapsed_ms": 11374
+    },
+    {
+      "id": "case-02",
+      "job_status": "complete",
+      "accepted": 1,
+      "status": "measured",
+      "canonical_memories": [
+        {
+          "id": "88aca05b-ec52-4717-a441-bc2f6ad56475",
+          "project_id": "project-02",
+          "subject": "self",
+          "statement": "Taking the tram to my studio suits me better than driving.",
+          "kind": "preference",
+          "origin": "user_explicit",
+          "status": "active",
+          "revision": 1,
+          "authoritative": false,
+          "effective_at": null,
+          "created_at": "2026-10-03T21:52:21.271Z",
+          "updated_at": "2026-10-03T21:52:21.271Z",
+          "extractor": "nvidia/Nemotron-3_5-Lightning",
+          "evidence": [
+            {
+              "quote": "Taking the tram to my studio suits me better than driving.",
+              "origin": "user_explicit",
+              "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+              "source_id": "c0632e52-4ef7-4038-a4a6-f108c2de981b",
+              "author_role": "user",
+              "occurred_at": null,
+              "recorded_at": "2026-10-03T21:51:47.465+00:00",
+              "capture_method": "explicit_capture"
+            }
+          ]
+        }
+      ],
+      "source_events": [
+        {
+          "id": "c0632e52-4ef7-4038-a4a6-f108c2de981b",
+          "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+          "event_id": "event-02",
+          "project_id": "project-02",
+          "subject": "self",
+          "text": "Taking the tram to my studio suits me better than driving.",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "capture_method": "explicit_capture",
+          "occurred_at": null,
+          "recorded_at": "2026-10-03T21:51:47.465Z",
+          "checksum": "2934c5a019ecf44a6392806474536bc27e57d2e04e09ecafb174bb52890d501c",
+          "extraction_blocked": false
+        }
+      ],
+      "provider_attempts": [
+        {
+          "event": "direct_provider_request",
+          "ordinal": 2,
+          "path": "chat/completions",
+          "method": "POST",
+          "started_at": "2026-10-03T21:51:47.480Z",
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "request_sha256": "49cbac865b814b414133389c3c46e50616c49e2fdfaa4544b89eabd30a1522bd",
+          "http_status": 200,
+          "outcome": "http_response",
+          "response_sha256": "d9934003dc5ad1e3120d529696eedf7615ae4ddf13e569b60eac1ea0bdcf0797",
+          "returned_model_matches": true,
+          "returned_model": "nvidia/Nemotron-3_5-Lightning",
+          "usage": {
+            "completion_tokens": 77,
+            "prompt_tokens": 1516,
+            "total_tokens": 1593,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish_reason": "stop",
+          "usage_status": "reported",
+          "elapsed_ms": 33787
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1516,
+        "completion_tokens": 77,
+        "total_tokens": 1593
+      },
+      "expectations": [
+        {
+          "source_event_id": "event-02",
+          "kind": "preference",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "statement_patterns": [
+            "Taking the tram to (?:my|the user's) studio suits (?:me|the user) better than driving",
+            "(?:I prefer|The user prefers) taking the tram (?:rather than|over) driving to (?:my|the user's) studio",
+            "(?:I prefer|The user prefers) taking the tram to (?:my|the user's) studio (?:rather than|over) driving"
+          ],
+          "pattern": "tram",
+          "and_patterns": [
+            "studio",
+            "driving",
+            "better than|rather than|over"
+          ],
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true,
+      "assessment_dimensions": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "empty_expected": false,
+      "independent_http_mcp_recall": true,
+      "memories": [
+        {
+          "statement": "Taking the tram to my studio suits me better than driving.",
+          "kind": "preference",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "evidence": [
+            {
+              "event_id": "event-02",
+              "quote": "Taking the tram to my studio suits me better than driving."
+            }
+          ]
+        }
+      ],
+      "elapsed_ms": 33912
+    },
+    {
+      "id": "case-03",
+      "job_status": "complete",
+      "accepted": 1,
+      "status": "measured",
+      "canonical_memories": [
+        {
+          "id": "ee96e32a-03df-4078-b673-5f5bc8a54cd6",
+          "project_id": "project-03",
+          "subject": "self",
+          "statement": "I cannot enter my studio before 11:30.",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "revision": 1,
+          "authoritative": false,
+          "effective_at": null,
+          "created_at": "2026-10-03T21:52:23.929Z",
+          "updated_at": "2026-10-03T21:52:23.929Z",
+          "extractor": "nvidia/Nemotron-3_5-Lightning",
+          "evidence": [
+            {
+              "quote": "I cannot enter my studio before 11:30.",
+              "origin": "user_explicit",
+              "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+              "source_id": "6bcb49cc-d76b-4f24-96b1-c08487c65d9e",
+              "author_role": "user",
+              "occurred_at": null,
+              "recorded_at": "2026-10-03T21:52:21.376+00:00",
+              "capture_method": "explicit_capture"
+            }
+          ]
+        }
+      ],
+      "source_events": [
+        {
+          "id": "6bcb49cc-d76b-4f24-96b1-c08487c65d9e",
+          "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+          "event_id": "event-03",
+          "project_id": "project-03",
+          "subject": "self",
+          "text": "I cannot enter my studio before 11:30.",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "capture_method": "explicit_capture",
+          "occurred_at": null,
+          "recorded_at": "2026-10-03T21:52:21.376Z",
+          "checksum": "c08689b5e4a72a4ba5a2fc43d962a708ef1f7579703104a71241218c3e279cad",
+          "extraction_blocked": false
+        }
+      ],
+      "provider_attempts": [
+        {
+          "event": "direct_provider_request",
+          "ordinal": 3,
+          "path": "chat/completions",
+          "method": "POST",
+          "started_at": "2026-10-03T21:52:21.393Z",
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "request_sha256": "914de972cded3fe37268180478666c8801ae01a4d71f83452e8134ed6e7fd767",
+          "http_status": 200,
+          "outcome": "http_response",
+          "response_sha256": "e09d4b1c97b87299955e740c7b5342b2c822a501f3119f1c4dae2d2a08312f2c",
+          "returned_model_matches": true,
+          "returned_model": "nvidia/Nemotron-3_5-Lightning",
+          "usage": {
+            "completion_tokens": 78,
+            "prompt_tokens": 1517,
+            "total_tokens": 1595,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish_reason": "stop",
+          "usage_status": "reported",
+          "elapsed_ms": 2535
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1517,
+        "completion_tokens": 78,
+        "total_tokens": 1595
+      },
+      "expectations": [
+        {
+          "source_event_id": "event-03",
+          "kind": "constraint",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "statement_patterns": [
+            "(?:I cannot|The user cannot) (?:enter|access) (?:my|the user's) studio before 11:30",
+            "(?:I am|The user is) unable to (?:enter|access) (?:my|the user's) studio before 11:30"
+          ],
+          "pattern": "studio",
+          "and_patterns": [
+            "before 11:30",
+            "cannot|unable"
+          ],
+          "matched": false,
+          "matched_memory_index": null
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": false,
+      "assessment_dimensions": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "failed"
+      },
+      "empty_expected": false,
+      "independent_http_mcp_recall": true,
+      "memories": [
+        {
+          "statement": "I cannot enter my studio before 11:30.",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "evidence": [
+            {
+              "event_id": "event-03",
+              "quote": "I cannot enter my studio before 11:30."
+            }
+          ]
+        }
+      ],
+      "elapsed_ms": 2628
+    },
+    {
+      "id": "case-04",
+      "job_status": "complete",
+      "accepted": 0,
+      "status": "measured",
+      "canonical_memories": [],
+      "source_events": [
+        {
+          "id": "85760dc3-ddce-4c4b-bebf-4b61b5b57586",
+          "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+          "event_id": "event-04",
+          "project_id": "project-04",
+          "subject": "self",
+          "text": "Since my bicycle has a cargo rack, could it carry the samples?",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "capture_method": "explicit_capture",
+          "occurred_at": null,
+          "recorded_at": "2026-10-03T21:52:24.003Z",
+          "checksum": "fa3cf2ab8ca7330191ecfb8a92b0c99c96df20f07ea3704c03f22474717d64bc",
+          "extraction_blocked": false
+        }
+      ],
+      "provider_attempts": [
+        {
+          "event": "direct_provider_request",
+          "ordinal": 4,
+          "path": "chat/completions",
+          "method": "POST",
+          "started_at": "2026-10-03T21:52:24.015Z",
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "request_sha256": "eb1864ea10eeeff1ba4aee1cc16c61637300f018ab6732d71b9efc4454975e60",
+          "http_status": 200,
+          "outcome": "http_response",
+          "response_sha256": "bd5b40640116df092eeaa0ce9d8ee99d8217ca5da64de25c5bea3c474ad57d2f",
+          "returned_model_matches": true,
+          "returned_model": "nvidia/Nemotron-3_5-Lightning",
+          "usage": {
+            "completion_tokens": 7,
+            "prompt_tokens": 1518,
+            "total_tokens": 1525,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish_reason": "stop",
+          "usage_status": "reported",
+          "elapsed_ms": 29661
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1518,
+        "completion_tokens": 7,
+        "total_tokens": 1525
+      },
+      "expectations": [
+        {
+          "source_event_id": "event-04",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "statement_patterns": [
+            "(?:My|The user's) bicycle has a cargo rack",
+            "(?:My|The user's) bicycle is equipped with a cargo rack"
+          ],
+          "pattern": "bicycle",
+          "and_patterns": [
+            "cargo rack"
+          ],
+          "matched": false,
+          "matched_memory_index": null
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": false,
+      "rubric_passed": false,
+      "assessment_dimensions": {
+        "content": "failed",
+        "provenance": "not_measured",
+        "taxonomy": "not_measured"
+      },
+      "empty_expected": false,
+      "independent_http_mcp_recall": true,
+      "memories": [],
+      "elapsed_ms": 29783
+    },
+    {
+      "id": "case-05",
+      "job_status": "complete",
+      "accepted": 1,
+      "status": "measured",
+      "canonical_memories": [
+        {
+          "id": "19810d51-654d-4f50-930e-ff9c20ad8cf7",
+          "project_id": "project-05",
+          "subject": "self",
+          "statement": "The Elm migration is in the validation phase.",
+          "kind": "project_state",
+          "origin": "agent_reported",
+          "status": "active",
+          "revision": 1,
+          "authoritative": false,
+          "effective_at": null,
+          "created_at": "2026-10-03T21:53:10.304Z",
+          "updated_at": "2026-10-03T21:53:10.304Z",
+          "extractor": "nvidia/Nemotron-3_5-Lightning",
+          "evidence": [
+            {
+              "quote": "The Elm migration is in the validation phase.",
+              "origin": "agent_reported",
+              "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+              "source_id": "c6af2393-cad8-4493-b436-88df034835c7",
+              "author_role": "assistant",
+              "occurred_at": null,
+              "recorded_at": "2026-10-03T21:52:53.786+00:00",
+              "capture_method": "client_summary"
+            }
+          ]
+        }
+      ],
+      "source_events": [
+        {
+          "id": "c6af2393-cad8-4493-b436-88df034835c7",
+          "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+          "event_id": "event-05",
+          "project_id": "project-05",
+          "subject": "self",
+          "text": "The deployment agent reports: \"The Elm migration is in the validation phase.\"",
+          "author_role": "assistant",
+          "origin": "agent_reported",
+          "capture_method": "client_summary",
+          "occurred_at": null,
+          "recorded_at": "2026-10-03T21:52:53.786Z",
+          "checksum": "56586b6dbdb0077823412b42581baa6b1081cff7d37df906d84a166cfec5527a",
+          "extraction_blocked": false
+        }
+      ],
+      "provider_attempts": [
+        {
+          "event": "direct_provider_request",
+          "ordinal": 5,
+          "path": "chat/completions",
+          "method": "POST",
+          "started_at": "2026-10-03T21:52:53.800Z",
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "request_sha256": "dfdb4e876b5b9d210759264a40d7347ba18c99e474ebc84c6488ec8841ab504f",
+          "http_status": 200,
+          "outcome": "http_response",
+          "response_sha256": "6333608d7e5d33c3e9c2331c0c1528bd091b821575da263ae98737d2e295f87c",
+          "returned_model_matches": true,
+          "returned_model": "nvidia/Nemotron-3_5-Lightning",
+          "usage": {
+            "completion_tokens": 71,
+            "prompt_tokens": 1521,
+            "total_tokens": 1592,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish_reason": "stop",
+          "usage_status": "reported",
+          "elapsed_ms": 16503
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1521,
+        "completion_tokens": 71,
+        "total_tokens": 1592
+      },
+      "expectations": [
+        {
+          "source_event_id": "event-05",
+          "accepted_kinds": [
+            "fact",
+            "project_state"
+          ],
+          "origin": "agent_reported",
+          "status": "active",
+          "effective_at": null,
+          "statement_patterns": [
+            "The deployment agent reports (?:that )?the Elm migration is in the validation phase",
+            "The deployment agent reports: \"The Elm migration is in the validation phase\\.?\"",
+            "According to the deployment agent, the Elm migration is in the validation phase"
+          ],
+          "pattern": "Elm migration",
+          "and_patterns": [
+            "deployment agent",
+            "validation phase"
+          ],
+          "matched": false,
+          "matched_memory_index": null
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": false,
+      "assessment_dimensions": {
+        "content": "failed",
+        "provenance": "failed",
+        "taxonomy": "passed"
+      },
+      "empty_expected": false,
+      "independent_http_mcp_recall": true,
+      "memories": [
+        {
+          "statement": "The Elm migration is in the validation phase.",
+          "kind": "project_state",
+          "origin": "agent_reported",
+          "status": "active",
+          "effective_at": null,
+          "evidence": [
+            {
+              "event_id": "event-05",
+              "quote": "The Elm migration is in the validation phase."
+            }
+          ]
+        }
+      ],
+      "elapsed_ms": 16602
+    },
+    {
+      "id": "case-06",
+      "job_status": "complete",
+      "accepted": 0,
+      "status": "measured",
+      "canonical_memories": [],
+      "source_events": [
+        {
+          "id": "c39bd6f3-0cf9-4def-9ae7-43e3b935199e",
+          "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+          "event_id": "event-06",
+          "project_id": "project-06",
+          "subject": "self",
+          "text": "This is a grammar exercise, not a statement about me: \"I prefer tart apples.\"",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "capture_method": "explicit_capture",
+          "occurred_at": null,
+          "recorded_at": "2026-10-03T21:53:10.397Z",
+          "checksum": "14e2ed441b59b1d4a7a6c3d9bae11ae28382676725714fab9ecb9f47138d1c1b",
+          "extraction_blocked": false
+        }
+      ],
+      "provider_attempts": [
+        {
+          "event": "direct_provider_request",
+          "ordinal": 6,
+          "path": "chat/completions",
+          "method": "POST",
+          "started_at": "2026-10-03T21:53:10.423Z",
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "request_sha256": "ed735a80fc6a8343152c72adecb1ab22d483d2cd26f8adedf3eb407f90884704",
+          "http_status": 200,
+          "outcome": "http_response",
+          "response_sha256": "13bc481251643e76709b94bdbe574bc78ac1cc702fd4cbea8d5b716912c330da",
+          "returned_model_matches": true,
+          "returned_model": "nvidia/Nemotron-3_5-Lightning",
+          "usage": {
+            "completion_tokens": 7,
+            "prompt_tokens": 1523,
+            "total_tokens": 1530,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish_reason": "stop",
+          "usage_status": "reported",
+          "elapsed_ms": 843
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1523,
+        "completion_tokens": 7,
+        "total_tokens": 1530
+      },
+      "expectations": [],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true,
+      "assessment_dimensions": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "empty_expected": true,
+      "independent_http_mcp_recall": true,
+      "memories": [],
+      "elapsed_ms": 950
+    },
+    {
+      "id": "case-07",
+      "job_status": "complete",
+      "accepted": 1,
+      "status": "measured",
+      "canonical_memories": [
+        {
+          "id": "07960cee-a4e4-42d6-b0f5-b675c41a9fad",
+          "project_id": "project-07",
+          "subject": "self",
+          "statement": "I keep a toolbox in the hallway.",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "revision": 1,
+          "authoritative": false,
+          "effective_at": null,
+          "created_at": "2026-10-03T21:53:30.671Z",
+          "updated_at": "2026-10-03T21:53:30.671Z",
+          "extractor": "nvidia/Nemotron-3_5-Lightning",
+          "evidence": [
+            {
+              "quote": "I keep a toolbox in the hallway.",
+              "origin": "user_explicit",
+              "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+              "source_id": "83ffeb21-c65c-431e-8a74-21518f99733b",
+              "author_role": "user",
+              "occurred_at": null,
+              "recorded_at": "2026-10-03T21:53:11.339+00:00",
+              "capture_method": "explicit_capture"
+            }
+          ]
+        }
+      ],
+      "source_events": [
+        {
+          "id": "83ffeb21-c65c-431e-8a74-21518f99733b",
+          "client_id": "aa64097d-fedb-4740-a337-42e9496d2d59",
+          "event_id": "event-07",
+          "project_id": "project-07",
+          "subject": "self",
+          "text": "I keep a toolbox in the hallway. Grammar example, not about me: \"I prefer tart apples.\"",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "capture_method": "explicit_capture",
+          "occurred_at": null,
+          "recorded_at": "2026-10-03T21:53:11.339Z",
+          "checksum": "9c5f2aecd232c23ae02af7c5ee02815d4242b6d83fae5c259567e26e5b0291f8",
+          "extraction_blocked": false
+        }
+      ],
+      "provider_attempts": [
+        {
+          "event": "direct_provider_request",
+          "ordinal": 7,
+          "path": "chat/completions",
+          "method": "POST",
+          "started_at": "2026-10-03T21:53:11.356Z",
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "request_sha256": "54e44eee2ca9503b1feecf483f7cfc6d04c95e41456e87707e479a4139afe804",
+          "http_status": 200,
+          "outcome": "http_response",
+          "response_sha256": "5287f052784c9366bf56da77f1faa1e2ad18add5f5c4bfdcd6f51feca020d32f",
+          "returned_model_matches": true,
+          "returned_model": "nvidia/Nemotron-3_5-Lightning",
+          "usage": {
+            "completion_tokens": 70,
+            "prompt_tokens": 1527,
+            "total_tokens": 1597,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish_reason": "stop",
+          "usage_status": "reported",
+          "elapsed_ms": 19314
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 1527,
+        "completion_tokens": 70,
+        "total_tokens": 1597
+      },
+      "expectations": [
+        {
+          "source_event_id": "event-07",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "statement_patterns": [
+            "(?:I keep|The user keeps) a toolbox in the hallway",
+            "(?:My|The user's) toolbox is (?:kept |stored )?in the hallway"
+          ],
+          "pattern": "toolbox",
+          "and_patterns": [
+            "hallway"
+          ],
+          "matched": true,
+          "matched_memory_index": 0
+        }
+      ],
+      "forbidden_matches": [],
+      "exact_evidence": true,
+      "memory_count_matches": true,
+      "rubric_passed": true,
+      "assessment_dimensions": {
+        "content": "passed",
+        "provenance": "passed",
+        "taxonomy": "passed"
+      },
+      "empty_expected": false,
+      "independent_http_mcp_recall": true,
+      "memories": [
+        {
+          "statement": "I keep a toolbox in the hallway.",
+          "kind": "fact",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "evidence": [
+            {
+              "event_id": "event-07",
+              "quote": "I keep a toolbox in the hallway."
+            }
+          ]
+        }
+      ],
+      "elapsed_ms": 19418
+    }
+  ],
+  "central_lifecycle": {
+    "status": "not_measured",
+    "reason": "assertion_kind_probe_only"
+  },
+  "taxonomy_probe": {
+    "manifest": {
+      "id": "threadkeeper.assertion-kind-probe.v1",
+      "cases": [
+        {
+          "id": "case-01",
+          "events": [
+            {
+              "id": "event-01",
+              "text": "On Tuesdays, I ride the tram to my studio.",
+              "origin": "user_explicit",
+              "author_role": "user"
+            }
+          ],
+          "expected": [
+            {
+              "source_event_id": "event-01",
+              "kind": "fact",
+              "origin": "user_explicit",
+              "status": "active",
+              "effective_at": null,
+              "statement_patterns": [
+                "On Tuesdays, (?:I ride|the user rides) the tram to (?:my|the user's) studio",
+                "(?:I ride|The user rides) the tram to (?:my|the user's) studio on Tuesdays",
+                "(?:I take|The user takes) the tram to (?:my|the user's) studio on Tuesdays"
+              ],
+              "pattern": "tram",
+              "and_patterns": [
+                "Tuesdays",
+                "studio"
+              ]
+            }
+          ],
+          "includes": [
+            "Exactly one stated Tuesday travel habit, classified as fact. Preserve transport, destination and recurring weekday."
+          ],
+          "excludes": [
+            "A preference inferred from the habit, exclusive transport, travel on other days, or a newly chosen decision."
+          ]
+        },
+        {
+          "id": "case-02",
+          "events": [
+            {
+              "id": "event-02",
+              "text": "Taking the tram to my studio suits me better than driving.",
+              "origin": "user_explicit",
+              "author_role": "user"
+            }
+          ],
+          "expected": [
+            {
+              "source_event_id": "event-02",
+              "kind": "preference",
+              "origin": "user_explicit",
+              "status": "active",
+              "effective_at": null,
+              "statement_patterns": [
+                "Taking the tram to (?:my|the user's) studio suits (?:me|the user) better than driving",
+                "(?:I prefer|The user prefers) taking the tram (?:rather than|over) driving to (?:my|the user's) studio",
+                "(?:I prefer|The user prefers) taking the tram to (?:my|the user's) studio (?:rather than|over) driving"
+              ],
+              "pattern": "tram",
+              "and_patterns": [
+                "studio",
+                "driving",
+                "better than|rather than|over"
+              ]
+            }
+          ],
+          "includes": [
+            "Exactly one tram-over-driving preference for the studio journey. Preserve the comparison, subject and scope."
+          ],
+          "excludes": [
+            "An actual travel habit, inability to drive, an exclusive mode, or a preference for unrelated journeys."
+          ]
+        },
+        {
+          "id": "case-03",
+          "events": [
+            {
+              "id": "event-03",
+              "text": "I cannot enter my studio before 11:30.",
+              "origin": "user_explicit",
+              "author_role": "user"
+            }
+          ],
+          "expected": [
+            {
+              "source_event_id": "event-03",
+              "kind": "constraint",
+              "origin": "user_explicit",
+              "status": "active",
+              "effective_at": null,
+              "statement_patterns": [
+                "(?:I cannot|The user cannot) (?:enter|access) (?:my|the user's) studio before 11:30",
+                "(?:I am|The user is) unable to (?:enter|access) (?:my|the user's) studio before 11:30"
+              ],
+              "pattern": "studio",
+              "and_patterns": [
+                "before 11:30",
+                "cannot|unable"
+              ]
+            }
+          ],
+          "includes": [
+            "Exactly one entry restriction before 11:30, classified as constraint."
+          ],
+          "excludes": [
+            "Guaranteed access at or after 11:30, a reason for the restriction, a date, a timezone, or a mere preference."
+          ]
+        },
+        {
+          "id": "case-04",
+          "events": [
+            {
+              "id": "event-04",
+              "text": "Since my bicycle has a cargo rack, could it carry the samples?",
+              "origin": "user_explicit",
+              "author_role": "user"
+            }
+          ],
+          "expected": [
+            {
+              "source_event_id": "event-04",
+              "kind": "fact",
+              "origin": "user_explicit",
+              "status": "active",
+              "effective_at": null,
+              "statement_patterns": [
+                "(?:My|The user's) bicycle has a cargo rack",
+                "(?:My|The user's) bicycle is equipped with a cargo rack"
+              ],
+              "pattern": "bicycle",
+              "and_patterns": [
+                "cargo rack"
+              ]
+            }
+          ],
+          "includes": [
+            "Exactly one fact that the user's bicycle has a cargo rack. Retain the assertion independently of the question."
+          ],
+          "excludes": [
+            "Ability to carry samples, agreement to carry them, or a record describing/retaining the question."
+          ]
+        },
+        {
+          "id": "case-05",
+          "events": [
+            {
+              "id": "event-05",
+              "text": "The deployment agent reports: \"The Elm migration is in the validation phase.\"",
+              "origin": "agent_reported",
+              "author_role": "assistant"
+            }
+          ],
+          "expected": [
+            {
+              "source_event_id": "event-05",
+              "accepted_kinds": [
+                "fact",
+                "project_state"
+              ],
+              "origin": "agent_reported",
+              "status": "active",
+              "effective_at": null,
+              "statement_patterns": [
+                "The deployment agent reports (?:that )?the Elm migration is in the validation phase",
+                "The deployment agent reports: \"The Elm migration is in the validation phase\\.?\"",
+                "According to the deployment agent, the Elm migration is in the validation phase"
+              ],
+              "pattern": "Elm migration",
+              "and_patterns": [
+                "deployment agent",
+                "validation phase"
+              ]
+            }
+          ],
+          "includes": [
+            "Exactly one attributed deployment-agent report that the Elm migration is in validation phase.",
+            "Either fact or project_state is accepted because that taxonomy distinction is ambiguous under the existing contract."
+          ],
+          "excludes": [
+            "Completion, success, user confirmation, direct-user attribution, or rejection merely because the report is quoted."
+          ]
+        },
+        {
+          "id": "case-06",
+          "events": [
+            {
+              "id": "event-06",
+              "text": "This is a grammar exercise, not a statement about me: \"I prefer tart apples.\"",
+              "origin": "user_explicit",
+              "author_role": "user"
+            }
+          ],
+          "expected": [],
+          "empty": true,
+          "includes": [
+            "Completed extraction with zero records."
+          ],
+          "excludes": [
+            "An apple preference, grammar-exercise commentary, or treating a failed job as a valid empty result."
+          ]
+        },
+        {
+          "id": "case-07",
+          "events": [
+            {
+              "id": "event-07",
+              "text": "I keep a toolbox in the hallway. Grammar example, not about me: \"I prefer tart apples.\"",
+              "origin": "user_explicit",
+              "author_role": "user"
+            }
+          ],
+          "expected": [
+            {
+              "source_event_id": "event-07",
+              "kind": "fact",
+              "origin": "user_explicit",
+              "status": "active",
+              "effective_at": null,
+              "statement_patterns": [
+                "(?:I keep|The user keeps) a toolbox in the hallway",
+                "(?:My|The user's) toolbox is (?:kept |stored )?in the hallway"
+              ],
+              "pattern": "toolbox",
+              "and_patterns": [
+                "hallway"
+              ]
+            }
+          ],
+          "includes": [
+            "Exactly one fact that the user keeps a toolbox in the hallway."
+          ],
+          "excludes": [
+            "An apple preference, grammar-example commentary, or dropping the genuine assertion because another clause is a demonstration."
+          ]
+        }
+      ],
+      "budget": {
+        "max_chat_requests": 14,
+        "max_embedding_requests": 0,
+        "max_output_tokens_per_request": 4096
+      },
+      "model": "nvidia/Nemotron-3_5-Lightning",
+      "base_url": "https://api.tokenfactory.nebius.com/v1/",
+      "reasoning_effort": "none",
+      "acceptance": "All seven completed captures must match the fixed source-bound slots, accepted kind or kind union, provenance and canonical transports. Failed jobs never satisfy the empty control.",
+      "assessment_dimensions": {
+        "content": "Preserve complete assertion, comparison, qualifier and scope; reject invented or irrelevant additional statements.",
+        "provenance": "Require original attribution, exact supporting source evidence and declared status/effective time. Quotes may retain surrounding source context.",
+        "taxonomy": "A faithful assertion with the wrong kind is a taxonomy-only mismatch; incorrect attribution is a provenance failure."
+      },
+      "manual_review": "Inspect every statement and empty output against the frozen obligations. Preserve automated scores; report faithful unlisted paraphrases separately without changing labels or templates.",
+      "limitations": [
+        "Seven synthetic captures include a demonstration pair, not seven independent assertions or a broad accuracy estimate.",
+        "No measured fix for dialogue copying or irrelevant commentary is presumed from a taxonomy-only prompt change.",
+        "No embeddings, native-container, correction/forgetting lifecycle, installed-host or GPU measurement."
+      ]
+    },
+    "manifest_sha256": "9c7a600b1883bce8359af7ac0f9471d0ef14fb7d66a98b9c3e5b00fbd5398077",
+    "source_commit": "81c1159c5694e70434aadbe9bfa0c777380ec95a"
+  },
+  "manual_review": {
+    "status": "required",
+    "instruction": "Inspect every statement and empty output against the frozen obligations. Preserve automated scores; report faithful unlisted paraphrases separately without changing labels or templates."
+  },
+  "observation_evidence": {
+    "status": "complete",
+    "issues": []
+  },
+  "reasoning_effort": "none",
+  "provider_accounting": {
+    "observed_attempt_count": 7,
+    "direct_request_count": 7,
+    "inference_request_count": 7,
+    "usage_complete": true,
+    "inference_requests_without_usage": 0,
+    "inference_requests_without_complete_usage": 0,
+    "inference_requests_with_invalid_usage": 0,
+    "derived_total_tokens_request_count": 0,
+    "usage": {
+      "completion_tokens": 388,
+      "prompt_tokens": 10639,
+      "total_tokens": 11027,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    }
+  },
+  "observation_errors": [],
+  "provider_timing": "Each attempt measures direct fetch through complete response-body observation; case times also include capture/admission/recall.",
+  "limits": [
+    "Small fixed synthetic corpus; rubric matching is not a broad semantic quality estimate.",
+    "Replay timing measures local admission/recall; original inference latency belongs to the recording.",
+    "Independent SDK transports are not installed chatbot hosts.",
+    "No GPU, native container, deployment, or provider credential export."
+  ],
+  "cleanup": {
+    "status": "passed"
+  }
+}
