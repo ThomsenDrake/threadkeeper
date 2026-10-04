@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { installDirectProviderObserver, summarizeProviderObservations } from '../deploy/direct-provider-observer.mjs';
-import { extractionResponseFingerprint } from '../deploy/extraction-fingerprints.mjs';
+import { extractionRecordsFingerprint, extractionResponseFingerprint } from '../deploy/extraction-fingerprints.mjs';
 import { snapshotLearnedExtraction, verifyLearnedExtractionEvidence } from '../deploy/integration/learned-extraction-evidence.ts';
 import { verifyLearnedObservations, type LearnedObservation } from '../deploy/integration/learned-support.ts';
 import { createStore, type Auth } from '../packages/core/src/index.ts';
@@ -110,10 +110,11 @@ test('actual extraction/storage binds origin normalization, subject defaults and
     { id: 'confirmed', text: 'I confirmed the original plan.', author_role: 'user', origin: 'user_confirmed' },
     { id: 'reported', text: 'The agent reported completed checks.', author_role: 'assistant', origin: 'agent_reported' },
     { id: 'proposed', text: 'The assistant proposed moving the demo.', author_role: 'assistant', origin: 'assistant_proposed' },
+    { id: 'inferred', text: 'The synthetic launch may require a checklist.', author_role: 'assistant', origin: 'inferred' },
   ];
   const memories = sources.map((source, index) => ({ statement: index === 0 ? ' I prefer morning meetings. ' : source.text,
     kind: index === 0 ? 'preference' : 'fact', source_event_id: source.id, quote: source.text,
-    origin: index === 0 ? 'user_confirmed' : 'user_explicit',
+    origin: index === 0 ? 'user_confirmed' : source.origin === 'inferred' ? 'agent_reported' : 'user_explicit',
     ...(index === 0 ? { subject: null, effective_at: '2027-02-03T08:30:00+01:00' } : {}),
   })).reverse();
   let calls = 0;
@@ -136,9 +137,12 @@ test('actual extraction/storage binds origin normalization, subject defaults and
     const records: LearnedObservation[] = observer.records.map(record => ({ ...record, service: 'worker' }));
     assert.equal(records.length, 2);
     assert.equal(records[0].extraction_fingerprints, undefined);
-    assert.deepEqual(verifyLearnedExtractionEvidence(snapshot, records), { ordinal: 2, memory_count: 4 });
+    assert.deepEqual(verifyLearnedExtractionEvidence(snapshot, records), { ordinal: 2, memory_count: 5 });
     assert.equal(persisted.find(memory => memory.statement.startsWith(' I prefer'))!.effective_at, '2027-02-03T07:30:00.000Z');
     assert(persisted.some(memory => memory.origin === 'agent_reported') && persisted.some(memory => memory.origin === 'assistant_proposed'));
+    const inference = persisted.find(memory => memory.statement === sources[4].text)!;
+    assert.equal(inference.origin, 'inferred');
+    assert.equal(inference.status, 'candidate');
     const wrongFinal = structuredClone(records);
     wrongFinal[0].extraction_fingerprints = snapshot;
     wrongFinal[1].extraction_fingerprints!.memories_sha256 = '0'.repeat(64);
@@ -150,6 +154,29 @@ test('actual extraction/storage binds origin normalization, subject defaults and
     const serialized = JSON.stringify({ snapshot, records });
     for (const hidden of ['synthetic-secret', 'unusable-first-attempt', ...sources.map(source => source.text), ...memories.map(memory => memory.statement)]) assert(!serialized.includes(hidden));
   } finally { observer.restore(); globalThis.fetch = originalFetch; }
+});
+
+test('inferred response fingerprints agree with the actual adapter and reject promoted canonical records', async () => {
+  const originalFetch = globalThis.fetch;
+  const source = { ...event, author_role: 'assistant' as const, origin: 'inferred' as const };
+  const input = { ...context, events: [source] };
+  const raw = response([{ ...candidate, origin: 'agent_reported' }]);
+  let capturedRequest: unknown;
+  globalThis.fetch = async (_url, init) => {
+    capturedRequest = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify(raw));
+  };
+  try {
+    const result = await new OpenAICompatibleProvider({ ...providerConfigFromEnv({}), baseUrl }).extract(input);
+    assert.equal(result.memories[0].origin, 'inferred');
+    const canonical = result.memories.map(memory => ({ ...memory, project_id: input.project_id, subject: input.subject,
+      status: 'candidate', effective_at: null }));
+    const observed = extractionResponseFingerprint(capturedRequest, raw);
+    assert(observed);
+    assert.deepEqual(observed, extractionRecordsFingerprint(canonical, input));
+    const promoted = canonical.map(memory => ({ ...memory, origin: 'agent_reported', status: 'active' }));
+    assert.notDeepEqual(observed, extractionRecordsFingerprint(promoted, input));
+  } finally { globalThis.fetch = originalFetch; }
 });
 
 test('discarding the observed extraction and fabricating correct persisted rows fails response binding', async t => {
