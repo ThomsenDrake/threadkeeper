@@ -1,0 +1,1555 @@
+{
+  "schema_version": "threadkeeper.opencode-learned-host.v1",
+  "recorded_at": "2026-10-03T21:38:39.545Z",
+  "result": "PASS",
+  "stage": "complete",
+  "source": {
+    "commit": "c46ee6e76e11cccbf1b3a84bd7aa5eee46a801cb",
+    "tree": "4a89dda8dd9f3aa80c7b06cc4d6e113e1568165a",
+    "files": {
+      ".dockerignore": "2859d93561c69b21a54342bb8f5114e3f52aeb16f70576aa060b415601e82bee",
+      ".env.example": "0d31a15c43007d835bc7fdd2813a725227423b95c5002fba5e6eb9cbc3434ce7",
+      ".gitignore": "9be9bd29ffbeb5545ee73d3394eb2c7896e155e565ecba263c4767cc2ef2ec8b",
+      "AGENTS.md": "f3bab16be4f64eadc29da9b157306cefd69514b54c09348759782bea8e9f2f4e",
+      "README.md": "76167cdb2d489d646b43dfc745fe0e76f1bae014ca5ddf598ac3a53f13841d4e",
+      "apps/api/package.json": "d6d1896a3b00150b76629a31629a708c6169f4c0a232840f89828427d9bec4cc",
+      "apps/api/src/app.ts": "5a38882c8051092a92466b24e1ed7fcdcca46a6e5d81ed8e66bf8fa23b39dd9f",
+      "apps/api/src/auth.ts": "bb5e9648055ee674232bf10f55f489f759f91a29ae9f9bedb716129feca4176b",
+      "apps/api/src/index.ts": "c3bd7f1b6ce176c7f1003cc5b25b999695691705c7530711c75d4581bb3e675d",
+      "apps/web/index.html": "93f2c5a65e03ae05ce91f68fbe6f1bb664cb2613f09165c792aa1c1a3f045201",
+      "apps/web/package.json": "152d3cca3b0ffe37da946bf5030730a9784d582e3268a51569bfaf5191d0862a",
+      "apps/web/src/App.tsx": "5b7960944b99508716c738a81073167b4a4fab8bf4a2d5585b15074090489b1d",
+      "apps/web/src/main.tsx": "a920ec27028d3f1997c93d79da61fa77c0ff613085a6fb2a8ea2dea92cab28a9",
+      "apps/web/src/styles.css": "c080ad0d11d4c8e2cea7371438ebbee8ac50ff11ecc237a869c3db4fa825f938",
+      "apps/web/tsconfig.json": "9b153ad700c11cf2eb3cdbaf4a8bd4868dc4c37ef41a8724a923e8f49affd251",
+      "apps/web/vite.config.ts": "d10c183344f67b5fed5581dc7a09d228dabfe0a5953dff9e7efafccc8205c890",
+      "apps/worker/package.json": "699b2e5196c17bf1c1b1adf2340a82bac22531f681991ebae5ed4c9cdeb42163",
+      "apps/worker/src/index.ts": "8ef2a1a04338c8e0e41db714cc4fd858a19bafb7ee55ed1f0dccd29bc16363cc",
+      "deploy/Dockerfile": "4861a5ee06e205a5209a8d90afc99dc4c4968647308cf2beb424ebb5a54c5488",
+      "deploy/compose.yaml": "6ee3881ac2dd181420d1bd1d2e01c45fa58555424d2cf4f660b43314081aed2a",
+      "deploy/deletion-ledger.ts": "84484ac342e0a49269e8e746ffef18a00d5f2590b7fff63690592cc97f2fb791",
+      "deploy/demo.ts": "b37bacc7d8c11831b9f0b23443c55e65263f9ddc2ee8898a9dc41784db34bb25",
+      "deploy/dev-demo.ts": "5839230bfac5d44aba255d30b0e852d3a34baf7be6d73b60e773083d6839f270",
+      "deploy/direct-provider-observer.d.mts": "181bd09a0d8f842d6cf39b57de5259dbaea63507e046f74af00d8efa257396b6",
+      "deploy/direct-provider-observer.mjs": "a42f78dac2a27ca7ab9641018c98263261d679c3e745b4dc67d19b56ac0e4941",
+      "deploy/direct-provider-preload.mjs": "710a95a31091087cff95ca0f71e2094610754facbb594264e422138921841ae6",
+      "deploy/embedding-fingerprints.d.mts": "93758c432d67361984eba8207c5ebd26ff605733f05508db720a8c35a7ad74cf",
+      "deploy/embedding-fingerprints.mjs": "e781f0357a87dbf482c628447046f913b09bbdf83ba623b56b414e6565b92c01",
+      "deploy/extraction-fingerprints.d.mts": "21db8c3e30afe03344496a6ef8ee1798ad20b8c72deae07f5a804a9842b87734",
+      "deploy/extraction-fingerprints.mjs": "d07fb6ac60e09db755ae65a42e21fd73ccaa0af9e294e3c6b4da46fee6a0be0c",
+      "deploy/installed-codex-check.ts": "5d8f0964c3e5fdb805b3b8c63b6d985ee76bf238213d37a7f524271a7a807f85",
+      "deploy/integration/compose.yaml": "79d0ebfcbef8bc64c5b7ec3ad01273d8cb8b3e95092d28ffae7a5c5da952ffc2",
+      "deploy/integration/learned-assertions.ts": "667cb77d28815bf1ce7bfb4636773c366839418384f2a946cab3e36719dc3ab2",
+      "deploy/integration/learned-child.mjs": "312c3ddda770cc8ba7621012d4040d6a0b4f11ae4ce364da2fbee6c1781c3ccf",
+      "deploy/integration/learned-compose.yaml": "d273d56d93bfb433c7f14e10d1af440496481803fee688134142e3649760d69f",
+      "deploy/integration/learned-execute.ts": "7dfa66f375ebfc8ebf1677fbd3b18f64ea0c921e7bbb2531c01e5187d90e043c",
+      "deploy/integration/learned-extraction-evidence.ts": "866902bad03455e4a4a52d084def08e0150d058fcff282727615d93dd7b76699",
+      "deploy/integration/learned-run.d.mts": "6df5efa446a1ed5baa7b777e5a18726b639e0e6e8b0b0690e66c7058423ad8b1",
+      "deploy/integration/learned-run.mjs": "4dfd22176de20e95303dca73e2d73adcea05301f146c00887140bf37c770e01a",
+      "deploy/integration/learned-scenarios.ts": "f76ab32af407a896d41e2635763efda44b93a501f4a5cab382f561305824a079",
+      "deploy/integration/learned-support.ts": "fe4e8946e26c6c615da30f630504c1ea9594f2b40e19be0fbf35c2af6f60b620",
+      "deploy/integration/learned-vector-evidence.ts": "77c2e8949946179b51bfd355900ca9177b190d0cd4fc9adcd7a706ea8187cbee",
+      "deploy/integration/provider-fixture.ts": "cc750099f49648468833c5be29f4f238b5c046eca649cef1051a6cccbf5ab802",
+      "deploy/integration/run.ts": "0cf8fc036483396186f650141ea7e05d83d2dcc020e7573e46746293ab7f41b6",
+      "deploy/integration/scenarios.ts": "5d49f62a6a880178b8efafb30fcb832aa08fdfccc79941631c4d81c437eff0d4",
+      "deploy/migrate.ts": "b3f6ca9ebd6d06db4a3fcd1bd3ef4a680f0dc4105c5e3c947df64c6f359c14f8",
+      "deploy/migrations/001_init.sql": "80d055abd9cef0d1922f9e444a167c69d6a8f0a83a498f07bb7f838c9b250679",
+      "deploy/migrations/002_auth.sql": "c3f316468d433a44d68e47e9b803d4d059bd4393135c072e36836a411c8a80ac",
+      "deploy/migrations/003_embeddings.sql": "1ebc91f61fac75915ca44ebaa5d20a3860036bf8bca4edcc351e84d75c53e54e",
+      "deploy/migrations/004_capture_status.sql": "21a6eee014f97f29cd175ee26e28b89fb048f1a0b8a4e3ab42b6419fe909b7af",
+      "deploy/migrations/005_candidate_review.sql": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee",
+      "deploy/migrations/006_client_control.sql": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8",
+      "deploy/migrations/007_embedding_attempts.sql": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3",
+      "deploy/opencode-child.mjs": "6c6380eb03775c14c83cb754bdec0463605f31522c81f4dcd605f442f57b2960",
+      "deploy/opencode-evidence.ts": "1054d2114e5448a9e717731f03466ba7d7e1094f10202a6d7e1440687f0b7905",
+      "deploy/opencode-execute.ts": "2109020a613a75b264dc9f7e49a75fb3d4fccab190a59c29ca0490eeeb095822",
+      "deploy/opencode-host-child.mjs": "8aaa9c5e67eec337491e300e07ad0ddfc4f76ba0541d9ca4872061732d57bb74",
+      "deploy/opencode-host.ts": "e200e3d4b89338d0fd7a1f49170253de8155168801c0b7ea8d9a69c9341cacdc",
+      "deploy/opencode-provider-guard.d.mts": "5969163509eb3506b5523f64433d59410a35c224b5422ba78089306a36b065b9",
+      "deploy/opencode-provider-guard.mjs": "71a85c2f5d6dac402b902b61ac6a57beaae7ef7ff7c9d48b3d18ff72145dccbf",
+      "deploy/opencode-run.d.mts": "e0665ea23bdcd86eff8b49dfe3e4de1331cfb51108a925bc8a15692bf3797b58",
+      "deploy/opencode-run.mjs": "1e48dfca218479d7bca1f8decba4e46bd823cbf43886dbb57bb2a87aa97278c2",
+      "deploy/provider-check.ts": "3a23d79822aedfffc3ddad67f8b45c4aaf5a267f9ec4f04fd8803df542d615bc",
+      "deploy/provider-embedding-evaluation.ts": "08556dc2667bff2abeea7527f39de19f7f012b8fe7ba527d8fbde77a728f05f5",
+      "deploy/provider-evaluation-corpus.ts": "5eb8dbbd066d75f87711329ca92f26fb17faffa7495608f4d515dc1bf8a84c92",
+      "deploy/provider-evaluation-rubric.ts": "b021246646e55151b0d98d0285d70d716de98de43e5bf496f6accb37a86aa45f",
+      "deploy/provider-evaluation.ts": "a2b69ffe7ef609db55e3c9a7f64d8de80db91d7a7b79cb7e75a44d8fbcdb79c0",
+      "deploy/provider-probe-rubric.ts": "9861970a1c63045062426f008186c86a7c11d0f8a47a72f2fac9649831c71722",
+      "deploy/recovery-demo.ts": "017fba5c470ee154917cf76e03e8a81a971d3eaab48e8e37262a840a0a0c19ea",
+      "deploy/recovery-status.ts": "52063aeb8b5c5b46dbb6d64a12dad6b1f59578eb9ec8f65830f7f20fc9c48648",
+      "deploy/reindex.ts": "f150d8a730697a6ea42dd882f12ad4ea222e6b3aeeed31364a083b44792f3dba",
+      "deploy/restore.ts": "7a5107a1777d3690cddc8e220513cbaf7ea4ce1e62df6b165df03716b7d09d10",
+      "docs/CLIENTS.md": "91df58c60064db4b345d761c5f9cea502dc2ea2288e14249fa0a408bc2590fe4",
+      "docs/CODEX_CLOUD.md": "a340a750709df89b0a8a5e57465a1e8d7397db29098ae9b1291141944bbc39f0",
+      "docs/DECISIONS.md": "aceec109156823ae84b7155cb54e0f54092a07a784d33b63c6d3c177ae010f73",
+      "docs/DEVELOPMENT_PLAN.md": "311f994c27ff511dc83bb7a7b842c1cb7c531e1c0e28033288fefe6912e7eec0",
+      "docs/DIRECT_PROVIDER_LIFECYCLE.md": "922a933102a877da8b9f532d3b0980fbdd5adf2761861f623b284ff6c0f9f14b",
+      "docs/HANDOFF.md": "05fc07024e64df0fc1bc086314bebd851950c828f268f94bb2913f92406c25c6",
+      "docs/INTEGRATION.md": "c123f1bb6608643ad3af15770aadff745a341da0e8f27aa6aec7d065df5323f0",
+      "docs/MVP_BRIEF.md": "1272081986ca8c112759c54e5c340f157a71ebcae16752fc0894c012cb2f4a79",
+      "docs/OPENCODE_HOST_VALIDATION.md": "c4ab0e2b52a7343250546c49e700222a1bad77782a91199c88e23286d4947642",
+      "docs/PORTABILITY.md": "671a3e989a4bdb5602a15fd27835b0acf3b3cab6b1617eae0352d238ae65179c",
+      "docs/PROVIDER.md": "31979edf08ddc880b9456c0e2023914c9aa33b79def8840655aadb970987401b",
+      "docs/PROVIDER_VERIFICATION.md": "50bd5470fc4fc42cf9fc339670d7e24822a67c17325a1ce7bb96dacea0287a76",
+      "docs/RETRIEVAL.md": "ddbeba1fa3b740c8ced8ef03c3617a2a0e36ab699bb36914bc08503756dccebd",
+      "docs/measurements/capture-profile-desktop.png": "f31f26c00d9fd8bda6cd68a7a2234abaaebf223f7a2d2aca6ab9ec51c6c357e1",
+      "docs/measurements/capture-profile-failed.png": "5d6e56c3875ef4690fe552f46116f6e50c234ab66b492445d22fbf03a20a13a7",
+      "docs/measurements/capture-profile-mobile.png": "aa4261cc7822522346447062f9dc5dab96d5371d5b386959bfde29154fbaa2d8",
+      "docs/measurements/capture-source-mobile.png": "6f6a563b3bd99119e66b664fc199fceeeef468990c2a6ea03be290fc16c92d03",
+      "docs/measurements/capture-ui-qa.json": "4453c7d71f3bdf9af312ff23495b0daf1b7a2410a1b7a40d8580757732caf068",
+      "docs/measurements/client-control-desktop.png": "5cf71aa243b855bd482bed2aae708d87845b7060f37461ebb79fa1dbec160cdb",
+      "docs/measurements/client-control-integration.json": "b8a0462f98b067b4db1a0114f5eec3231c12ce2a0dfb0bafa6e205a5f71918b7",
+      "docs/measurements/client-control-mobile.png": "8d302931fe507211910b95aa218e833e78af920795797f50628e6e747c4ee5de",
+      "docs/measurements/client-control-paused-mobile.png": "927884fc31c3682a8c2b1a867ed21eb537d6f715ca5770ba78016c8f84ce72d7",
+      "docs/measurements/client-control-ui-qa.json": "fc1ed69d15006662191ba0b54172647cdcf915b6e4bdc85927ab08081e6426ac",
+      "docs/measurements/client-control-walkthrough-mobile.png": "436bcc29941671616f9e9b150cbb27525bcc4c54784cc0d1dc18db20ea4375bb",
+      "docs/measurements/codex-host-qa.json": "1b2766b9d4c54355f92f99312f074c9c09666732b105af6597d240ca86426c2d",
+      "docs/measurements/codex-nebius-protocol-check.json": "69f9034a94dd6c848528e7ae6e4036286245a7b67eecfa38570251a02aab19fc",
+      "docs/measurements/embedding-recovery-integration.json": "774517d8f9f3868b226387802a85c33cd658cae4b89bdd44fad3eda882fdef7d",
+      "docs/measurements/forgetting-combined-dismissed-mobile.png": "35c64b1d8f319ecd8c47a3ed83877635166a7589b9d2a566e2ac9ce9348bf7ae",
+      "docs/measurements/forgetting-combined-ui-qa.json": "ad411f43e70106c88317d8e5743b24eb4008e07a5e89d9cf287d179a802cfd37",
+      "docs/measurements/forgetting-integration.json": "c1e523ef0de510678e3c7d2a8561773b4f2c28b8a01cab6e33794024874a19f7",
+      "docs/measurements/forgetting-memory-preview.png": "0984293db9abbeabe8d9d538b7d10ef38bab277b7b17dd99bb760dad819e27e6",
+      "docs/measurements/forgetting-source-mobile.png": "c589cb79b5cac2083167f87be0afcb5b34d3283cad7b6d200dee3f8481423f57",
+      "docs/measurements/forgetting-ui-qa.json": "9a353b2b8072fd486dc7d9b59bf1ae34a0b56dd6916e09bf9e7ba1fc4c310bcb",
+      "docs/measurements/hybrid-ui-qa.json": "43de7c1a5e76b7a3f097f4a70b3b5a2bc8c0b806f36207a1d5e0ab3916182f0f",
+      "docs/measurements/native-harness-failure-checks.json": "4fc7454e4ceb592e3effeeb5e9842eb49b1dd05907303f063b080562838dd2d5",
+      "docs/measurements/nebius-budget-experiment.json": "f96818009a13b40fc1305a59eb01ac17aa59d7a9df32cffad3366becbdc184a9",
+      "docs/measurements/nebius-direct-evaluation.json": "4a239258504e0cbfae39d2cc282a35cbcbe82941e37ea89c7c769dc3d5027b5b",
+      "docs/measurements/nebius-direct-initial.json": "044a2b54d984a378af1cfc505b35dd59ed300bcef8cdb2fd13d390ef89cb0811",
+      "docs/measurements/nebius-direct-native-before-assertion-fixes.json": "d5393c8c52a6594fee4c3372678515292c864689d5ce3d61d69fef1a8c591e0f",
+      "docs/measurements/nebius-direct-native-before-extraction-binding.json": "24a3f3969f46f1387977aa4beaafc5aeb0ec65d04ead0f212744766bc1ef956a",
+      "docs/measurements/nebius-direct-native-before-integrity-fixes.json": "f9ec21ca85a08c3f2a4d93b11bb09ecdf9056c80454d6c792a2b6e779fce15d2",
+      "docs/measurements/nebius-direct-native-before-preload.json": "4bafbb61496249830df25bc3c3bef8a0efd110d5554a04e4db3e190d9973b34c",
+      "docs/measurements/nebius-direct-native-before-vector-binding.json": "62c3d37279b3bc8e98b4613164848fc6e42d24eef5d04b7e65f272e79f11da98",
+      "docs/measurements/nebius-direct-native-initial.json": "3148a98fc55023c85dd7cdc58bd769a2c5c4c0971b829fbf95e16ec913036bd1",
+      "docs/measurements/nebius-direct-native-null-usage-context.json": "2bc946049ff042e315444b601bc5f527e6c8e73c99c8dcf132366afb1e9a5c0c",
+      "docs/measurements/nebius-direct-native-null-usage-failure.json": "a9faeb017e4b0f438a298cec270c2fb52786f9dc4dfc478318ddaec6b4f08947",
+      "docs/measurements/nebius-direct-native.json": "71cddee3278177dd2c3e4ce71f4d81f3c3856c0bdef3e7bc03669f1497fe504e",
+      "docs/measurements/nebius-direct-review-validation.json": "b42331aa851df7ab696dab9551fceb31540b2c408c25a14ce270f1deec7c35ef",
+      "docs/measurements/nebius-direct-rubric-regrade.json": "b232834aa86ebf822a8768199722a13acd22bed623eba99a809c51d78993f2e2",
+      "docs/measurements/nebius-embedding-recording.json": "4ac27079bdc728e0eebdc66fe487fbc34f498c4c9073cbb1c9c317e87c9a886a",
+      "docs/measurements/nebius-evaluation-recording.json": "eb48daf5186e032e40e4516ac37289dea280ef0ee6d3d3c392c33dbb2e99eab6",
+      "docs/measurements/nebius-evaluation.json": "31c7dabdeb2970e8c019271611f3581d7b957f812d6451ca44295b82eb4eb8f9",
+      "docs/measurements/nebius-extraction.json": "58f8c890f5ced4f85b7a54c776124c744c8613bf808e4dbf790fa64ec3367931",
+      "docs/measurements/nebius-literal-effective-corpus.json": "06dc3ef282b194c7c1a5a2507003ecad7c8046f4d867e47ac555123bfc7c3b87",
+      "docs/measurements/nebius-literal-effective-driver.mjs.txt": "f5fde18eaf4c31a7673f0c6f8990e8020b43c5217293c1d5f9c98d70112df965",
+      "docs/measurements/nebius-literal-effective.json": "e7f38a26ae5187c8181448c577ca564e7a399cecae1b796cd2f6d8a096aa2bea",
+      "docs/measurements/nebius-nullable-usage-probe.json": "de230f1b21ad712abbb2b9df4fb43800f0f7d42eb5f6b1ef8aa6d2d67cd6f704",
+      "docs/measurements/nebius-nullable-usage-probe.mjs": "b633dcc513972d9ef1160ffa00bfd77d06e4660c1378ef8261e63e746a58a315",
+      "docs/measurements/nebius-tuned-evaluation.json": "85de909f50206dabc447eeca118dab833a3416581a161e483ca72e102f1255e8",
+      "docs/measurements/nebius-tuned-recording.json": "e3cbbf262f12ac9d77957c87a5fb09d50317b4e73928b3b473b90b9c480cb5e8",
+      "docs/measurements/profile-archive-desktop.png": "bbfae3d41e56981eb58a7f4af734fbb2569ee0605c374efea5a201910967add7",
+      "docs/measurements/profile-archive-mobile.png": "38bd100f76738829fce293d107a45eb3eb28e5ce87aac7607c83518307f66aad",
+      "docs/measurements/profile-combined-archive-desktop.png": "50aac5092fe5af604d4f3075f95749ce5cc9eec0c47cdb366830d69410876f9f",
+      "docs/measurements/profile-combined-archive-mobile.png": "04c5b9e8d114c7b39710bcb3703c50e09ddece2aff8ccd2d005c7b1a25e4cf10",
+      "docs/measurements/profile-combined-detail-mobile.png": "a9665e7b88992d3c68392631f8209a6d4b4e11928876381a636c9c69ca27995d",
+      "docs/measurements/profile-combined-import-desktop.png": "e68a0b9059bce399d6d08e893ceb3e8fbd0229e946b5fd2918cdf30b071520cd",
+      "docs/measurements/profile-combined-import-mobile.png": "90f0738aa59a8be56e5f50db58a5aa530eb47a09a3e569275b61da011c6cf0e3",
+      "docs/measurements/profile-detail-mobile.png": "7bd9f429262bf611d8d5cf8a0b369a78d011bdb68cd508abdfb24229118e50e9",
+      "docs/measurements/profile-evidence.png": "178c8ee39285a59c6af28688000af57bb1bf955867ee2899a8407416321651af",
+      "docs/measurements/profile-import-desktop.png": "cc5bd2ab440cc547f7b7d8512c6f38e01033ec98df6c472ac487583e5d5f77b9",
+      "docs/measurements/profile-import-mobile.png": "b443a0e26b6e9397a103a534e376fcace70025e5be9991e5f69c73402c7babef",
+      "docs/measurements/profile-mobile.png": "2994b590b89d36fbf42a6baf7615fa6e0a33a49864e5f76f04dc02ea16755b29",
+      "docs/measurements/profile-scaling-combined-ui-qa.json": "36ca3a2cab51e1491a21d27009fe6f1a3c42bffa9f30a341f1f0ee349354174d",
+      "docs/measurements/profile-scaling-integration.json": "70f762540349c4e660a33cd9c72ad200c6d7506862fcd074f66093cbf9556748",
+      "docs/measurements/profile-scaling-ui-qa.json": "d9ea6fde909253498c682223a4b7ea2b052efb254c35797354c06c82884cdd30",
+      "docs/measurements/profile.png": "dd488678f5d72b5e4b38f9dc8926b7a9d861040aecce14353b633b941c7a8b6f",
+      "docs/measurements/recovery-integration.json": "59c72b16646a222d74aaea21b37de944ba45c915c295d527c511e83d16fb0042",
+      "docs/measurements/recovery-ledger-desktop.png": "867c49c56adf64d61a2ed6a3a66a56aec3a925ba178fee47dca4714727ea0c39",
+      "docs/measurements/recovery-ledger-mobile.png": "dbbbe547ccf881bc9695d92b85430c6309bd9b5873bc9b5f58f58f7c8d777b39",
+      "docs/measurements/recovery-native-qa.json": "603a1659b1c8098f3e00b5fce7b807fbb64b6e400e093450212dabee4a5c2d1d",
+      "docs/measurements/recovery-ui-qa.json": "c7fed273be2d8afa7d0cc7b67a9b6225e010eb8f389e4d25f6e8b6c882e9db67",
+      "docs/measurements/review-candidate-mobile.png": "365c33749f983cbdf825b76c3c18ebc3f14f0216be398d40f6f28798ba848a67",
+      "docs/measurements/review-confirmed-desktop.png": "dfdb57e433c115256525aeadad4e76448f943c60baa0e2b63ce6cda230a502e3",
+      "docs/measurements/review-dismissed-desktop.png": "61d0ac9dcb46b33f0462d82bf37d68ce974a00043eb09f5df3e20d10bb2bc50a",
+      "docs/measurements/review-edit-mobile.png": "cb42784f261e37f2e866f998740dfbd75ccdf637b56b078c8e7140157d7e424d",
+      "docs/measurements/review-history-desktop.png": "025d573ea2e6022c603fffdc7b157c2a4dc16354916d44e8cb40e33e6785f272",
+      "docs/measurements/review-queue-desktop.png": "c545deef212ff3e1994be87270c7ad956732b72f76abfc3c604c92d5cd388984",
+      "docs/measurements/review-queue-mobile.png": "507ed3f27df276476cd25720a9f9c83118d58041fd846b30565b774c0d7556c3",
+      "docs/measurements/review-ui-qa.json": "f010061e025bf2d6e6d1f4938e83fccab4774d8bcb95c68dd0c3f0d1e768dcc2",
+      "docs/measurements/ui-qa.json": "e8e74bb746eeeba33da19a89782e9bbbb136a97b45431bfc724400b19a153d73",
+      "package.json": "6241766213a69d7888f1b802deac0a4e5eb52aa8b6718bf0d12f5310e6438cbc",
+      "packages/contracts/package.json": "271fbcbdb54262e0e373dd5972237daf880aa2b6a6eccafc88f0f047a92f9030",
+      "packages/contracts/src/index.ts": "b96feb8d1f4039f74138d0fa5d611e2335851375a577cd5f4d2fd02a2f2f14a5",
+      "packages/core/package.json": "97d4c2c1d228093ac627fdae6b42836d0f2bef71798a16059239404785bffc10",
+      "packages/core/src/db.ts": "0c80ebfa97d6645a74a9ddcfd059a0f582c5219a5a645ec0a489a83710f1946d",
+      "packages/core/src/deletion.ts": "3a874e3797be446d87b7f109f3394972b04d87cbbbb1196f6478c8268e388baf",
+      "packages/core/src/embeddings.ts": "afd0eb6e02cfecaddc3bf07ef000b37b3f719bb375a21d50ee898e2a70b5dff6",
+      "packages/core/src/hashing.ts": "383188c2904c8fd60b3213063cf73def5634bd0a26c2c2fdd5d01ff5418412be",
+      "packages/core/src/index.ts": "ddf7d3b55f4d0d979e22f6b771e5375fc6a29369afa0b4e8326247db30328623",
+      "packages/core/src/recovery-gate.ts": "7c20ba903d8bb972feaee69aee9965bb6389240234164b54d82bcd09cebdcdd6",
+      "packages/core/src/recovery.ts": "15fe2a98e9962ed29b529f60236d6349ba089f055f49b9e44105f861844de24b",
+      "packages/providers/package.json": "d2e00a9c23166f6c01e6730ea55820b67c5b509d4221c07b994af273b314ab16",
+      "packages/providers/src/index.ts": "ad649ce8e60a1766722fa28821651c929dd66dda4a8cc95377eb1c16016527e7",
+      "pnpm-lock.yaml": "c02d6c6a5d73620b1b2f4b9618f58505bc42dbe7e076586719d600d5bd7b2889",
+      "pnpm-workspace.yaml": "989aaaa20aff6ab07c5c9fe2a53d3bf927c66aab77eb13e852f14ffb9575b704",
+      "scripts/codex-cloud-setup.sh": "1799bdd9d193620323a074880bfa485adf715605c3befbf28b12e0c3d3c75689",
+      "tests/api-captures.test.ts": "e36e46cd693c6ef412a2bacf77ced75419394b5bbad3e50696f94dbc21d53bd3",
+      "tests/api-client-control.test.ts": "4180c5be3e41bd052b73520b2c2a3d16eb94c1f6c21ab3eb4990d693ad169d57",
+      "tests/api-deletion.test.ts": "1c32e8d5b0b6a460e9d0c5c4a2d3cbb03a8cc6fde6d58093decc709a991e31e4",
+      "tests/api-hybrid.test.ts": "a2e8c90673818d9aa02ae583aa33054570888a5a048b62aa9f605781f7bb38eb",
+      "tests/api-profile-scaling.test.ts": "8157a89231244f543eaf75da2272bd2bf1e48461686ec484b1caf3c51020bd7e",
+      "tests/api-recovery.test.ts": "09bfba5cb488d6fc5b9e99bb4ac36bfd4c7998f660b782546628b794427fba50",
+      "tests/api-review.test.ts": "05535016e88975465ac29b7f7423abe58aff67d956ea62d1470b9e4b71a9a62e",
+      "tests/api.test.ts": "2185a50d210dcc4733bcd6d3273a2f8eaede5a6f165725a5c93915717cdf2dc0",
+      "tests/captures.test.ts": "958218061eec41ebfe66844ec9eda7d4938e190a3f0921309304681aa841349b",
+      "tests/core.test.ts": "d4cb0e922e6daa08d57043049e3a4468d844d160ad702df49e8b88624e817a98",
+      "tests/deletion.test.ts": "541ea704692d8912c4e201e9c783b2d16cecd4a11d7e5a275fa704cb33fb1244",
+      "tests/embedding-recovery.test.ts": "be8582f4e779a342b59a2880599b0b3fd603059576bebf57360aa3c8087da3db",
+      "tests/helpers.ts": "c33162b7da83542c72d79cd8badbb06173c95034b78a4d189cf5033a7d88535a",
+      "tests/hybrid-fixtures.ts": "0c47ea61ef0fd043de5e8ec7fc3944537d790c9b7bda4629796dfdfce6f8946a",
+      "tests/hybrid.test.ts": "2f718e2bc71d7f58455c2471bf9eb43d516a69b75d502ac1d8f255b8aa75b346",
+      "tests/learned-acceptance.test.ts": "2c9e6a893a33f8077cea327e0990c7b864e92606386ece2cfa088b27ceed1118",
+      "tests/learned-extraction-evidence.test.ts": "3421277407d62c46a62aaa81250036eea45089f9b4129eb6cdfe217fa44f76cc",
+      "tests/learned-harness.test.ts": "049cc81f67ccbad927b2579886aa5dbdd1b8693b30d63ef4df4d17abb48a8735",
+      "tests/learned-vector-evidence.test.ts": "4fec520ea0229c360884e4f0044f5dad2ed079b8601a7b1fb710fb636b70f098",
+      "tests/migrations.test.ts": "5accccc751b25f3dbdc5c132611cc75cd76aa8bbaae2567d1b4b7da5f8ab79e2",
+      "tests/opencode-evidence.test.ts": "1e8d8eef553830803f93d2e4611a44ce6197b7455cae83ac9b048b28e60a045d",
+      "tests/opencode-harness.test.ts": "c5520721ca43279a055255051c5abb7dca584a5e4268108f36eb9b04971b9ad8",
+      "tests/opencode-provider-guard.test.ts": "fead036d578b6d5a7a91c4f8665b97eff39ac991c7ee30c22f31afd8d6cbd7a0",
+      "tests/profile-scaling.test.ts": "9851b3aa99c82a500b41c07ac24a763fb3065c2006b30ef60a4ddbb35b945ed5",
+      "tests/provider-evaluation.test.ts": "df34e35300cd4f568fe9bc59b75b6c311ad401b6719acbef5037cbf8d596fd31",
+      "tests/provider-fixture.test.ts": "4e2ae9cfece6eac8b01abfe7fd07fab1d9a19c914fc2241fa9cae2429679f06c",
+      "tests/provider-observer.test.ts": "128ff43f0e442a28febf710cc353fbaaa8ed7ed199a79584244da8d22a7dd49d",
+      "tests/provider-probe.test.ts": "9de840b97fe47c66f9ed26c756a77cd436f635e47466f6f3f73b485591b7fb90",
+      "tests/providers.test.ts": "dad13e28547a6b75fb634fc9d69d4f1605da0062641356df360d526e00d4695d",
+      "tests/recovery-fixtures.ts": "e581fc33b8b5d0d9da9d657aedd03c4f1edf3a85dc58eb40644b52253d98036d",
+      "tests/recovery.test.ts": "1a90322945ed0fb8fc10348879778808dfda03dce15ffbbb0cdeb59e84311f00",
+      "tests/review.test.ts": "3510e618ca1061aea9ba40ed347b87199e19d691ad9cec40bdffff4e2987f076",
+      "tsconfig.json": "c8ece2f0c6753d7976399d1cd40931bdad16f80bdd608b9d4b434334017566be"
+    }
+  },
+  "host_dependencies": {
+    "package_manager": "pnpm@11.25.0",
+    "installation": "private_offline_frozen_copy_ignore_scripts",
+    "lockfile_sha256": "c02d6c6a5d73620b1b2f4b9618f58505bc42dbe7e076586719d600d5bd7b2889",
+    "typescript_loader": "tsx@4.20.6"
+  },
+  "host": {
+    "name": "OpenCode",
+    "version": "1.18.34",
+    "sha256": "9ca0b9953d49997601655e54f846a3efa464f237e47c6f1b04716d0f2e64c4c2"
+  },
+  "database": "fresh in-memory PGlite; native acceptance is a separate checkpoint",
+  "endpoint": "https://api.tokenfactory.nebius.com/v1/",
+  "model": "nvidia/Nemotron-3_5-Lightning",
+  "reasoning_effort": "none",
+  "limits": {
+    "host_phases": 4,
+    "host_requests_per_phase": 4,
+    "application_requests": 2,
+    "maximum_total_chat_requests": 18,
+    "embeddings": 0,
+    "host_output_tokens": 1024,
+    "application_output_tokens": 4096,
+    "host_wall_timeout_seconds": 120
+  },
+  "checks": [
+    "Published OpenCode A chose a source-only MCP capture with two exact independent source events.",
+    "Actual canonical worker extracted both records through direct Nemotron; persisted content matches its final parsed response.",
+    "Independent OpenCode B chose MCP recall and received both canonical learned records.",
+    "Owner HTTP correction and preview-confirmed forgetting are reflected by fresh independent A/B host sessions."
+  ],
+  "hosts": [
+    {
+      "phase": "capture-a",
+      "code": 0,
+      "signal": null,
+      "timed_out": false,
+      "output_valid": true,
+      "closed": true,
+      "group_terminated": true,
+      "session_ids": [
+        "ses_efc4c4866ffefXY5La4BRS0QAs"
+      ],
+      "completed": true,
+      "error_event": false,
+      "tool_events": [
+        {
+          "name": "threadkeeper_context_capture",
+          "status": "completed"
+        }
+      ],
+      "provider": [
+        {
+          "event": "opencode_guard_ready",
+          "provider": "tk-nebius",
+          "config_invocations": 1,
+          "request_limit": 4,
+          "max_output_tokens": 1024
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 1,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 2,
+          "tool_names": [
+            "threadkeeper_context_capture"
+          ],
+          "started_at": "2026-10-03T21:37:53.902Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 1,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 1459,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 2029,
+            "total_tokens": 2236,
+            "completion_tokens": 207,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 2,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 4,
+          "tool_names": [
+            "threadkeeper_context_capture"
+          ],
+          "started_at": "2026-10-03T21:37:55.482Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 2,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 386,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 2410,
+            "total_tokens": 2415,
+            "completion_tokens": 5,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        }
+      ]
+    },
+    {
+      "phase": "recall-b",
+      "code": 0,
+      "signal": null,
+      "timed_out": false,
+      "output_valid": true,
+      "closed": true,
+      "group_terminated": true,
+      "session_ids": [
+        "ses_efc4c0f1dffezea0TA7tirKxkI"
+      ],
+      "completed": true,
+      "error_event": false,
+      "tool_events": [
+        {
+          "name": "threadkeeper_context_search",
+          "status": "completed"
+        },
+        {
+          "name": "threadkeeper_context_search",
+          "status": "completed"
+        }
+      ],
+      "provider": [
+        {
+          "event": "opencode_guard_ready",
+          "provider": "tk-nebius",
+          "config_invocations": 1,
+          "request_limit": 4,
+          "max_output_tokens": 1024
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 1,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 2,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:08.235Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 1,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 609,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 922,
+            "total_tokens": 984,
+            "completion_tokens": 62,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 2,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 4,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:08.931Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 2,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 556,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 1732,
+            "total_tokens": 1794,
+            "completion_tokens": 62,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 3,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 7,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:09.598Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 3,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 1277,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 2714,
+            "total_tokens": 2981,
+            "completion_tokens": 267,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        }
+      ]
+    },
+    {
+      "phase": "fresh-a",
+      "code": 0,
+      "signal": null,
+      "timed_out": false,
+      "output_valid": true,
+      "closed": true,
+      "group_terminated": true,
+      "session_ids": [
+        "ses_efc4bdd22ffeKEXH9N5w3Gbmb7"
+      ],
+      "completed": true,
+      "error_event": false,
+      "tool_events": [
+        {
+          "name": "threadkeeper_context_search",
+          "status": "completed"
+        },
+        {
+          "name": "threadkeeper_context_search",
+          "status": "completed"
+        }
+      ],
+      "provider": [
+        {
+          "event": "opencode_guard_ready",
+          "provider": "tk-nebius",
+          "config_invocations": 1,
+          "request_limit": 4,
+          "max_output_tokens": 1024
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 1,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 2,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:21.159Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 1,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 813,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 921,
+            "total_tokens": 983,
+            "completion_tokens": 62,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 2,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 4,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:22.069Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 2,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 587,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 1358,
+            "total_tokens": 1420,
+            "completion_tokens": 62,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 3,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 7,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:22.719Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 3,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 1202,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 1967,
+            "total_tokens": 2171,
+            "completion_tokens": 204,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        }
+      ]
+    },
+    {
+      "phase": "fresh-b",
+      "code": 0,
+      "signal": null,
+      "timed_out": false,
+      "output_valid": true,
+      "closed": true,
+      "group_terminated": true,
+      "session_ids": [
+        "ses_efc4ba4daffetX1qcUB550wpYW"
+      ],
+      "completed": true,
+      "error_event": false,
+      "tool_events": [
+        {
+          "name": "threadkeeper_context_search",
+          "status": "completed"
+        },
+        {
+          "name": "threadkeeper_context_search",
+          "status": "completed"
+        }
+      ],
+      "provider": [
+        {
+          "event": "opencode_guard_ready",
+          "provider": "tk-nebius",
+          "config_invocations": 1,
+          "request_limit": 4,
+          "max_output_tokens": 1024
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 1,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 2,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:35.870Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 1,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 675,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 921,
+            "total_tokens": 983,
+            "completion_tokens": 62,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 2,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 4,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:36.624Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 2,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 610,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 1358,
+            "total_tokens": 1420,
+            "completion_tokens": 62,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        },
+        {
+          "event": "opencode_provider_request",
+          "ordinal": 3,
+          "sent": true,
+          "requested_model": "nvidia/Nemotron-3_5-Lightning",
+          "reasoning_effort": "none",
+          "max_tokens": 1024,
+          "stream": true,
+          "message_count": 7,
+          "tool_names": [
+            "threadkeeper_context_search"
+          ],
+          "started_at": "2026-10-03T21:38:37.300Z"
+        },
+        {
+          "event": "opencode_provider_result",
+          "ordinal": 3,
+          "sent": true,
+          "outcome": "http_response",
+          "http_status": 200,
+          "elapsed_ms": 1108,
+          "done_seen": true,
+          "usage_status": "reported",
+          "usage": {
+            "prompt_tokens": 1967,
+            "total_tokens": 2187,
+            "completion_tokens": 220,
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "returned_model_matches": true,
+          "stream_status": "complete",
+          "usage_complete": true
+        }
+      ]
+    }
+  ],
+  "mcp": [
+    {
+      "phase": "capture-a",
+      "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+      "rpc_id": 2,
+      "tool": "context_capture",
+      "arguments": {
+        "idempotency_key": "installed-opencode-capture",
+        "project_id": "synthetic-installed-opencode",
+        "subject": "self",
+        "events": [
+          {
+            "id": "direct-deadline",
+            "text": "The Lumen demo deadline is October 20, 2026.",
+            "origin": "user_explicit",
+            "author_role": "user",
+            "occurred_at": "2026-10-03T12:00:00Z"
+          },
+          {
+            "id": "direct-preference",
+            "text": "I prefer short paragraphs when writing project updates.",
+            "origin": "user_explicit",
+            "author_role": "user",
+            "occurred_at": "2026-10-03T12:00:00Z"
+          }
+        ]
+      },
+      "http_status": 200,
+      "result": {
+        "capture_id": "698927ad-a200-44e4-9954-73a95cdee726",
+        "source_ids": [
+          "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+          "9aea1991-0a80-4541-b5bf-12afd88f3908"
+        ],
+        "memory_ids": [],
+        "status": "pending",
+        "job_id": "474cb25a-e31d-4992-bb0c-6b029f1174c8",
+        "snapshot_version": 1
+      }
+    },
+    {
+      "phase": "recall-b",
+      "client_id": "74e62b54-82f0-4115-9cae-3deea3cbe0f9",
+      "rpc_id": 2,
+      "tool": "context_search",
+      "arguments": {
+        "query": "",
+        "project_id": "synthetic-installed-opencode",
+        "status": "active",
+        "limit": 10
+      },
+      "http_status": 200,
+      "result": {
+        "memories": [
+          {
+            "id": "24f201db-690d-4e9f-817d-f7ea90c185f9",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "I prefer short paragraphs when writing project updates.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 1,
+            "authoritative": false,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:37:57.037Z",
+            "extractor": "nvidia/Nemotron-3_5-Lightning",
+            "evidence": [
+              {
+                "quote": "I prefer short paragraphs when writing project updates.",
+                "origin": "user_explicit",
+                "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+                "source_id": "9aea1991-0a80-4541-b5bf-12afd88f3908",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T12:00:00+00:00",
+                "recorded_at": "2026-10-03T21:37:55.375+00:00",
+                "capture_method": "explicit_capture"
+              }
+            ]
+          },
+          {
+            "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "The Lumen demo deadline is October 20, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 1,
+            "authoritative": false,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:37:57.037Z",
+            "extractor": "nvidia/Nemotron-3_5-Lightning",
+            "evidence": [
+              {
+                "quote": "The Lumen demo deadline is October 20, 2026.",
+                "origin": "user_explicit",
+                "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+                "source_id": "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T12:00:00+00:00",
+                "recorded_at": "2026-10-03T21:37:55.375+00:00",
+                "capture_method": "explicit_capture"
+              }
+            ]
+          }
+        ],
+        "snapshot_version": 2,
+        "coverage": {
+          "retrieval": "postgresql_full_text",
+          "semantic_search": "not_requested",
+          "result_limit": 10,
+          "insufficient_context": false
+        }
+      }
+    },
+    {
+      "phase": "recall-b",
+      "client_id": "74e62b54-82f0-4115-9cae-3deea3cbe0f9",
+      "rpc_id": 3,
+      "tool": "context_search",
+      "arguments": {
+        "query": "",
+        "project_id": "synthetic-installed-opencode",
+        "status": "active",
+        "limit": 10
+      },
+      "http_status": 200,
+      "result": {
+        "memories": [
+          {
+            "id": "24f201db-690d-4e9f-817d-f7ea90c185f9",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "I prefer short paragraphs when writing project updates.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 1,
+            "authoritative": false,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:37:57.037Z",
+            "extractor": "nvidia/Nemotron-3_5-Lightning",
+            "evidence": [
+              {
+                "quote": "I prefer short paragraphs when writing project updates.",
+                "origin": "user_explicit",
+                "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+                "source_id": "9aea1991-0a80-4541-b5bf-12afd88f3908",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T12:00:00+00:00",
+                "recorded_at": "2026-10-03T21:37:55.375+00:00",
+                "capture_method": "explicit_capture"
+              }
+            ]
+          },
+          {
+            "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "The Lumen demo deadline is October 20, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 1,
+            "authoritative": false,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:37:57.037Z",
+            "extractor": "nvidia/Nemotron-3_5-Lightning",
+            "evidence": [
+              {
+                "quote": "The Lumen demo deadline is October 20, 2026.",
+                "origin": "user_explicit",
+                "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+                "source_id": "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T12:00:00+00:00",
+                "recorded_at": "2026-10-03T21:37:55.375+00:00",
+                "capture_method": "explicit_capture"
+              }
+            ]
+          }
+        ],
+        "snapshot_version": 2,
+        "coverage": {
+          "retrieval": "postgresql_full_text",
+          "semantic_search": "not_requested",
+          "result_limit": 10,
+          "insufficient_context": false
+        }
+      }
+    },
+    {
+      "phase": "fresh-a",
+      "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+      "rpc_id": 2,
+      "tool": "context_search",
+      "arguments": {
+        "query": "",
+        "project_id": "synthetic-installed-opencode",
+        "status": "active",
+        "limit": 10
+      },
+      "http_status": 200,
+      "result": {
+        "memories": [
+          {
+            "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "The Lumen demo deadline is October 27, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 2,
+            "authoritative": true,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:38:11.060Z",
+            "extractor": null,
+            "evidence": [
+              {
+                "quote": "The Lumen demo deadline is October 27, 2026.",
+                "origin": "user_explicit",
+                "client_id": "profile",
+                "source_id": "d151fd34-cc35-495a-967f-d6ec1a014606",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T21:38:11.06+00:00",
+                "recorded_at": "2026-10-03T21:38:11.06+00:00",
+                "capture_method": "profile_correction"
+              }
+            ]
+          }
+        ],
+        "snapshot_version": 4,
+        "coverage": {
+          "retrieval": "postgresql_full_text",
+          "semantic_search": "not_requested",
+          "result_limit": 10,
+          "insufficient_context": false
+        }
+      }
+    },
+    {
+      "phase": "fresh-a",
+      "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+      "rpc_id": 3,
+      "tool": "context_search",
+      "arguments": {
+        "query": "",
+        "project_id": "synthetic-installed-opencode",
+        "status": "active",
+        "limit": 10
+      },
+      "http_status": 200,
+      "result": {
+        "memories": [
+          {
+            "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "The Lumen demo deadline is October 27, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 2,
+            "authoritative": true,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:38:11.060Z",
+            "extractor": null,
+            "evidence": [
+              {
+                "quote": "The Lumen demo deadline is October 27, 2026.",
+                "origin": "user_explicit",
+                "client_id": "profile",
+                "source_id": "d151fd34-cc35-495a-967f-d6ec1a014606",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T21:38:11.06+00:00",
+                "recorded_at": "2026-10-03T21:38:11.06+00:00",
+                "capture_method": "profile_correction"
+              }
+            ]
+          }
+        ],
+        "snapshot_version": 4,
+        "coverage": {
+          "retrieval": "postgresql_full_text",
+          "semantic_search": "not_requested",
+          "result_limit": 10,
+          "insufficient_context": false
+        }
+      }
+    },
+    {
+      "phase": "fresh-b",
+      "client_id": "74e62b54-82f0-4115-9cae-3deea3cbe0f9",
+      "rpc_id": 2,
+      "tool": "context_search",
+      "arguments": {
+        "query": "",
+        "project_id": "synthetic-installed-opencode",
+        "status": "active",
+        "limit": 10
+      },
+      "http_status": 200,
+      "result": {
+        "memories": [
+          {
+            "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "The Lumen demo deadline is October 27, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 2,
+            "authoritative": true,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:38:11.060Z",
+            "extractor": null,
+            "evidence": [
+              {
+                "quote": "The Lumen demo deadline is October 27, 2026.",
+                "origin": "user_explicit",
+                "client_id": "profile",
+                "source_id": "d151fd34-cc35-495a-967f-d6ec1a014606",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T21:38:11.06+00:00",
+                "recorded_at": "2026-10-03T21:38:11.06+00:00",
+                "capture_method": "profile_correction"
+              }
+            ]
+          }
+        ],
+        "snapshot_version": 4,
+        "coverage": {
+          "retrieval": "postgresql_full_text",
+          "semantic_search": "not_requested",
+          "result_limit": 10,
+          "insufficient_context": false
+        }
+      }
+    },
+    {
+      "phase": "fresh-b",
+      "client_id": "74e62b54-82f0-4115-9cae-3deea3cbe0f9",
+      "rpc_id": 3,
+      "tool": "context_search",
+      "arguments": {
+        "query": "",
+        "project_id": "synthetic-installed-opencode",
+        "status": "active",
+        "limit": 10
+      },
+      "http_status": 200,
+      "result": {
+        "memories": [
+          {
+            "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "The Lumen demo deadline is October 27, 2026.",
+            "kind": "fact",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 2,
+            "authoritative": true,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:38:11.060Z",
+            "extractor": null,
+            "evidence": [
+              {
+                "quote": "The Lumen demo deadline is October 27, 2026.",
+                "origin": "user_explicit",
+                "client_id": "profile",
+                "source_id": "d151fd34-cc35-495a-967f-d6ec1a014606",
+                "author_role": "user",
+                "occurred_at": "2026-10-03T21:38:11.06+00:00",
+                "recorded_at": "2026-10-03T21:38:11.06+00:00",
+                "capture_method": "profile_correction"
+              }
+            ]
+          }
+        ],
+        "snapshot_version": 4,
+        "coverage": {
+          "retrieval": "postgresql_full_text",
+          "semantic_search": "not_requested",
+          "result_limit": 10,
+          "insufficient_context": false
+        }
+      }
+    }
+  ],
+  "mcp_observation_failures": [],
+  "application": {
+    "observations": [
+      {
+        "event": "direct_provider_request",
+        "ordinal": 1,
+        "path": "chat/completions",
+        "method": "POST",
+        "started_at": "2026-10-03T21:37:56.034Z",
+        "sent": true,
+        "requested_model": "nvidia/Nemotron-3_5-Lightning",
+        "request_sha256": "1c1ba1600e56f9fb9b2e543519685beb380dbe6ffd48f7f455c8bcfd9a4aad3e",
+        "http_status": 200,
+        "outcome": "http_response",
+        "response_sha256": "a5695ec9cbe27711ff50195c4776045176ccd6e2f3168f14ae29b94f3c3ee8d8",
+        "extraction_fingerprints": {
+          "canonical_version": "threadkeeper-extraction-v1",
+          "input_sha256": "c450b7c1d0fe1c7058f43f70cda64d398b898440eb5a240642b3365e892ad359",
+          "memory_count": 2,
+          "memories_sha256": "03b41025f67abfb7b4444d8dbc36b04b570152fb1ccb786534ef632e75c7679e"
+        },
+        "returned_model_matches": true,
+        "returned_model": "nvidia/Nemotron-3_5-Lightning",
+        "usage": {
+          "completion_tokens": 149,
+          "prompt_tokens": 1575,
+          "total_tokens": 1724,
+          "completion_tokens_details": {
+            "reasoning_tokens": 0
+          }
+        },
+        "finish_reason": "stop",
+        "usage_status": "reported",
+        "elapsed_ms": 999
+      }
+    ],
+    "summary": {
+      "observed_attempt_count": 1,
+      "direct_request_count": 1,
+      "inference_request_count": 1,
+      "usage_complete": true,
+      "inference_requests_without_usage": 0,
+      "inference_requests_without_complete_usage": 0,
+      "inference_requests_with_invalid_usage": 0,
+      "derived_total_tokens_request_count": 0,
+      "usage": {
+        "completion_tokens": 149,
+        "prompt_tokens": 1575,
+        "total_tokens": 1724,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    }
+  },
+  "flow": {
+    "capture": {
+      "capture_id": "698927ad-a200-44e4-9954-73a95cdee726",
+      "source_ids": [
+        "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+        "9aea1991-0a80-4541-b5bf-12afd88f3908"
+      ],
+      "memory_ids": [],
+      "status": "pending",
+      "job_id": "474cb25a-e31d-4992-bb0c-6b029f1174c8",
+      "snapshot_version": 1
+    },
+    "extraction": {
+      "canonical_version": "threadkeeper-extraction-v1",
+      "input_sha256": "c450b7c1d0fe1c7058f43f70cda64d398b898440eb5a240642b3365e892ad359",
+      "memory_count": 2,
+      "memories_sha256": "03b41025f67abfb7b4444d8dbc36b04b570152fb1ccb786534ef632e75c7679e"
+    },
+    "original_memories": [
+      {
+        "id": "24f201db-690d-4e9f-817d-f7ea90c185f9",
+        "project_id": "synthetic-installed-opencode",
+        "subject": "self",
+        "statement": "I prefer short paragraphs when writing project updates.",
+        "kind": "preference",
+        "origin": "user_explicit",
+        "status": "active",
+        "revision": 1,
+        "authoritative": false,
+        "effective_at": null,
+        "created_at": "2026-10-03T21:37:57.037Z",
+        "updated_at": "2026-10-03T21:37:57.037Z",
+        "extractor": "nvidia/Nemotron-3_5-Lightning",
+        "evidence": [
+          {
+            "quote": "I prefer short paragraphs when writing project updates.",
+            "origin": "user_explicit",
+            "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+            "source_id": "9aea1991-0a80-4541-b5bf-12afd88f3908",
+            "author_role": "user",
+            "occurred_at": "2026-10-03T12:00:00+00:00",
+            "recorded_at": "2026-10-03T21:37:55.375+00:00",
+            "capture_method": "explicit_capture"
+          }
+        ]
+      },
+      {
+        "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+        "project_id": "synthetic-installed-opencode",
+        "subject": "self",
+        "statement": "The Lumen demo deadline is October 20, 2026.",
+        "kind": "fact",
+        "origin": "user_explicit",
+        "status": "active",
+        "revision": 1,
+        "authoritative": false,
+        "effective_at": null,
+        "created_at": "2026-10-03T21:37:57.037Z",
+        "updated_at": "2026-10-03T21:37:57.037Z",
+        "extractor": "nvidia/Nemotron-3_5-Lightning",
+        "evidence": [
+          {
+            "quote": "The Lumen demo deadline is October 20, 2026.",
+            "origin": "user_explicit",
+            "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+            "source_id": "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+            "author_role": "user",
+            "occurred_at": "2026-10-03T12:00:00+00:00",
+            "recorded_at": "2026-10-03T21:37:55.375+00:00",
+            "capture_method": "explicit_capture"
+          }
+        ]
+      }
+    ],
+    "original_sources": [
+      {
+        "id": "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+        "event_id": "direct-deadline",
+        "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+        "project_id": "synthetic-installed-opencode",
+        "subject": "self",
+        "text": "The Lumen demo deadline is October 20, 2026.",
+        "author_role": "user",
+        "origin": "user_explicit",
+        "occurred_at": "2026-10-03T12:00:00.000Z",
+        "recorded_at": "2026-10-03T21:37:55.375Z",
+        "checksum": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
+        "extraction_blocked": false,
+        "capture_method": "explicit_capture"
+      },
+      {
+        "id": "9aea1991-0a80-4541-b5bf-12afd88f3908",
+        "event_id": "direct-preference",
+        "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+        "project_id": "synthetic-installed-opencode",
+        "subject": "self",
+        "text": "I prefer short paragraphs when writing project updates.",
+        "author_role": "user",
+        "origin": "user_explicit",
+        "occurred_at": "2026-10-03T12:00:00.000Z",
+        "recorded_at": "2026-10-03T21:37:55.375Z",
+        "checksum": "62ff7796da575e87e172ba08a89325629486c4fc2bc4a5964a1665a904525a09",
+        "extraction_blocked": false,
+        "capture_method": "explicit_capture"
+      }
+    ],
+    "correction": {
+      "memory": {
+        "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+        "project_id": "synthetic-installed-opencode",
+        "subject": "self",
+        "statement": "The Lumen demo deadline is October 27, 2026.",
+        "kind": "fact",
+        "origin": "user_explicit",
+        "status": "active",
+        "revision": 2,
+        "authoritative": true,
+        "effective_at": null,
+        "created_at": "2026-10-03T21:37:57.037Z",
+        "updated_at": "2026-10-03T21:38:11.060Z",
+        "extractor": null
+      },
+      "sources": [
+        {
+          "id": "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+          "event_id": "direct-deadline",
+          "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+          "project_id": "synthetic-installed-opencode",
+          "subject": "self",
+          "text": "The Lumen demo deadline is October 20, 2026.",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "occurred_at": "2026-10-03T12:00:00.000Z",
+          "recorded_at": "2026-10-03T21:37:55.375Z",
+          "checksum": "0f59cda72f5992ab0336989d3a1015960cd83f2e0c28312d0bee3316e10ea2d9",
+          "extraction_blocked": true,
+          "capture_method": "explicit_capture"
+        },
+        {
+          "id": "d151fd34-cc35-495a-967f-d6ec1a014606",
+          "event_id": "correction:b4e633f3-7e89-4d22-98a0-0529c87e1fe3:2",
+          "client_id": "profile",
+          "project_id": "synthetic-installed-opencode",
+          "subject": "self",
+          "text": "The Lumen demo deadline is October 27, 2026.",
+          "author_role": "user",
+          "origin": "user_explicit",
+          "occurred_at": "2026-10-03T21:38:11.060Z",
+          "recorded_at": "2026-10-03T21:38:11.060Z",
+          "checksum": "8b2e155ace3d2f7555c573fe14bbd5f8f6f2821b8d6f00cea4cf92eecf18775a",
+          "extraction_blocked": true,
+          "capture_method": "profile_correction"
+        }
+      ],
+      "evidence": [
+        {
+          "memory_id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+          "revision": 1,
+          "source_id": "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+          "quote": "The Lumen demo deadline is October 20, 2026."
+        },
+        {
+          "memory_id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+          "revision": 2,
+          "source_id": "d151fd34-cc35-495a-967f-d6ec1a014606",
+          "quote": "The Lumen demo deadline is October 27, 2026."
+        }
+      ],
+      "revisions": [
+        {
+          "memory_id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+          "revision": 1,
+          "statement": "The Lumen demo deadline is October 20, 2026.",
+          "origin": "user_explicit",
+          "status": "superseded",
+          "effective_at": null,
+          "created_at": "2026-10-03T21:37:57.037Z",
+          "editor_client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+          "extractor": "nvidia/Nemotron-3_5-Lightning"
+        },
+        {
+          "memory_id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+          "revision": 2,
+          "statement": "The Lumen demo deadline is October 27, 2026.",
+          "origin": "user_explicit",
+          "status": "active",
+          "effective_at": null,
+          "created_at": "2026-10-03T21:38:11.060Z",
+          "editor_client_id": "profile",
+          "extractor": null
+        }
+      ]
+    },
+    "forgetting": {
+      "preview": {
+        "target": {
+          "kind": "memory",
+          "id": "24f201db-690d-4e9f-817d-f7ea90c185f9"
+        },
+        "expected_revision": 1,
+        "snapshot_version": 3,
+        "preview_hash": "00a92707265ce0382343302ad6852df57ab8aa3c92b995548324da42cbf1b465",
+        "blast_radius": "whole_connected_source_events",
+        "memories": [
+          {
+            "id": "24f201db-690d-4e9f-817d-f7ea90c185f9",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "statement": "I prefer short paragraphs when writing project updates.",
+            "kind": "preference",
+            "origin": "user_explicit",
+            "status": "active",
+            "revision": 1,
+            "authoritative": false,
+            "effective_at": null,
+            "created_at": "2026-10-03T21:37:57.037Z",
+            "updated_at": "2026-10-03T21:37:57.037Z",
+            "extractor": "nvidia/Nemotron-3_5-Lightning"
+          }
+        ],
+        "sources": [
+          {
+            "id": "9aea1991-0a80-4541-b5bf-12afd88f3908",
+            "event_id": "direct-preference",
+            "client_id": "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+            "project_id": "synthetic-installed-opencode",
+            "subject": "self",
+            "text": "I prefer short paragraphs when writing project updates.",
+            "author_role": "user",
+            "origin": "user_explicit",
+            "occurred_at": "2026-10-03T12:00:00.000Z",
+            "recorded_at": "2026-10-03T21:37:55.375Z",
+            "checksum": "62ff7796da575e87e172ba08a89325629486c4fc2bc4a5964a1665a904525a09",
+            "extraction_blocked": false,
+            "capture_method": "explicit_capture"
+          }
+        ],
+        "revision_count": 1,
+        "evidence_count": 1,
+        "jobs": [
+          {
+            "id": "474cb25a-e31d-4992-bb0c-6b029f1174c8",
+            "status": "complete",
+            "source_ids": [
+              "2770c1fc-c027-46b2-baa4-ccdae410bf11",
+              "9aea1991-0a80-4541-b5bf-12afd88f3908"
+            ],
+            "affected_source_ids": [
+              "9aea1991-0a80-4541-b5bf-12afd88f3908"
+            ]
+          }
+        ]
+      },
+      "removed": {
+        "deleted_memory_ids": [
+          "24f201db-690d-4e9f-817d-f7ea90c185f9"
+        ],
+        "deleted_source_ids": [
+          "9aea1991-0a80-4541-b5bf-12afd88f3908"
+        ],
+        "deleted_job_ids": [
+          "474cb25a-e31d-4992-bb0c-6b029f1174c8"
+        ],
+        "deleted_count": 1,
+        "blast_radius": "whole_connected_source_events",
+        "snapshot_version": 4
+      }
+    },
+    "final_memories": [
+      {
+        "id": "b4e633f3-7e89-4d22-98a0-0529c87e1fe3",
+        "project_id": "synthetic-installed-opencode",
+        "subject": "self",
+        "statement": "The Lumen demo deadline is October 27, 2026.",
+        "kind": "fact",
+        "origin": "user_explicit",
+        "status": "active",
+        "revision": 2,
+        "authoritative": true,
+        "effective_at": null,
+        "created_at": "2026-10-03T21:37:57.037Z",
+        "updated_at": "2026-10-03T21:38:11.060Z",
+        "extractor": null,
+        "evidence": [
+          {
+            "quote": "The Lumen demo deadline is October 27, 2026.",
+            "origin": "user_explicit",
+            "client_id": "profile",
+            "source_id": "d151fd34-cc35-495a-967f-d6ec1a014606",
+            "author_role": "user",
+            "occurred_at": "2026-10-03T21:38:11.06+00:00",
+            "recorded_at": "2026-10-03T21:38:11.06+00:00",
+            "capture_method": "profile_correction"
+          }
+        ]
+      }
+    ],
+    "client_ids": [
+      "6a2fe154-25dc-4798-bd2c-fe9cd978a18c",
+      "74e62b54-82f0-4115-9cae-3deea3cbe0f9"
+    ],
+    "fresh_sessions": [
+      {
+        "phase": "capture-a",
+        "session_id": "ses_efc4c4866ffefXY5La4BRS0QAs"
+      },
+      {
+        "phase": "recall-b",
+        "session_id": "ses_efc4c0f1dffezea0TA7tirKxkI"
+      },
+      {
+        "phase": "fresh-a",
+        "session_id": "ses_efc4bdd22ffeKEXH9N5w3Gbmb7"
+      },
+      {
+        "phase": "fresh-b",
+        "session_id": "ses_efc4ba4daffetX1qcUB550wpYW"
+      }
+    ]
+  },
+  "cleanup": {
+    "hosts_closed": true,
+    "private_host_state_removed": true,
+    "api_and_database_closed": true
+  },
+  "limitations": [
+    "Finite synthetic installed-host tool selection and canonical retrieval; does not score host final-answer wording.",
+    "No embeddings, GPU parity, other host-family parity, production deployment or broad extraction accuracy claim.",
+    "Per-process original-fetch budget is instrumentation, not an operating-system network firewall."
+  ]
+}
