@@ -1,5 +1,7 @@
 # Portability and operations
 
+The customer overview of export, import, and forgetting is in [README.md](../README.md). This document is the operator contract.
+
 ## Export v1
 
 The owner profile downloads JSON with `schema_version:"threadkeeper.export.v1"` and:

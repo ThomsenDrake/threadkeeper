@@ -2,113 +2,104 @@
 
 **Switch agents. Keep the thread.**
 
-Threadkeeper is a personal-context service for existing chatbots and coding agents, with an editable profile and MCP as its primary integration. The intended public domain is `threadkeep.si`. A dedicated memory model extracts source-backed records; database code owns authorization, corrections, revisions and deletion. It does not perform the user's general tasks.
+Threadkeeper is a personal memory for the chatbots and coding agents you already use. You keep one profile of what should be remembered. Each client recalls that context when you allow it, and you can see where every memory came from.
 
-This repository is an early MVP hosted privately at [ThomsenDrake/threadkeeper](https://github.com/ThomsenDrake/threadkeeper). It has not been publicly released or deployed. The OSS license is still undecided and must be selected before public release.
+You correct a record yourself. You decide which proposals to keep. You forget what you no longer want stored. Threadkeeper’s job is that shared memory: the profile, the sources, and the connection to the clients you already use.
 
-## What works in the current slice
+The pictures below are a synthetic sample profile. They show the product with example writing preferences, a project called Harbor Notes, and two client credentials.
 
-- Local owner sign-in; revocable client tokens with read/capture permissions and project scopes.
-- MCP capture, live capture-status lookup, recall and source lookup, plus a secondary HTTP/OpenAPI interface.
-- PostgreSQL source records, evidence links, memories, revisions, jobs and non-content deletion tombstones.
-- Explicit captures and a bounded worker extraction adapter. The Nebius default is `nvidia/Nemotron-3_5-Lightning`.
-- Paginated profile browsing/search with loaded/matched counts, subject/project/source/status filters, provenance, revision-checked correction, deletion, client access and counted atomic import/export. Recent captures show current processing outcomes and let the owner retry eligible failed extraction jobs.
-- Credential-free PostgreSQL full-text search with a substring fallback, plus optional hybrid recall through configurable OpenAI-compatible embedding endpoints, including self-hosted servers. See [retrieval setup and limits](docs/RETRIEVAL.md).
+![Sign in to your memory profile](docs/images/sign-in.png)
 
-The central lifecycle has passed through two independent authenticated MCP SDK clients, two installed Codex app-server hosts using explicit tool invocations, and owner HTTP operations: capture a deadline and preference, recall from the other client, correct the deadline, delete the preference, then recall the new state from both. Autonomous model tool selection and installed ChatGPT or other hosts remain unverified. See the [client instructions](docs/CLIENTS.md) and [installed Codex evidence](docs/measurements/codex-host-qa.json).
+## Your memory, on your terms
 
-The real profile UI also passed a synthetic Chromium 153 browser walkthrough against a disposable PGlite-backed API: sign-in, capture, all four filters, provenance, revision-aware correction/deletion, search, scoped client creation and revocation, export/import and sign-out. Desktop, provenance and mobile screenshots were visually reviewed; see [browser evidence](docs/measurements/ui-qa.json). This browser test did not use inference or a deployed service.
+Open the profile and read what is currently remembered. Search it, and narrow it by subject, project, source, or status. Each row shows the kind of memory, its subject and project, and whether you stated it or a client reported it.
 
-Direct application calls to Nebius have verified exact Nemotron model access, JSON-object output, a no-side-effect tool call and source-backed extraction. The latest full synthetic corpus, recorded in [PR #16](https://github.com/ThomsenDrake/threadkeeper/pull/16), scored 8/11: it retained the full effective timestamp but added an unwanted dialogue record, omitted a genuine preference under injection and dropped a date-only start. This run predates the date-only repair extension. A later, separately frozen [PR #17 holdout](https://github.com/ThomsenDrake/threadkeeper/blob/fcce0db46dab1e77dce6ee6da6396eef58e013bd/docs/measurements/nebius-extraction-holdout-v1.json) includes both qualifier guards and scored 5/8, with two admission issues and one kind-metadata mismatch. Provider-visible event IDs exposed case categories, so this v1 run was not fully blinded; it does not rerun the 11-case corpus. Earlier 10/11 and 11/11 samples remain historical, and broader extraction quality remains a release gate. A direct Qwen batch returned nine 256-dimensional vectors and ranked four labelled paraphrase queries correctly. See [provider evidence](docs/PROVIDER_VERIFICATION.md) for failures, token usage and limits.
+![A profile of active memories, with search and filters](docs/images/memories.png)
 
-Native PostgreSQL 17.11/pgvector 0.8.7 and the application containers have also been exercised locally. The credential-free [full-stack integration harness](docs/INTEGRATION.md) uses synthetic provider HTTP responses. The strengthened [direct learned-provider native lifecycle](docs/DIRECT_PROVIDER_LIFECYCLE.md) passed all four acceptance groups at source `28a83b8` with the actual API/worker, Nemotron extraction, source-backed Qwen semantic recall, scoped authorization, owner correction and preview-confirmed forgetting with replay fences, source checksums and binding of both initial vectors and the corrected vector to their observed provider results. Eight direct requests reported 1,832 tokens with complete accounting; [PR #15](https://github.com/ThomsenDrake/threadkeeper/pull/15) records review/merge status. This native source contains neither of PR #16’s literal qualifier guards. Local GPU inference, managed hosting, robust semantic reconciliation and release-quality evaluation remain unverified.
+<img src="docs/images/memories-phone.png" alt="The same profile on a narrow screen" width="390">
 
-## Run local checks
+Open a memory to see the statement, the source text, and the revision history. A correction becomes the current record immediately. The earlier wording stays attached as evidence, so you can see what changed.
 
-Prerequisites: Node.js 24 and pnpm 11.25.0. Initial dependency downloads require network access.
+![A corrected launch date, with the original note and the correction](docs/images/memory-detail.png)
 
-```sh
-pnpm install --frozen-lockfile
-pnpm check
-pnpm demo
-```
+### Review before a guess becomes memory
 
-`pnpm check` runs typechecking, focused tests and the profile build. The test database is PostgreSQL via PGlite in WebAssembly, not a native PostgreSQL deployment. `pnpm demo` runs deterministic full-text and pgvector hybrid walkthroughs with synthetic embeddings, explicit captures and fresh-database export/import. It invokes neither a learned model nor a browser.
+A model can propose a memory from something a client saved. That proposal waits in **Needs review**. It stays out of normal recall until you confirm it, edit it and confirm it, or dismiss it. Confirming writes your own acceptance beside the original proposal. Dismissing keeps the history and leaves the proposal out of normal recall.
 
-With Docker, BuildKit and Compose 2.24.4 or newer, reproduce the full application stack and actual worker/provider HTTP lifecycle:
+![A model inference waiting for confirm, edit, or dismiss](docs/images/needs-review.png)
 
-```sh
-pnpm integration
-```
+### A credential for each client
 
-This uses native PostgreSQL/pgvector, the API serving the built profile, the worker and a deterministic local HTTP fixture. It creates disposable credentials/resources, reports stage failures and cleans up. It validates synthetic integration; real inference and GPU checks remain separate. See [requirements and checks](docs/INTEGRATION.md) and [actual results](docs/HANDOFF.md).
+Create a separate credential for each chatbot or coding agent. Give it recall, and capture only when that client should be allowed to save context. Limit it to the projects you choose. Pause new captures for every client at once, or revoke one credential when you are done with it. The client saves and recalls context when it calls Threadkeeper with material you authorize.
 
-For an immediately runnable, disposable profile demonstration:
+![Capture controls, the connection endpoint, and two client credentials](docs/images/connections.png)
 
-```sh
-pnpm build
-pnpm dev:demo
-```
+### Follow a capture
 
-Open `http://127.0.0.1:3000`. Synthetic demo credentials are `demo@example.invalid` / `threadkeeper-demo-password`. This binds locally, uses a disposable PGlite database and performs no inference. Data disappears when it exits; use the persistent container setup for actual use.
+Captures shows what happened to context after it was saved. A direct memory is saved with its source. Context sent for extraction waits for the worker, and a failure stays visible so you can retry it. The source remains available either way.
 
-## Run the application with containers
+![Saved, pending, and failed captures, with retry](docs/images/captures.png)
 
-Docker and Compose are required. The standard Compose stack has passed a disposable build/startup/profile/sign-in check; `pnpm integration` adds native lifecycle and worker HTTP fixture validation. Configure an operator-managed provider for actual inference.
+### Take it with you
+
+Download a versioned export of your sources, memories, evidence, and corrections. Credentials stay behind. Import that export into another Threadkeeper deployment. A separate deletion ledger lets an operator keep forgotten context out of an older database backup.
+
+![Export, import, and the deletion ledger](docs/images/portability.png)
+
+## Connect a client
+
+1. Sign in and open **Connections**.
+2. Create a credential for one client. Copy the token when it is shown. It is not shown again.
+3. Copy the MCP endpoint and the connection example. The local endpoint looks like `http://127.0.0.1:3000/mcp`.
+4. Put that endpoint and bearer token in the client’s remote MCP settings. The client needs Streamable HTTP and an Authorization header.
+5. Tell the client to recall context that would change an answer, and to save only durable facts, preferences, decisions, and corrections you want kept.
+
+Two clients can share what you have authorized without sharing their transcripts with each other. One can save a deadline and a writing preference. The other can recall both. After you correct the deadline and forget the preference, the next recall follows the profile.
+
+Host-specific setup, including Codex, and the capture and recall tools are in the [client contract](docs/CLIENTS.md).
+
+## Run Threadkeeper
+
+Threadkeeper runs on your own machine. You choose the database, the model endpoint, and the account. There is no required Threadkeeper account.
+
+Docker and Compose 2.24.4 or newer are the straightforward way to run the profile, API, worker, and PostgreSQL together.
 
 ```sh
 cp .env.example .env
 ```
 
-Set `POSTGRES_PASSWORD`, `BOOTSTRAP_EMAIL` and a `BOOTSTRAP_PASSWORD` of at least 12 characters in your private `.env`. Use a URL-safe database password for this Compose configuration. For the hackathon worker, configure `NEBIUS_API_KEY` securely. Do not commit `.env` or paste secrets into chat.
+In your private `.env`, set `POSTGRES_PASSWORD`, `BOOTSTRAP_EMAIL`, and a `BOOTSTRAP_PASSWORD` of at least 12 characters. Use a URL-safe database password for Compose. For the included worker preset, set `NEBIUS_API_KEY` in that same file. Keep `.env` private.
 
 ```sh
 docker compose --env-file .env -f deploy/compose.yaml up --build
 ```
 
-Open `http://localhost:3000` and sign in as the bootstrapped owner. The API serves the built profile and applies checksum-tracked transactional migrations before listening. The worker starts after API/database readiness. PostgreSQL uses a named data volume; ports are published to localhost. Changing the bootstrap settings after an owner exists does not change that owner's password.
+Open `http://localhost:3000` and sign in as the account you configured. The API serves the profile and applies database migrations before it listens. PostgreSQL data stays in a named volume, and the published ports stay on localhost. Changing the bootstrap password later does not change an account that already exists.
 
-For a host-run application against an already available PostgreSQL database, set `DATABASE_URL` in `.env`, then run these in separate terminals:
+Search works without an embedding service. Optional semantic recall, using an embedding endpoint you configure, is described in [retrieval setup](docs/RETRIEVAL.md). Backup, import rules, and restore are in [portability and operations](docs/PORTABILITY.md).
+
+To click through the profile without installing PostgreSQL, build it and start the disposable demo:
 
 ```sh
+pnpm install --frozen-lockfile
 pnpm build
-node --env-file=.env --import tsx apps/api/src/index.ts
-node --env-file=.env --import tsx apps/worker/src/index.ts
+pnpm dev:demo
 ```
 
-With `APP_ORIGIN=http://localhost:3000`, use that exact origin. Host and Origin checks reject mismatches. Public hosting also requires HTTPS and `COOKIE_SECURE=true`; no public hosting has been configured here.
+Open `http://127.0.0.1:3000` and sign in with `demo@example.invalid` / `threadkeeper-demo-password`. That demo uses a temporary local database, performs no model inference, and drops its data when you stop it. Use the Compose setup when you want the profile to keep your data.
 
-## Provider and client checks
+Running the API and worker yourself, against a PostgreSQL database you already have, is covered in the [development guide](docs/DEVELOPMENT.md).
 
-Use operator-managed environment secrets to rerun synthetic provider checks:
+## How a memory is kept
 
-```sh
-node --env-file=.env --import tsx deploy/provider-check.ts
-```
+Every memory points at source text. Your own statement, a client report, an assistant proposal, and a model inference stay labeled. Acceptance is an explicit action in the profile. An edit is authoritative as soon as you save it.
 
-The script records separate checks and skips embeddings unless `EMBEDDING_MODEL` is configured. JSON-schema probing is opt-in via `PROVIDER_CHECK_SCHEMA=true`. Do not silently change the memory model when a check fails. Local compatible inference endpoints need no Nebius credentials; the selected local checkpoint alias must match that server.
+Forgetting shows you the memories, sources, history, and extraction jobs that will be removed. Confirming checks that list again. Removal covers the connected source events and the memories drawn from them, including history. Save separate facts as separate notes when you want to forget one without the others. A copy already delivered to a client, or an export you already downloaded, remains that copy. Threadkeeper can remove it from the current deployment and from future recall.
 
-Create one credential per client in the profile. Connect it to `/mcp` with a bearer token, or use the operations described by `/openapi.json`. See [client instructions](docs/CLIENTS.md). Installing an MCP server does not guarantee that a host captures conversations or recalls memories automatically.
+The worker turns saved source text into proposed memories through an OpenAI-compatible endpoint you configure. The preset model is `nvidia/Nemotron-3_5-Lightning` at `https://api.tokenfactory.nebius.com/v1/`. You can point the same application at a server you run yourself. Proposals still wait for your review.
 
-## Corrections, deletion and portability
+## This repository
 
-Profile edits create user-authored correction evidence and make the current revision authoritative. Owners explicitly confirm, edit-and-confirm or dismiss model candidates in Needs review. Confirmation creates separate user-confirmed evidence; original inference/proposal sources and provider history stay inspectable. Dismissed records remain in history and stay out of default recall. Fresh default retrieval uses active current records. Model output remains bounded and locally validated; source instructions cannot control owner IDs or permissions.
+Threadkeeper is an early private build. The intended public address is `threadkeep.si`. This repository has not been published or deployed there, and the open-source license is still to be chosen. Use synthetic examples in demos and keep private history and credentials out of the project.
 
-Before forgetting a memory or saved source, the profile shows the affected source events, current memories, history counts and extraction jobs. Confirmation rechecks that exact impact, including sibling interpretations and known normalized source copies, so a concurrent change requires a fresh preview. Sources awaiting extraction can also be forgotten.
-
-Deletion removes **whole connected source events and all memories supported by them**, including revision history and intersecting extraction jobs. This is deliberately conservative and can remove sibling memories or identical normalized source copies in other projects. A removed job's other surviving sources are not automatically requeued. Capture independent facts in separate source events for precise deletion. The central demonstration uses separate deadline and preference events.
-
-The versioned export preserves remaining records, evidence and corrections, with non-content tombstones. It excludes accounts, credentials and access grants. An older backup can contain forgotten data. The isolated recovery utility reconciles a newer owner deletion ledger before permitting services to start, revokes restored credentials and resets owner passwords. See [portability and operations](docs/PORTABILITY.md) before restoring a database.
-
-Complete self-hostability with feature parity is a binding release requirement. Model/embedding endpoints are configurable, but packaging alone does not demonstrate GPU compatibility or operation without external control-plane access. Managed deployments may charge for operations and resources, never exclusive application features.
-
-## Continue development
-
-- [Autonomous MVP development and product priorities](docs/DEVELOPMENT_PLAN.md)
-- [Codex Cloud setup](docs/CODEX_CLOUD.md)
-- [Compact MVP brief](docs/MVP_BRIEF.md)
-- [Decisions and blockers](docs/DECISIONS.md)
-- [Provider verification](docs/PROVIDER_VERIFICATION.md)
-- [Local Codex handoff](docs/HANDOFF.md)
-
-No DNS, registrar, Cloudflare or deployment changes were made by this implementation. No remote implementation was available for inspection; the starter was created locally after workspace inspection. Keep real personal history, employer data and credentials out of demos and source control.
+People changing the software should start with the [development guide](docs/DEVELOPMENT.md).

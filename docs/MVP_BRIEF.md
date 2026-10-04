@@ -1,6 +1,6 @@
 # Threadkeeper MVP
 
-Status: private MVP development. All six owner/client development outcomes are implemented and merged at feature-delivery main `31befe4`. External release validation and publication decisions remain open, with actual evidence and next steps in [HANDOFF.md](HANDOFF.md). Product requirements come from Drake's request and the attached Threadkeep development brief.
+Status: private MVP development. All six owner/client development outcomes are implemented and merged at feature-delivery main `31befe4`. External release validation and publication decisions remain open, with actual evidence and next steps in [HANDOFF.md](HANDOFF.md). The customer introduction is [README.md](../README.md). Local commands are in [DEVELOPMENT.md](DEVELOPMENT.md). Product requirements come from Drake's request and the attached Threadkeep development brief.
 
 Threadkeeper owns portable personal context for existing chatbots and coding agents. Its profile is the user's control surface. The domain is `threadkeep.si`; the tagline is “Switch agents. Keep the thread.” A general assistant, task manager, and automatic access to every client's conversations are outside scope.
 
