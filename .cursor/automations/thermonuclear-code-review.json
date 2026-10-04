@@ -1,0 +1,80 @@
+{
+  "name": "Thermonuclear code review",
+  "description": "Runs the thermonuclear-code-review skill when a pull request opens, or when GitHub user ThomsenDrake comments !thermonuke.",
+  "scope": "AUTOMATION_SCOPE_USER",
+  "enabled": true,
+  "creationSource": "AUTOMATION_CREATION_SOURCE_SKILL_MCP",
+  "workflow": {
+    "triggers": [
+      {
+        "git": {
+          "pullRequest": {
+            "repos": [
+              "ThomsenDrake/threadkeeper"
+            ],
+            "ignoreDraftPrs": true,
+            "prAction": "GIT_PULL_REQUEST_ACTION_OPENED"
+          }
+        }
+      },
+      {
+        "git": {
+          "userAllowlist": [
+            "ThomsenDrake"
+          ],
+          "pullRequest": {
+            "repos": [
+              "ThomsenDrake/threadkeeper"
+            ],
+            "prAction": "GIT_PULL_REQUEST_ACTION_COMMENTED",
+            "commenterAllowlist": [
+              "ThomsenDrake"
+            ],
+            "commentContains": "!thermonuke"
+          }
+        }
+      },
+      {
+        "git": {
+          "userAllowlist": [
+            "ThomsenDrake"
+          ],
+          "pullRequestReviewComment": {
+            "repos": [
+              "ThomsenDrake/threadkeeper"
+            ],
+            "commenterAllowlist": [
+              "ThomsenDrake"
+            ],
+            "commentContains": "!thermonuke"
+          }
+        }
+      }
+    ],
+    "actions": [
+      {
+        "prComment": {
+          "allowInlineComments": true,
+          "allowApprove": false
+        }
+      }
+    ],
+    "prompts": [
+      {
+        "prompt": "You are reviewing the pull request that triggered this run. Review only. Do not edit files, open a pull request, push commits, or approve.\n\nRead and follow `.cursor/skills/thermonuclear-code-review/SKILL.md` completely. That file is the thermonuclear-code-review skill. If the path is missing on the pull request branch, read it from the base branch with git show. Apply its rubric, output order, and approval bar to this pull request's diff against the base branch. Read surrounding code before judging a finding. Drop any finding you cannot tie to a changed file and line.\n\nPost the review with the pull request comment tool. Put line-specific findings in inline comments on the diff. Put the approval-bar result in one summary comment, ordered the way the skill requires. If the change meets the approval bar, say that in the summary and do not add cosmetic nits.\n\nDo not include the text !thermonuke anywhere in comments. If this run was started by a comment, review the current pull request head. The comment is only the request to review.\n"
+      }
+    ],
+    "gitConfig": {
+      "repo": "github.com/ThomsenDrake/threadkeeper",
+      "branch": "main"
+    },
+    "memoryEnabled": false,
+    "disabledDefaultTools": [
+      "AUTOMATION_DEFAULT_TOOL_OPEN_GIT_PR"
+    ],
+    "agentOptions": {
+      "environmentPublicId": "76fe3d62-bfbf-11f1-bb68-864e54d14197",
+      "skipInstall": false
+    }
+  }
+}
