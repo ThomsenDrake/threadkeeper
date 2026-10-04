@@ -72,7 +72,7 @@ test('OpenCode preparation strips provider credentials and privately copies a ve
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test('OpenCode child uses archived code and private frozen dependencies without exposing credentials to installation', { timeout: 180_000 }, async () => {
+test('OpenCode child uses archived code and private frozen dependencies without exposing credentials to installation', { timeout: 180_000 }, async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-opencode-import-test-'));
   const root = join(directory, 'repository'), archive = join(directory, 'archive');
   try {
@@ -121,34 +121,38 @@ export async function runOpenCodeLifecycle(options) {
     const output = join(directory, 'result.json');
     await runOpenCodeChild({ root: archive, directory, source, output, binary, host_dependencies: installation.evidence }, installation, signal, environment);
     assert.deepEqual(JSON.parse(await readFile(output, 'utf8')), { value: 'archived-helper', commit: source.commit });
-    // The outer bootstrap owns registered process groups independently of the
-    // executor's normal finally: cover fatal exit and a returned orphan alike.
-    for (const outcome of ['crash', 'orphan', 'cancel', 'closed']) {
-      const executionDirectory = join(directory, outcome); await mkdir(executionDirectory);
-      const executionOutput = join(executionDirectory, `${outcome}.json`);
-      const executionAbort = new AbortController();
-      const operation = runOpenCodeChild({ root: archive, directory: executionDirectory, source, output: executionOutput,
-        binary, host_dependencies: installation.evidence }, installation, executionAbort.signal, environment);
-      if (outcome === 'cancel') {
-        const rejected = assert.rejects(operation, /preparation or validation failed/);
-        for (let attempt = 0; attempt < 100; attempt++) {
-          try { await readFile(executionOutput + '.pid.descendant'); break; } catch { await new Promise(resolveWait => setTimeout(resolveWait, 20)); }
+    await t.test('registered supervisor process groups are cleaned up', {
+      skip: process.platform !== 'linux' && 'Supervisor registration requires Linux /proc',
+    }, async () => {
+      // The outer bootstrap owns registered process groups independently of the
+      // executor's normal finally: cover fatal exit and a returned orphan alike.
+      for (const outcome of ['crash', 'orphan', 'cancel', 'closed']) {
+        const executionDirectory = join(directory, outcome); await mkdir(executionDirectory);
+        const executionOutput = join(executionDirectory, `${outcome}.json`);
+        const executionAbort = new AbortController();
+        const operation = runOpenCodeChild({ root: archive, directory: executionDirectory, source, output: executionOutput,
+          binary, host_dependencies: installation.evidence }, installation, executionAbort.signal, environment);
+        if (outcome === 'cancel') {
+          const rejected = assert.rejects(operation, /preparation or validation failed/);
+          for (let attempt = 0; attempt < 100; attempt++) {
+            try { await readFile(executionOutput + '.pid.descendant'); break; } catch { await new Promise(resolveWait => setTimeout(resolveWait, 20)); }
+          }
+          executionAbort.abort(); await rejected;
+        } else if (outcome === 'crash') await assert.rejects(operation, /preparation or validation failed/);
+        else if (outcome === 'orphan') await assert.rejects(operation, /active host process groups/);
+        else await operation;
+        for (const suffix of ['.pid', '.pid.descendant']) {
+          const pid = Number(await readFile(executionOutput + suffix, 'utf8'));
+          let exited = false;
+          for (let attempt = 0; attempt < 50 && !exited; attempt++) {
+            try { process.kill(pid, 0); exited = /\) Z /.test(await readFile(`/proc/${pid}/stat`, 'utf8')); }
+            catch (error) { exited = ['ESRCH', 'ENOENT'].includes((error as NodeJS.ErrnoException).code ?? ''); }
+            if (!exited) await new Promise(resolveWait => setTimeout(resolveWait, 20));
+          }
+          assert(exited, `Registered ${outcome} host process must not survive outer cleanup`);
         }
-        executionAbort.abort(); await rejected;
-      } else if (outcome === 'crash') await assert.rejects(operation, /preparation or validation failed/);
-      else if (outcome === 'orphan') await assert.rejects(operation, /active host process groups/);
-      else await operation;
-      for (const suffix of ['.pid', '.pid.descendant']) {
-        const pid = Number(await readFile(executionOutput + suffix, 'utf8'));
-        let exited = false;
-        for (let attempt = 0; attempt < 50 && !exited; attempt++) {
-          try { process.kill(pid, 0); exited = /\) Z /.test(await readFile(`/proc/${pid}/stat`, 'utf8')); }
-          catch (error) { exited = ['ESRCH', 'ENOENT'].includes((error as NodeJS.ErrnoException).code ?? ''); }
-          if (!exited) await new Promise(resolveWait => setTimeout(resolveWait, 20));
-        }
-        assert(exited, `Registered ${outcome} host process must not survive outer cleanup`);
       }
-    }
+    });
   } finally {
     for (const outcome of ['crash', 'orphan', 'cancel', 'closed']) {
       try { const pid = Number(await readFile(join(directory, outcome, outcome + '.json.pid'), 'utf8')); process.kill(-pid, 'SIGKILL'); } catch {}

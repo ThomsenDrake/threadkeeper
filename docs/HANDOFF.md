@@ -1,5 +1,11 @@
 # Threadkeeper handoff
 
+## PR #18 macOS test portability repair — 2026-10-04
+
+The supervisor cleanup cases in `tests/opencode-harness.test.ts` now run as an awaited subtest with an explicit non-Linux skip, because registration uses Linux `/proc`. The portable archived-source, private-dependency and credential-isolation assertions still run on macOS; Linux retains all four supervisor outcomes. Runtime code is unchanged.
+
+Typechecking passed, and the three focused OpenCode test files passed **21 tests with one Linux-only subtest skipped** on macOS with Node **24.21.0** / pnpm **11.25.0**. Verification used a populated offline dependency cache, the pinned pnpm executable directly, and a task-local `TMPDIR` without macOS's symlinked temporary path; initial runs stopped during private preparation before reaching the platform cases. Independent local review found no actionable issue. Linux execution, the full suite and live-provider validation were not rerun for this test-only fix.
+
 ## Installed OpenCode learned lifecycle passed — 2026-10-03
 
 [PR #18](https://github.com/ThomsenDrake/threadkeeper/pull/18) (`codex/opencode-learned-host`) is explicitly stacked on PR #16 and now integrates its checked candidate **`144dcbf742c5142684fc1af1fbaa6429f3198fa3`**, via `25ed7b5`. Implementation **`7921e9390002715bfe4ab7719bde2c8e0e0ab5ef`** added the optional source-bound driver without changing the model adapter/prompt or adding OpenCode to normal dependencies. Its ordinary **`pnpm check` passed 188/188 tests, typechecking and build**, followed by both **`pnpm demo`** paths under Node **24.7.0** / pnpm **11.25.0** with the serial test default. Logs remain `/tmp/threadkeeper-direct/opencode-check.log` and `opencode-demo.log`. Independent local review found no remaining actionable issues. These checks retain their implementation checkpoint; they are not attributed to a later integration commit.
