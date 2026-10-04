@@ -282,6 +282,34 @@ function omittedLiteralEffectiveQualifier(memory: ExplicitMemory, source: Source
   return remainder === assertion(memory.statement) ? failure : undefined;
 }
 
+const LITERAL_REPORT = /^([A-Za-z][A-Za-z0-9 -]{0,79}) reports: "([^"\r\n]{1,4000})"\.?$/;
+const REPORT_NAME = /^[A-Z][A-Za-z0-9-]*(?: [A-Z][A-Za-z0-9-]*){0,2}$/;
+const REPORT_ROLE = /^The (?:[A-Za-z][A-Za-z0-9-]* ){1,2}(?:agent|monitor|worker|service|reviewer|tool)$/;
+const AMBIGUOUS_REPORT_NAME = /\b(?:I|you|he|she|it|we|they|this|that|these|those|a|an|the|someone|somebody|anyone|anybody|everyone|everybody|nobody|one|unknown|unnamed|unspecified|agent|monitor|worker|service|reviewer|tool|assistant|user|person|system)\b/i;
+const AMBIGUOUS_REPORT_CLAUSE = /\b(?:and|or|but|plus|then|if|when|unless|until|before|after|except|although|while|because|assuming|maybe|perhaps|possibly|may|would|could|might|should|not|never|no|cannot|without|neither|either|hypothetical|imaginary|fictional|example|allegedly|reports?|reported|says?|said|claims?)\b/i;
+
+function omittedLiteralReportAttribution(memory: ExplicitMemory, source: SourceEvent, origin: ExplicitMemory['origin']): boolean {
+  if (source.author_role !== 'assistant' || source.origin !== 'agent_reported' || origin !== 'agent_reported'
+    || /[\r\n]/.test(source.text)) return false;
+  // Parse the complete source, not just a quote that could hide a disclaimer.
+  // This is a limited ASCII syntactic envelope, not a semantic classifier.
+  const match = LITERAL_REPORT.exec(source.text.trim());
+  if (!match) return false;
+  const [, reporter, inner] = match;
+  const named = REPORT_NAME.test(reporter) && !AMBIGUOUS_REPORT_NAME.test(reporter);
+  const described = REPORT_ROLE.test(reporter)
+    && !AMBIGUOUS_REPORT_NAME.test(reporter.split(' ').slice(1, -1).join(' '));
+  if ((!named && !described) || AMBIGUOUS_REPORT_CLAUSE.test(reporter)) return false;
+  const assertion = (value: string) => value.trim().replace(/\.$/, '').trimEnd();
+  const claim = assertion(inner);
+  if (!/^[A-Za-z0-9 -]+$/.test(claim) || AMBIGUOUS_REPORT_CLAUSE.test(claim)) return false;
+  const quote = memory.quote.trim();
+  // An entire inner quote establishes the same literal assertion even when
+  // the model cropped away its reporter. Arbitrary partial quotes do not.
+  if (quote !== inner.trim() && quote !== source.text.trim()) return false;
+  return assertion(memory.statement) === claim;
+}
+
 function parseExtraction(content: string, input: ExtractionInput): ExplicitMemory[] {
   let object: unknown;
   try { object = JSON.parse(content); } catch { throw new ProviderError('extraction_invalid_json'); }
@@ -319,6 +347,7 @@ function parseExtraction(content: string, input: ExtractionInput): ExplicitMemor
     }
     const missingQualifier = omittedLiteralEffectiveQualifier(memory, source, origin);
     if (missingQualifier) throw new ProviderError(missingQualifier);
+    if (omittedLiteralReportAttribution(memory, source, origin)) throw new ProviderError('extraction_missing_report_attribution');
     return { ...memory, origin };
   });
 }
@@ -391,7 +420,9 @@ export class OpenAICompatibleProvider {
         // repair, keeping compatibility with local servers lacking JSON modes.
         jsonObject = false;
         if (attempt === 0) {
-          messages.push({ role: 'user', content: `The previous attempt was unusable (${lastFailure.code}). Return a complete valid JSON object with exact evidence quotes and only the supplied schema. Double-check the kind enum, original author classification, and exact source_event_id. Preserve distinct assertions as separate memories with their own kinds. If evidence explicitly says an assertion starts at a full timestamp with timezone, copy it exactly into effective_at and include it in the exact quote; otherwise effective_at must be null. A date-only start stays in statement with effective_at null; do not turn it into a timestamp. Keep the full supporting sentence when necessary. A deadline date belongs only in statement; never use it as effective_at. Do not include thinking or explanatory text.` });
+          const reportRepair = lastFailure.code === 'extraction_missing_report_attribution'
+            ? ' Retain the original named reporter in the report statement and include the reporting context in its exact evidence quote. Do not turn the reported assertion into an unattributed statement.' : '';
+          messages.push({ role: 'user', content: `The previous attempt was unusable (${lastFailure.code}).${reportRepair} Return a complete valid JSON object with exact evidence quotes and only the supplied schema. Double-check the kind enum, original author classification, and exact source_event_id. Preserve distinct assertions as separate memories with their own kinds. If evidence explicitly says an assertion starts at a full timestamp with timezone, copy it exactly into effective_at and include it in the exact quote; otherwise effective_at must be null. A date-only start stays in statement with effective_at null; do not turn it into a timestamp. Keep the full supporting sentence when necessary. A deadline date belongs only in statement; never use it as effective_at. Do not include thinking or explanatory text.` });
         }
       }
     }
