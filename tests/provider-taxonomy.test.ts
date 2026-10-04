@@ -14,7 +14,7 @@ const statements = ['The user rides the tram to the user\'s studio on Tuesdays.'
   'I cannot enter my studio before 11:30.', 'My bicycle has a cargo rack.',
   'The deployment agent reports that the Elm migration is in the validation phase.', '', 'I keep a toolbox in the hallway.'];
 function memories(index: number): EvaluationMemory[] {
-  return taxonomyProbe[index].expected.map(expected => ({ statement: statements[index], kind: expected.kind ?? expected.accepted_kinds![0],
+  return taxonomyProbe[index].expected.map(expected => ({ statement: statements[index], kind: expected.kinds[0],
     origin: expected.origin, status: 'active', effective_at: null,
     evidence: [{ event_id: expected.source_event_id, quote: taxonomyProbe[index].events[0].text }] }));
 }
@@ -121,4 +121,14 @@ test('taxonomy setup failures and conflicting selections preserve safe seven-cas
     assert.equal(report.central_lifecycle.status, 'not_measured');
     assert.equal(report.cleanup.status, 'passed');
   }
+});
+
+test('taxonomy dimensions use the rubric criteria and leave count/job mismatches unmeasured', () => {
+  const values = memories(0);
+  const result = outcome(0, values);
+  assert.deepEqual(result.criteria, [[{ content: true, provenance: true, taxonomy: true }]]);
+  assert.deepEqual(outcome(0, []).assessment_dimensions, { content: 'failed', provenance: 'not_measured', taxonomy: 'not_measured' });
+  const incomplete = evaluateTaxonomyOutcome(taxonomyProbe[0], values, { status: 'complete', accepted: 0 });
+  assert(!incomplete.rubric_passed);
+  assert.deepEqual(incomplete.assessment_dimensions, { content: 'not_measured', provenance: 'not_measured', taxonomy: 'not_measured' });
 });

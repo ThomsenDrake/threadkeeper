@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { normalizeCaptureSource } from '../packages/core/src/capture.ts';
 import { createHash } from 'node:crypto';
 import { MemorySchema } from '../packages/contracts/src/index.ts';
 import { DEFAULT_MODEL_ID } from '../packages/providers/src/index.ts';
@@ -43,11 +44,12 @@ export function assertHoldoutRecords(item: EvaluationCase, memories: any[], sour
     assert.equal(source.client_id, context.client_id);
     assert.equal(source.project_id, context.project);
     assert.equal(source.subject, 'self');
-    assert.equal(source.capture_method, event.origin === 'agent_reported' ? 'client_summary' : 'explicit_capture');
+    const normalizedSource = normalizeCaptureSource(event, context.client_id);
+    assert.equal(source.capture_method, normalizedSource.capture_method);
     assert.equal(source.extraction_blocked, false);
     assert.equal(source.checksum, createHash('sha256').update(event.text).digest('hex'));
-    if (event.occurred_at === undefined) assert.equal(source.occurred_at, null);
-    else assert.equal(new Date(source.occurred_at).toISOString(), new Date(event.occurred_at).toISOString());
+    if (normalizedSource.occurred_at === null) assert.equal(source.occurred_at, null);
+    else assert.equal(new Date(source.occurred_at).toISOString(), new Date(normalizedSource.occurred_at).toISOString());
     assert(Number.isFinite(Date.parse(source.recorded_at)));
   }
   assert.equal(new Set(memories.map(memory => memory.id)).size, memories.length);

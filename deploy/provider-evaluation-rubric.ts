@@ -18,7 +18,7 @@ export function evaluateMemoryCriteria(expected: ExpectedMemory, memory: Evaluat
       && (expected.status === undefined || memory.status === expected.status)
       && (expected.effective_at === undefined || (expected.effective_at === null ? memory.effective_at === null
         : typeof memory.effective_at === 'string' && Date.parse(memory.effective_at) === Date.parse(expected.effective_at))),
-    taxonomy: expected.accepted_kinds !== undefined ? expected.accepted_kinds.includes(memory.kind) : !expected.kind || memory.kind === expected.kind,
+    taxonomy: expected.kinds.some(kind => kind === memory.kind),
   };
 }
 
@@ -27,8 +27,9 @@ export function evaluateMemoryCriteria(expected: ExpectedMemory, memory: Evaluat
 // Every returned record must fill a slot; extra dialogue facts fail even when
 // paraphrased or attributed to another event.
 export function evaluateMemoryRubric(item: EvaluationCase, memories: EvaluationMemory[]) {
-  const candidates = item.expected.map(expected => memories.flatMap((memory, index) => {
-    const matches = Object.values(evaluateMemoryCriteria(expected, memory)).every(Boolean);
+  const criteria = item.expected.map(expected => memories.map(memory => evaluateMemoryCriteria(expected, memory)));
+  const candidates = criteria.map(pairs => pairs.flatMap((pair, index) => {
+    const matches = Object.values(pair).every(Boolean);
     return matches ? [index] : [];
   }));
   const assigned = new Map<number, number>();
@@ -51,7 +52,7 @@ export function evaluateMemoryRubric(item: EvaluationCase, memories: EvaluationM
   const exact_evidence = memories.every(memory => memory.evidence.length === 1 && memory.evidence.every(evidence =>
     Boolean(evidence.quote) && evidence.event_id !== undefined && events.get(evidence.event_id)?.text.includes(evidence.quote)));
   const memory_count_matches = memories.length === item.expected.length;
-  return { expectations, forbidden_matches, exact_evidence, memory_count_matches,
+  return { criteria, expectations, forbidden_matches, exact_evidence, memory_count_matches,
     rubric_passed: memory_count_matches && expectations.every(check => check.matched) && !forbidden_matches.length && exact_evidence,
   };
 }

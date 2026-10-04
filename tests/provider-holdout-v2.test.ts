@@ -1,16 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { extractionHoldout, extractionHoldoutManifest, extractionHoldoutSha256 } from '../deploy/provider-extraction-holdout.ts';
 import { extractionHoldoutV2, extractionHoldoutV2Manifest, extractionHoldoutV2Sha256 } from '../deploy/provider-extraction-holdout-v2.ts';
+import { frozenManifestCases } from '../deploy/provider-evaluation-corpus.ts';
 import { DEFAULT_MODEL_BASE_URL, DEFAULT_MODEL_ID } from '../packages/providers/src/index.ts';
 
 test('v2 replaces every provider-visible event identifier without changing frozen v1 semantics', () => {
   assert.equal(extractionHoldoutSha256, '91503716bf7879c49e3763c68d62f1a94c14b7a4896121c84fe628adfe81f49e');
-  assert.equal(createHash('sha256').update(readFileSync(new URL('../deploy/provider-extraction-holdout.ts', import.meta.url))).digest('hex'),
-    'bdd30853b2b1d665759c9d579ddf2c96857baff641771c4c64cab44310ef1dba');
+  assert.equal(extractionHoldoutV2Sha256, '6ca1d0be56b58451ff8ccfe4072338a34eb9efa34b905292529fd70fea7536ae');
   assert.equal(extractionHoldoutV2Manifest.id, 'threadkeeper.extraction-holdout.v2');
   assert.equal(extractionHoldoutV2Manifest.parent_manifest_sha256, extractionHoldoutSha256);
   assert.notEqual(extractionHoldoutV2Sha256, extractionHoldoutSha256);
@@ -29,7 +28,7 @@ test('v2 replaces every provider-visible event identifier without changing froze
   assert.equal(seen.size, 9);
   assert.deepEqual(restored, extractionHoldout);
   const { parent_manifest_sha256: _parent, ...v2 } = extractionHoldoutV2Manifest;
-  assert.deepEqual({ ...v2, id: extractionHoldoutManifest.id, cases: restored }, extractionHoldoutManifest);
+  assert.deepEqual({ ...v2, id: extractionHoldoutManifest.id, cases: frozenManifestCases(restored) }, extractionHoldoutManifest);
 });
 
 const environment = { ...process.env, NODE_OPTIONS: '', NEBIUS_API_KEY: '', MODEL_API_KEY: '',

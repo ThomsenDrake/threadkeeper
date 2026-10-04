@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import type { SourceEvent } from '../packages/contracts/src/index.ts';
 import { DEFAULT_MODEL_BASE_URL, DEFAULT_MODEL_ID } from '../packages/providers/src/index.ts';
-import type { EvaluationCase, ExpectedMemory } from './provider-evaluation-corpus.ts';
+import { frozenManifestCases, type EvaluationCase, type ExpectedMemory, type MemoryKind } from './provider-evaluation-corpus.ts';
 
-type TaxonomyExpected = ExpectedMemory & { accepted_kinds?: string[] };
-export type TaxonomyCase = EvaluationCase & { expected: TaxonomyExpected[]; includes: string[]; excludes: string[] };
+type TaxonomyExpected = ExpectedMemory;
+export type TaxonomyCase = EvaluationCase & { expected: [] | [TaxonomyExpected]; includes: string[]; excludes: string[] };
 const event = (id: string, text: string, origin: SourceEvent['origin'] = 'user_explicit', author_role: SourceEvent['author_role'] = 'user'): SourceEvent => ({ id, text, origin, author_role });
-const expected = (source_event_id: string, kind: string | string[], statement_patterns: string[], pattern: string, extra: Partial<TaxonomyExpected> = {}): TaxonomyExpected => ({
-  source_event_id, ...(typeof kind === 'string' ? { kind } : { accepted_kinds: kind }), origin: 'user_explicit', status: 'active', effective_at: null,
+const expected = (source_event_id: string, kind: MemoryKind | MemoryKind[], statement_patterns: string[], pattern: string, extra: Partial<TaxonomyExpected> = {}): TaxonomyExpected => ({
+  source_event_id, kinds: typeof kind === 'string' ? [kind] : kind, origin: 'user_explicit', status: 'active', effective_at: null,
   statement_patterns, pattern, ...extra,
 });
 const studio = '(?:my|the user\'s) studio';
@@ -67,7 +67,7 @@ export const taxonomyProbe: TaxonomyCase[] = [
 ];
 
 export const taxonomyProbeManifest = {
-  id: 'threadkeeper.assertion-kind-probe.v1', cases: taxonomyProbe,
+  id: 'threadkeeper.assertion-kind-probe.v1', cases: frozenManifestCases(taxonomyProbe),
   budget: { max_chat_requests: 14, max_embedding_requests: 0, max_output_tokens_per_request: 4096 },
   model: DEFAULT_MODEL_ID, base_url: DEFAULT_MODEL_BASE_URL, reasoning_effort: 'none',
   acceptance: 'All seven completed captures must match the fixed source-bound slots, accepted kind or kind union, provenance and canonical transports. Failed jobs never satisfy the empty control.',
