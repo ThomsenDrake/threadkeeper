@@ -1,0 +1,406 @@
+{
+  "recorded_at": "2026-10-04T10:57:19.774Z",
+  "source": {
+    "source_commit": "3bf334915974b7e1286c682336e6d8359f39cc2c",
+    "source_patch_sha256": "5b14d58769b86f9ad4bea4e234e0f924a90425d0af5c3c3a4efdf59aa011a49a",
+    "app_patch_sha256": "fb4863ea9aa11d8436efaba66650d0bc1d23568935093712dfa27a8c47a22d74",
+    "source_sha256": {
+      "apps/api/package.json": "d6d1896a3b00150b76629a31629a708c6169f4c0a232840f89828427d9bec4cc",
+      "apps/api/src/app.ts": "4d777d5c1934c9d5028ba532c40e7306db8480fc46de78b5706485733f1ed8eb",
+      "apps/api/src/auth.ts": "bb5e9648055ee674232bf10f55f489f759f91a29ae9f9bedb716129feca4176b",
+      "apps/api/src/index.ts": "c3bd7f1b6ce176c7f1003cc5b25b999695691705c7530711c75d4581bb3e675d",
+      "apps/web/package.json": "152d3cca3b0ffe37da946bf5030730a9784d582e3268a51569bfaf5191d0862a",
+      "apps/web/src/App.tsx": "c9172ea0503a09200f9eb28b666462c687fadda9c1c581d98a66940944bfaa11",
+      "apps/web/src/main.tsx": "a920ec27028d3f1997c93d79da61fa77c0ff613085a6fb2a8ea2dea92cab28a9",
+      "apps/web/src/styles.css": "c080ad0d11d4c8e2cea7371438ebbee8ac50ff11ecc237a869c3db4fa825f938",
+      "apps/web/tsconfig.json": "9b153ad700c11cf2eb3cdbaf4a8bd4868dc4c37ef41a8724a923e8f49affd251",
+      "apps/web/vite.config.ts": "d10c183344f67b5fed5581dc7a09d228dabfe0a5953dff9e7efafccc8205c890",
+      "deploy/migrations/001_init.sql": "80d055abd9cef0d1922f9e444a167c69d6a8f0a83a498f07bb7f838c9b250679",
+      "deploy/migrations/002_auth.sql": "c3f316468d433a44d68e47e9b803d4d059bd4393135c072e36836a411c8a80ac",
+      "deploy/migrations/003_embeddings.sql": "1ebc91f61fac75915ca44ebaa5d20a3860036bf8bca4edcc351e84d75c53e54e",
+      "deploy/migrations/004_capture_status.sql": "21a6eee014f97f29cd175ee26e28b89fb048f1a0b8a4e3ab42b6419fe909b7af",
+      "deploy/migrations/005_candidate_review.sql": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee",
+      "deploy/migrations/006_client_control.sql": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8",
+      "deploy/migrations/007_embedding_attempts.sql": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3",
+      "deploy/migrations/008_revision_kind.sql": "8f29ad081e3a4243dd346321d05e4125fb491f16202d59b010c3e3196c5378c6",
+      "package.json": "6241766213a69d7888f1b802deac0a4e5eb52aa8b6718bf0d12f5310e6438cbc",
+      "packages/contracts/package.json": "271fbcbdb54262e0e373dd5972237daf880aa2b6a6eccafc88f0f047a92f9030",
+      "packages/contracts/src/index.ts": "9dd41d774f672aa7c2bb3eed47e6209c3ebc8fac08a52594f3c1b1d25487054b",
+      "packages/core/package.json": "97d4c2c1d228093ac627fdae6b42836d0f2bef71798a16059239404785bffc10",
+      "packages/core/src/capture.ts": "8cbdba6ea63619251052a38167fa49119ccdcbe3c10f49dbbac909f95253e518",
+      "packages/core/src/db.ts": "0c80ebfa97d6645a74a9ddcfd059a0f582c5219a5a645ec0a489a83710f1946d",
+      "packages/core/src/deletion.ts": "3a874e3797be446d87b7f109f3394972b04d87cbbbb1196f6478c8268e388baf",
+      "packages/core/src/embeddings.ts": "afd0eb6e02cfecaddc3bf07ef000b37b3f719bb375a21d50ee898e2a70b5dff6",
+      "packages/core/src/hashing.ts": "383188c2904c8fd60b3213063cf73def5634bd0a26c2c2fdd5d01ff5418412be",
+      "packages/core/src/index.ts": "b0f273ea745ae5769b3f26b727f11b88baf66d290aead32a4eb77300ccdc6896",
+      "packages/core/src/recovery-gate.ts": "7c20ba903d8bb972feaee69aee9965bb6389240234164b54d82bcd09cebdcdd6",
+      "packages/core/src/recovery.ts": "15fe2a98e9962ed29b529f60236d6349ba089f055f49b9e44105f861844de24b",
+      "packages/providers/package.json": "d2e00a9c23166f6c01e6730ea55820b67c5b509d4221c07b994af273b314ab16",
+      "packages/providers/src/index.ts": "92ae56fc018245fc5537d11aa019f93a7be9abc895db613f15850726dd1b056b",
+      "pnpm-lock.yaml": "c02d6c6a5d73620b1b2f4b9618f58505bc42dbe7e076586719d600d5bd7b2889",
+      "pnpm-workspace.yaml": "989aaaa20aff6ab07c5c9fe2a53d3bf927c66aab77eb13e852f14ffb9575b704",
+      "tests/helpers.ts": "874d65d08a6d25c55574f41d43562ec5f11e64192f46972768626aa937998d0b",
+      "tsconfig.json": "c8ece2f0c6753d7976399d1cd40931bdad16f80bdd608b9d4b434334017566be"
+    },
+    "build_sha256": {
+      "apps/web/dist/assets/index-BERlufpp.js": "be68a2afabc88b0d2209340a0b244dfefcaf397439f16bbb5827c8a42e7f23da",
+      "apps/web/dist/assets/index-BERlufpp.js.map": "66868742f6c56c4debab813226cdc6b09448277fc6c4e41e2aed0a7c1eed3498",
+      "apps/web/dist/assets/index-CFZYEaN4.css": "6ef0e272acbb1d272609606097014d597f9d02c7f1b0c54731299f6e5efa6f27",
+      "apps/web/dist/index.html": "b83fb02d56d3a3516ce461a60ceeb2bdf454faca82f6aedd0b6bf66f8c628b3a"
+    }
+  },
+  "node": "v24.21.0",
+  "browser": "151.0.7922.173",
+  "timezone": "America/New_York",
+  "application": "production React build served by actual Express API",
+  "database": "disposable PGlite",
+  "provider": "deterministic in-process candidate adapter; no provider calls",
+  "checks": [
+    "Active correction clears an existing date with explicit null, shows Not supplied, and retains the precise original date and evidence in history",
+    "Candidate edit-confirm clears an existing date with explicit null, shows Not supplied, and retains the precise original date and evidence in history",
+    "Active correction omits an untouched date and preserves the exact later DST instant, seconds and milliseconds despite an ambiguous local display",
+    "Candidate edit-confirm omits an untouched date and preserves the exact later DST instant, seconds and milliseconds despite an ambiguous local display",
+    "Active correction in daylight time converts the changed New York local date to the expected UTC instant with milliseconds",
+    "Candidate edit-confirm in standard time converts the changed New York local date to the expected UTC instant with milliseconds",
+    "Ordinary candidate confirmation omits effective_at and retains the exact current and historical date",
+    "Candidate dismissal omits effective_at and retains the exact date and history",
+    "A real concurrent correction yields 409, prefills the precise current local date, and the following untouched save omits effective_at and preserves the new instant",
+    "Fresh authenticated HTTP recall reflects cleared/preserved dates, excludes the dismissed candidate, and no browser errors or external requests occurred"
+  ],
+  "observations": [
+    {
+      "name": "desktop date-clear form",
+      "dimensions": {
+        "viewport": 1440,
+        "document": 1440,
+        "body": 1440
+      }
+    },
+    {
+      "name": "mobile date-clear form",
+      "dimensions": {
+        "viewport": 390,
+        "document": 390,
+        "body": 390
+      }
+    }
+  ],
+  "requests": [
+    {
+      "path": "/api/memories/a12fd42f-c8c8-40f3-82b5-6d4a8836ba7c",
+      "method": "PATCH",
+      "body": {
+        "statement": "Synthetic Alder reviews use short paragraphs.",
+        "kind": "preference",
+        "expected_revision": 1,
+        "effective_at": null
+      }
+    },
+    {
+      "path": "/api/memories/b9021873-d733-4e22-84ca-cb7990a8ac06/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1,
+        "statement": "Synthetic Birch notes may use concise tables.",
+        "kind": "preference",
+        "effective_at": null
+      }
+    },
+    {
+      "path": "/api/memories/8436347b-1db4-41aa-9028-c04c075b092c",
+      "method": "PATCH",
+      "body": {
+        "statement": "Synthetic Cedar reviews use numbered steps.",
+        "kind": "preference",
+        "expected_revision": 1
+      }
+    },
+    {
+      "path": "/api/memories/4458e188-e9b2-49a1-ba40-7628f6f16e61/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1,
+        "statement": "Synthetic Dogwood notes may use brief headings.",
+        "kind": "preference"
+      }
+    },
+    {
+      "path": "/api/memories/29bb836b-7db5-4a5a-ab14-23b12b1d0159",
+      "method": "PATCH",
+      "body": {
+        "statement": "Synthetic Elm updates use bullet lists.",
+        "kind": "preference",
+        "expected_revision": 1,
+        "effective_at": "2026-10-04T13:15:21.125Z"
+      }
+    },
+    {
+      "path": "/api/memories/f6a685c5-e10f-458f-9420-f1d8f35f2b02/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1,
+        "statement": "Synthetic Fern notes may use plain language.",
+        "kind": "preference",
+        "effective_at": "2026-11-07T14:25:43.456Z"
+      }
+    },
+    {
+      "path": "/api/memories/250419dc-dc6a-47dc-b080-5dc1f98a78ef/review",
+      "method": "POST",
+      "body": {
+        "action": "confirm",
+        "expected_revision": 1
+      }
+    },
+    {
+      "path": "/api/memories/abab729c-5a90-4f0b-8ebd-b3f3ea7afaff/review",
+      "method": "POST",
+      "body": {
+        "action": "dismiss",
+        "expected_revision": 1
+      }
+    },
+    {
+      "path": "/api/memories/9065f641-23ac-446b-a79d-7447eebb23d2",
+      "method": "PATCH",
+      "body": {
+        "statement": "Synthetic Iris updates use quarterly summaries.",
+        "kind": "preference",
+        "expected_revision": 1,
+        "effective_at": "2026-11-11T15:45:00.000Z"
+      }
+    },
+    {
+      "path": "/api/memories/9065f641-23ac-446b-a79d-7447eebb23d2",
+      "method": "PATCH",
+      "body": {
+        "statement": "Synthetic Iris updates use quarterly summaries.",
+        "kind": "preference",
+        "expected_revision": 2
+      }
+    }
+  ],
+  "records": [
+    {
+      "id": "a12fd42f-c8c8-40f3-82b5-6d4a8836ba7c",
+      "current_effective_at": null,
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": null
+        }
+      ],
+      "status": "active"
+    },
+    {
+      "id": "b9021873-d733-4e22-84ca-cb7990a8ac06",
+      "current_effective_at": null,
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": null
+        }
+      ],
+      "status": "active"
+    },
+    {
+      "id": "8436347b-1db4-41aa-9028-c04c075b092c",
+      "current_effective_at": "2027-11-07T06:30:56.789Z",
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2027-11-07T06:30:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": "2027-11-07T06:30:56.789Z"
+        }
+      ],
+      "status": "active"
+    },
+    {
+      "id": "4458e188-e9b2-49a1-ba40-7628f6f16e61",
+      "current_effective_at": "2027-11-07T06:30:56.789Z",
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2027-11-07T06:30:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": "2027-11-07T06:30:56.789Z"
+        }
+      ],
+      "status": "active"
+    },
+    {
+      "id": "29bb836b-7db5-4a5a-ab14-23b12b1d0159",
+      "current_effective_at": "2026-10-04T13:15:21.125Z",
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": "2026-10-04T13:15:21.125Z"
+        }
+      ],
+      "status": "active"
+    },
+    {
+      "id": "f6a685c5-e10f-458f-9420-f1d8f35f2b02",
+      "current_effective_at": "2026-11-07T14:25:43.456Z",
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": "2026-11-07T14:25:43.456Z"
+        }
+      ],
+      "status": "active"
+    },
+    {
+      "id": "250419dc-dc6a-47dc-b080-5dc1f98a78ef",
+      "current_effective_at": "2026-10-03T12:34:56.789Z",
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        }
+      ],
+      "status": "active"
+    },
+    {
+      "id": "abab729c-5a90-4f0b-8ebd-b3f3ea7afaff",
+      "current_effective_at": "2026-10-03T12:34:56.789Z",
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        }
+      ],
+      "status": "dismissed"
+    },
+    {
+      "id": "9065f641-23ac-446b-a79d-7447eebb23d2",
+      "current_effective_at": "2026-11-12T18:22:41.456Z",
+      "revision_dates": [
+        {
+          "revision": 1,
+          "effective_at": "2026-10-03T12:34:56.789Z"
+        },
+        {
+          "revision": 2,
+          "effective_at": "2026-11-12T18:22:41.456Z"
+        },
+        {
+          "revision": 3,
+          "effective_at": "2026-11-12T18:22:41.456Z"
+        }
+      ],
+      "status": "active"
+    }
+  ],
+  "runtime_exceptions": [],
+  "external_requests": [],
+  "screenshots": [
+    "date-cleared-desktop.png",
+    "date-clear-mobile.png",
+    "date-precise-desktop.png"
+  ],
+  "production_asset": "/assets/index-BERlufpp.js",
+  "ambiguous_time_control": {
+    "stored_later_instant": "2027-11-07T06:30:56.789Z",
+    "displayed_local_time": "2027-11-07T01:30:56.789",
+    "reparsed_earlier_instant": "2027-11-07T05:30:56.789Z"
+  },
+  "source_after": {
+    "source_commit": "3bf334915974b7e1286c682336e6d8359f39cc2c",
+    "source_patch_sha256": "5b14d58769b86f9ad4bea4e234e0f924a90425d0af5c3c3a4efdf59aa011a49a",
+    "app_patch_sha256": "fb4863ea9aa11d8436efaba66650d0bc1d23568935093712dfa27a8c47a22d74",
+    "source_sha256": {
+      "apps/api/package.json": "d6d1896a3b00150b76629a31629a708c6169f4c0a232840f89828427d9bec4cc",
+      "apps/api/src/app.ts": "4d777d5c1934c9d5028ba532c40e7306db8480fc46de78b5706485733f1ed8eb",
+      "apps/api/src/auth.ts": "bb5e9648055ee674232bf10f55f489f759f91a29ae9f9bedb716129feca4176b",
+      "apps/api/src/index.ts": "c3bd7f1b6ce176c7f1003cc5b25b999695691705c7530711c75d4581bb3e675d",
+      "apps/web/package.json": "152d3cca3b0ffe37da946bf5030730a9784d582e3268a51569bfaf5191d0862a",
+      "apps/web/src/App.tsx": "c9172ea0503a09200f9eb28b666462c687fadda9c1c581d98a66940944bfaa11",
+      "apps/web/src/main.tsx": "a920ec27028d3f1997c93d79da61fa77c0ff613085a6fb2a8ea2dea92cab28a9",
+      "apps/web/src/styles.css": "c080ad0d11d4c8e2cea7371438ebbee8ac50ff11ecc237a869c3db4fa825f938",
+      "apps/web/tsconfig.json": "9b153ad700c11cf2eb3cdbaf4a8bd4868dc4c37ef41a8724a923e8f49affd251",
+      "apps/web/vite.config.ts": "d10c183344f67b5fed5581dc7a09d228dabfe0a5953dff9e7efafccc8205c890",
+      "deploy/migrations/001_init.sql": "80d055abd9cef0d1922f9e444a167c69d6a8f0a83a498f07bb7f838c9b250679",
+      "deploy/migrations/002_auth.sql": "c3f316468d433a44d68e47e9b803d4d059bd4393135c072e36836a411c8a80ac",
+      "deploy/migrations/003_embeddings.sql": "1ebc91f61fac75915ca44ebaa5d20a3860036bf8bca4edcc351e84d75c53e54e",
+      "deploy/migrations/004_capture_status.sql": "21a6eee014f97f29cd175ee26e28b89fb048f1a0b8a4e3ab42b6419fe909b7af",
+      "deploy/migrations/005_candidate_review.sql": "a1f397c04e8f0fcac020e0bf8b4d40c4a32a66946f3cc02251d49f5489e3b0ee",
+      "deploy/migrations/006_client_control.sql": "6a021d026b93b1ee33f9698e560c634c05b804c0f7cdc9f0ac8f0b7ada4624d8",
+      "deploy/migrations/007_embedding_attempts.sql": "9775203c19512b5c7189ca3a2f1dbcbd69474d8f7dc976c177b00acb1562d9a3",
+      "deploy/migrations/008_revision_kind.sql": "8f29ad081e3a4243dd346321d05e4125fb491f16202d59b010c3e3196c5378c6",
+      "package.json": "6241766213a69d7888f1b802deac0a4e5eb52aa8b6718bf0d12f5310e6438cbc",
+      "packages/contracts/package.json": "271fbcbdb54262e0e373dd5972237daf880aa2b6a6eccafc88f0f047a92f9030",
+      "packages/contracts/src/index.ts": "9dd41d774f672aa7c2bb3eed47e6209c3ebc8fac08a52594f3c1b1d25487054b",
+      "packages/core/package.json": "97d4c2c1d228093ac627fdae6b42836d0f2bef71798a16059239404785bffc10",
+      "packages/core/src/capture.ts": "8cbdba6ea63619251052a38167fa49119ccdcbe3c10f49dbbac909f95253e518",
+      "packages/core/src/db.ts": "0c80ebfa97d6645a74a9ddcfd059a0f582c5219a5a645ec0a489a83710f1946d",
+      "packages/core/src/deletion.ts": "3a874e3797be446d87b7f109f3394972b04d87cbbbb1196f6478c8268e388baf",
+      "packages/core/src/embeddings.ts": "afd0eb6e02cfecaddc3bf07ef000b37b3f719bb375a21d50ee898e2a70b5dff6",
+      "packages/core/src/hashing.ts": "383188c2904c8fd60b3213063cf73def5634bd0a26c2c2fdd5d01ff5418412be",
+      "packages/core/src/index.ts": "b0f273ea745ae5769b3f26b727f11b88baf66d290aead32a4eb77300ccdc6896",
+      "packages/core/src/recovery-gate.ts": "7c20ba903d8bb972feaee69aee9965bb6389240234164b54d82bcd09cebdcdd6",
+      "packages/core/src/recovery.ts": "15fe2a98e9962ed29b529f60236d6349ba089f055f49b9e44105f861844de24b",
+      "packages/providers/package.json": "d2e00a9c23166f6c01e6730ea55820b67c5b509d4221c07b994af273b314ab16",
+      "packages/providers/src/index.ts": "92ae56fc018245fc5537d11aa019f93a7be9abc895db613f15850726dd1b056b",
+      "pnpm-lock.yaml": "c02d6c6a5d73620b1b2f4b9618f58505bc42dbe7e076586719d600d5bd7b2889",
+      "pnpm-workspace.yaml": "989aaaa20aff6ab07c5c9fe2a53d3bf927c66aab77eb13e852f14ffb9575b704",
+      "tests/helpers.ts": "874d65d08a6d25c55574f41d43562ec5f11e64192f46972768626aa937998d0b",
+      "tsconfig.json": "c8ece2f0c6753d7976399d1cd40931bdad16f80bdd608b9d4b434334017566be"
+    },
+    "build_sha256": {
+      "apps/web/dist/assets/index-BERlufpp.js": "be68a2afabc88b0d2209340a0b244dfefcaf397439f16bbb5827c8a42e7f23da",
+      "apps/web/dist/assets/index-BERlufpp.js.map": "66868742f6c56c4debab813226cdc6b09448277fc6c4e41e2aed0a7c1eed3498",
+      "apps/web/dist/assets/index-CFZYEaN4.css": "6ef0e272acbb1d272609606097014d597f9d02c7f1b0c54731299f6e5efa6f27",
+      "apps/web/dist/index.html": "b83fb02d56d3a3516ce461a60ceeb2bdf454faca82f6aedd0b6bf66f8c628b3a"
+    }
+  },
+  "script_sha256": "24eab85a4c5256477c6df2b435030f0098ec601c104ec6fd14126afb16c0e0c2",
+  "fixture_sha256": "3b437d1575cfd44534f36ac6e49be2da4db9889c6e952c936d68b1a64f50a4eb",
+  "source_helper_sha256": "576dd90ab06073b959c55722f78141a868499aa6197c479328522ddad591e41f",
+  "finished_at": "2026-10-04T10:57:27.096Z",
+  "cleanup": {
+    "browser_closed": true,
+    "local_api_and_pglite_closed": true,
+    "fixture_exit_code": 0,
+    "local_port_38118_closed": true
+  },
+  "visual_review": "All three screenshots inspected. The desktop current record shows Effective: Not supplied after clearing. The mobile edit-confirm form shows the blank date field and usable controls without horizontal clipping. The desktop precise form visibly preserves seconds and milliseconds in the prefilling. Historical timestamps were verified against actual API revision records, not inferred from screenshots.",
+  "limitations": [
+    "The measured source was main 3bf334915974b7e1286c682336e6d8359f39cc2c plus the recorded relevant patch, not a clean immutable commit. Relevant runtime/source and built-asset hashes matched before and after execution.",
+    "Uses synthetic records and a deterministic in-process candidate adapter with disposable PGlite. No live model, embedding endpoint, native database, MCP host or GPU was exercised.",
+    "Browser requests to external origins were blocked and none were observed. Hosted inference keys were removed from the fixture and browser process environments.",
+    "The revision conflict came from a real concurrent owner HTTP correction. Browser mutation payloads, DOM values, and canonical API current/history fields were checked."
+  ]
+}
