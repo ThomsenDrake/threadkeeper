@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { normalizeCaptureSource } from './capture.ts';
 import { hash, canonical, normalize, sourceIdentity, sourceContent, memoryContent } from './hashing.ts';
 import { connectedDeletionRecords, applyDeletionRecords } from './deletion.ts';
 import { z } from 'zod';
@@ -160,19 +161,19 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       const sources = new Map<string, any>();
       for (const event of input.events) {
         if (['profile_correction', 'profile_confirmation'].includes(event.capture_method ?? '') || (event.capture_method === 'profile_entry' && auth.clientId !== 'profile')) throw new DomainError(400, 'invalid_capture_method');
-        const captureMethod = auth.clientId === 'profile' ? 'profile_entry' : event.origin === 'agent_reported' ? 'client_summary' : event.capture_method ?? 'explicit_capture';
+        const normalizedSource = normalizeCaptureSource(event, auth.clientId);
         if (await tombstoned(tx, auth.ownerId, 'source_identity', sourceIdentity(auth.clientId, event.id))
           || await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(event.text))) throw new DomainError(410, 'deleted_source', 'This source was deleted and cannot be replayed.');
         const checksum = hash(event.text);
         const old = await tx.query('SELECT * FROM tk_sources WHERE owner_id=$1 AND client_id=$2 AND event_id=$3', [auth.ownerId, auth.clientId, event.id]);
         if (old.rows[0]) {
           const row = old.rows[0];
-          if (row.checksum !== checksum || row.author_role !== event.author_role || row.origin !== event.origin || row.capture_method !== captureMethod || row.project_id !== input.project_id || row.subject !== input.subject || date(row.occurred_at) !== date(event.occurred_at)) throw new DomainError(409, 'event_conflict', 'A stable event ID cannot be reused with changed content or scope.');
+          if (row.checksum !== checksum || row.author_role !== event.author_role || row.origin !== event.origin || row.capture_method !== normalizedSource.capture_method || row.project_id !== input.project_id || row.subject !== input.subject || date(row.occurred_at) !== date(normalizedSource.occurred_at)) throw new DomainError(409, 'event_conflict', 'A stable event ID cannot be reused with changed content or scope.');
           sources.set(event.id, row);
           continue;
         }
         const source = (await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,capture_method)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, [uuid(), auth.ownerId, auth.clientId, event.id, input.project_id, input.subject, event.text, event.author_role, event.origin, event.occurred_at ?? null, checksum, captureMethod])).rows[0];
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`, [uuid(), auth.ownerId, auth.clientId, event.id, input.project_id, input.subject, event.text, event.author_role, event.origin, normalizedSource.occurred_at, checksum, normalizedSource.capture_method])).rows[0];
         sources.set(event.id, source);
       }
       const memoryIds: string[] = [];

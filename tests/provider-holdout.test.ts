@@ -20,7 +20,7 @@ const faithful = [
 ];
 function memories(index: number): EvaluationMemory[] {
   const item = extractionHoldout[index];
-  return item.expected.map(expected => ({ statement: faithful[index], kind: expected.kind!, origin: expected.origin, status: expected.status,
+  return item.expected.map(expected => ({ statement: faithful[index], kind: expected.kinds[0], origin: expected.origin, status: expected.status,
     effective_at: expected.effective_at ?? null, evidence: [{ event_id: expected.source_event_id, quote: item.events.find(event => event.id === expected.source_event_id)!.text }],
   }));
 }

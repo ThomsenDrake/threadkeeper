@@ -1,14 +1,14 @@
 import { createHash } from 'node:crypto';
 import type { SourceEvent } from '../packages/contracts/src/index.ts';
 import { DEFAULT_MODEL_BASE_URL, DEFAULT_MODEL_ID, type ProviderConfig } from '../packages/providers/src/index.ts';
-import type { EvaluationCase, ExpectedMemory } from './provider-evaluation-corpus.ts';
+import { frozenManifestCases, type EvaluationCase, type ExpectedMemory, type MemoryKind } from './provider-evaluation-corpus.ts';
 
 export type HoldoutCase = EvaluationCase & { includes: string[]; excludes: string[]; requirement: string };
 const event = (id: string, text: string, origin: SourceEvent['origin'] = 'user_explicit', author_role: SourceEvent['author_role'] = 'user'): SourceEvent => ({
   id, text, origin, author_role, occurred_at: '2026-10-03T12:00:00Z',
 });
-const expected = (source_event_id: string, kind: string, statement_patterns: string[], pattern: string, extra: Partial<ExpectedMemory> = {}): ExpectedMemory => ({
-  source_event_id, kind, origin: 'user_explicit', status: 'active', effective_at: null, statement_patterns, pattern, ...extra,
+const expected = (source_event_id: string, kind: MemoryKind, statement_patterns: string[], pattern: string, extra: Partial<ExpectedMemory> = {}): ExpectedMemory => ({
+  source_event_id, kinds: [kind], origin: 'user_explicit', status: 'active', effective_at: null, statement_patterns, pattern, ...extra,
 });
 const prefer = '(?:I prefer|The user prefers)';
 const august19 = '(?:19 August,? 2033|August 19,? 2033|2033-08-19)';
@@ -81,7 +81,7 @@ export const extractionHoldout: HoldoutCase[] = [
 ];
 
 export const extractionHoldoutManifest = {
-  id: 'threadkeeper.extraction-holdout.v1', cases: extractionHoldout,
+  id: 'threadkeeper.extraction-holdout.v1', cases: frozenManifestCases(extractionHoldout),
   budget: { max_chat_requests: 16, max_embedding_requests: 0, max_output_tokens_per_request: 4096 },
   model: DEFAULT_MODEL_ID, base_url: DEFAULT_MODEL_BASE_URL, reasoning_effort: 'none',
   acceptance: 'All eight completed jobs must satisfy every frozen source-bound slot and transport comparison. Every admitted record must fill one slot; H8 must be a completed empty extraction. Any failure remains in the report.',

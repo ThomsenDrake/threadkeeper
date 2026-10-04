@@ -8,21 +8,15 @@ import { createApp } from '../apps/api/src/app.ts';
 import { bootstrap } from '../apps/api/src/auth.ts';
 import { createTestDatabase } from '../tests/helpers.ts';
 import { OpenAICompatibleProvider, providerConfigFromEnv, DEFAULT_MODEL_ID } from '../packages/providers/src/index.ts';
-import { evaluationCorpus, type EvaluationCase } from './provider-evaluation-corpus.ts';
-import { evaluateMemoryRubric } from './provider-evaluation-rubric.ts';
-import { extractionHoldout, extractionHoldoutManifest, extractionHoldoutSha256, assertHoldoutConfig, type HoldoutCase } from './provider-extraction-holdout.ts';
-import { extractionHoldoutV2, extractionHoldoutV2Manifest, extractionHoldoutV2Sha256 } from './provider-extraction-holdout-v2.ts';
-import { assertHoldoutRecords, evaluateHoldoutOutcome, holdoutRequestLimits, assessHoldoutObservations } from './provider-holdout-checks.ts';
+import type { EvaluationCase } from './provider-evaluation-corpus.ts';
+import { selectEvaluationProbe } from './provider-evaluation-probe.ts';
+import { assertHoldoutConfig } from './provider-extraction-holdout.ts';
+import { assertHoldoutRecords, holdoutRequestLimits, assessHoldoutObservations } from './provider-holdout-checks.ts';
 
 type RecordedAttempt = { request: any; response?: any; error?: { code: string; status?: number }; elapsed_ms?: number };
 type Recording = { schema_version: string; cases: Array<{ id: string; attempts: RecordedAttempt[] }> };
-const legacyHoldout = process.argv.includes('--holdout-v1');
-const holdout = process.argv.includes('--holdout') || legacyHoldout;
-const args = process.argv.slice(2).filter(value => !['--holdout', '--holdout-v1'].includes(value));
+const { probe, args, validateSelection } = selectEvaluationProbe(process.argv.slice(2));
 const mode = args[0] ?? '--live';
-const corpus = holdout ? legacyHoldout ? extractionHoldout : extractionHoldoutV2 : evaluationCorpus;
-const holdoutManifest = legacyHoldout ? extractionHoldoutManifest : extractionHoldoutV2Manifest;
-const holdoutSha256 = legacyHoldout ? extractionHoldoutSha256 : extractionHoldoutV2Sha256;
 let recording: Recording | undefined;
 const output: Array<Record<string, any>> = [];
 const requests: Recording['cases'] = [];
@@ -33,12 +27,12 @@ let mismatch = false;
 let currentProgress: Record<string, any> | undefined;
 let deferredReport: Record<string, any> | undefined;
 let sourceCommit: string | undefined;
-const holdoutMetadata = () => holdout ? {
-  holdout: { manifest: holdoutManifest, manifest_sha256: holdoutSha256, source_commit: sourceCommit ?? null },
-  manual_review: { status: 'required', instruction: holdoutManifest.manual_review },
+const probeMetadata = () => probe.bounded ? {
+  [probe.metadataKey]: { manifest: probe.manifest, manifest_sha256: probe.manifestSha256, source_commit: sourceCommit ?? null },
+  manual_review: { status: 'required', instruction: probe.manifest.manual_review },
 } : {};
 function report(value: Record<string, any>) {
-  if (holdout) deferredReport = value;
+  if (probe.bounded) deferredReport = value;
   else console.info(JSON.stringify(value, null, 2));
 }
 
@@ -65,17 +59,16 @@ let appServer: Server | undefined;
 const clients: Client[] = [];
 let observer: ReturnType<typeof installDirectProviderObserver> | undefined;
 try {
-assert(!(legacyHoldout && process.argv.includes('--holdout')), 'Choose one holdout version');
-assert(!legacyHoldout || ['--requests', '--replay'].includes(mode), 'Legacy holdout supports offline requests/replay only');
+validateSelection(mode);
 assert(['--live', '--requests', '--replay'].includes(mode) && args.length === (mode === '--replay' ? 2 : args.length === 0 ? 0 : 1), 'Invalid evaluation arguments');
 recording = mode === '--replay' ? JSON.parse(await readFile(args[1], 'utf8')) : undefined;
 if (recording) {
   assert.equal(recording.schema_version, 'threadkeeper.provider-evaluation-recording.v1');
-  assert.deepEqual(recording.cases.map(item => item.id), corpus.map(item => item.id));
-  if (holdout) assert.equal((recording as any).holdout?.manifest_sha256, holdoutSha256);
+  assert.deepEqual(recording.cases.map(item => item.id), probe.cases.map(item => item.id));
+  if (probe.bounded) assert.equal((recording as any)[probe.metadataKey]?.manifest_sha256, probe.manifestSha256);
 }
 const config = providerConfigFromEnv();
-if (holdout) {
+if (probe.bounded) {
   // Local request generation/replay uses the same explicit measured settings.
   // Live mode must opt in via the environment rather than silently override it.
   if (mode !== '--live') config.reasoningEffort = 'none';
@@ -83,8 +76,8 @@ if (holdout) {
   if (mode === '--live') {
     const cwd = new URL('..', import.meta.url);
     sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
-    assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd, encoding: 'utf8' }).trim(), '', 'Freeze and commit the holdout before live inference');
-    assert(config.apiKey, 'Holdout requires configured provider credentials');
+    assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd, encoding: 'utf8' }).trim(), '', 'Freeze and commit the probe before live inference');
+    assert(config.apiKey, 'Probe requires configured provider credentials');
   }
 }
 if (mode !== '--live') {
@@ -130,8 +123,8 @@ if (mode !== '--live') {
   config.maxOutputTokens = 4096;
 }
 const provider = new OpenAICompatibleProvider(config);
-if (mode === '--live') observer = installDirectProviderObserver(holdout ? {
-  baseUrls: [config.baseUrl], models: [config.modelId], limits: holdoutRequestLimits,
+if (mode === '--live') observer = installDirectProviderObserver(probe.bounded ? {
+  baseUrls: [config.baseUrl], models: [config.modelId], limits: { ...holdoutRequestLimits, 'chat/completions': probe.manifest.budget.max_chat_requests },
 } : { ...providerObservationConfigFromEnv(), baseUrls: [config.baseUrl], models: [config.modelId] });
 const database = databaseResource = await createTestDatabase();
   await bootstrap(database.db, 'provider-evaluation@example.invalid', 'synthetic-provider-password-123');
@@ -164,14 +157,14 @@ const database = databaseResource = await createTestDatabase();
     assert.equal(result.isError, undefined);
     return (result.structuredContent as any).memories as any[];
   }
-  for (const [index, item] of corpus.entries()) {
+  for (const [index, item] of probe.cases.entries()) {
     currentCase = item; attempts = []; replayOffset = 0;
     const start = performance.now();
     const attemptStart = observer?.records.length ?? 0;
     currentProgress = { id: item.id, status: 'attempted', phase: 'capture', rubric_passed: false, attempt_start: attemptStart };
     // Assessment category names stay out of the provider's runtime context.
     // Preserve the historical corpus context for comparable old recordings.
-    const project = holdout ? `project-${String(index + 1).padStart(2, '0')}` : `synthetic-evaluation-${item.id}`;
+    const project = probe.bounded ? `project-${String(index + 1).padStart(2, '0')}` : `synthetic-evaluation-${item.id}`;
     const captured = await a.callTool({ name: 'context_capture', arguments: { idempotency_key: `synthetic-evaluation-${item.id}`, project_id: project, subject: 'self', events: item.events } });
     assert.equal(captured.isError, undefined);
     const receipt = captured.structuredContent as any;
@@ -187,14 +180,14 @@ const database = databaseResource = await createTestDatabase();
     const active = await recall(b, project);
     const candidates = await recall(b, project, 'candidate');
     const canonical = [...active, ...candidates];
-    if (holdout) currentProgress.canonical_memories = canonical;
+    if (probe.bounded) currentProgress.canonical_memories = canonical;
     const first = [...await recall(a, project), ...await recall(a, project, 'candidate')];
     const independentHttp = [
       ...(await http(`/api/context/search?project_id=${encodeURIComponent(project)}&limit=100`, { token: reader.token })).data.memories,
       ...(await http(`/api/context/search?project_id=${encodeURIComponent(project)}&limit=100&status=candidate`, { token: reader.token })).data.memories,
     ];
     currentProgress.phase = 'transport_comparison';
-    if (holdout) currentProgress.transport_records = { reader_mcp: canonical, writer_mcp: first, http: independentHttp };
+    if (probe.bounded) currentProgress.transport_records = { reader_mcp: canonical, writer_mcp: first, http: independentHttp };
     assert(active.every(memory => !['assistant_proposed', 'inferred'].includes(memory.origin)), 'Unconfirmed candidates must not enter default recall');
     const records = (memories: any[]) => memories.map(memory => ({
       ...memory,
@@ -202,21 +195,21 @@ const database = databaseResource = await createTestDatabase();
     })).sort((a, b) => a.id.localeCompare(b.id));
     assert.deepEqual(records(first), records(canonical));
     assert.deepEqual(records(independentHttp), records(canonical));
-    const sourceRows = holdout
+    const sourceRows = probe.bounded
       ? (await database.db.query('SELECT * FROM tk_sources WHERE project_id=$1', [project])).rows
       : (await database.db.query('SELECT id,event_id,text FROM tk_sources WHERE id=ANY($1::text[])', [canonical.flatMap(memory => memory.evidence.map((evidence: any) => evidence.source_id))])).rows;
-    if (holdout) {
+    if (probe.bounded) {
       currentProgress.phase = 'source_provenance';
       currentProgress.source_events = sourceRows.map(({ owner_id: _owner, ...source }) => source);
-      assertHoldoutRecords(item as HoldoutCase, canonical, sourceRows, { project, client_id: writer.client.id });
+      assertHoldoutRecords(item, canonical, sourceRows, { project, client_id: writer.client.id });
     }
     const sourceById = new Map(sourceRows.map(source => [source.id, source]));
     const memories = canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status,
       effective_at: memory.effective_at, evidence: memory.evidence.map((evidence: any) => ({ event_id: sourceById.get(evidence.source_id)?.event_id, quote: evidence.quote })),
     }));
-    const rubric = holdout ? evaluateHoldoutOutcome(item as HoldoutCase, memories, job) : evaluateMemoryRubric(item, memories);
+    const rubric = probe.score(index, memories, job);
     output.push({ id: item.id, job_status: job.status, accepted: job.accepted,
-      ...(holdout ? { status: 'measured', canonical_memories: canonical, source_events: currentProgress.source_events } : {}),
+      ...(probe.bounded ? { status: 'measured', canonical_memories: canonical, source_events: currentProgress.source_events } : {}),
       ...('error_code' in job ? { error_code: job.error_code } : {}),
       ...(observer ? { provider_attempts: observer.records.slice(attemptStart) } : {}),
       usage: 'usage' in job ? job.usage : undefined, ...rubric,
@@ -226,8 +219,8 @@ const database = databaseResource = await createTestDatabase();
     });
     currentProgress = undefined;
   }
-  const lifecycle: Record<string, any> = holdout ? { status: 'not_measured', reason: 'extraction_holdout_only' } : { status: 'skipped', reason: 'central_records_missing' };
-  if (!holdout) {
+  const lifecycle: Record<string, any> = probe.bounded ? { status: 'not_measured', reason: probe.lifecycleReason } : { status: 'skipped', reason: 'central_records_missing' };
+  if (!probe.bounded) {
   const memories = await recall(b, 'synthetic-evaluation-direct');
   const deadline = memories.find(memory => /October 20|2026-10-20|20 October/i.test(memory.statement));
   const preference = memories.find(memory => /short paragraphs/i.test(memory.statement));
@@ -243,39 +236,39 @@ const database = databaseResource = await createTestDatabase();
     delete lifecycle.reason;
   }
   }
-  const observationEvidence = holdout && observer ? assessHoldoutObservations(output, observer.records) : undefined;
-  report(mode === '--requests' ? { schema_version: 'threadkeeper.provider-evaluation-recording.v1', ...holdoutMetadata(), cases: requests } : {
+  const observationEvidence = probe.bounded && observer ? assessHoldoutObservations(output, observer.records, probe.cases.length) : undefined;
+  report(mode === '--requests' ? { schema_version: 'threadkeeper.provider-evaluation-recording.v1', ...probeMetadata(), cases: requests } : {
     schema_version: 'threadkeeper.provider-evaluation.v1', measured_at: new Date().toISOString(), model: provider.config.modelId,
-    transport: mode === '--replay' ? holdout ? 'recorded_responses_over_local_http_adapter' : 'recorded_learned_executor_responses_over_local_http_adapter' : 'direct_operator_http_provider',
+    transport: mode === '--replay' ? probe.bounded ? 'recorded_responses_over_local_http_adapter' : 'recorded_learned_executor_responses_over_local_http_adapter' : 'direct_operator_http_provider',
     database: database.backend, cases: output, central_lifecycle: lifecycle,
-    ...holdoutMetadata(),
+    ...probeMetadata(),
     ...(observationEvidence ? { observation_evidence: observationEvidence } : {}),
     reasoning_effort: provider.config.reasoningEffort ?? null,
     ...(observer ? { provider_accounting: summarizeProviderObservations(observer.records), observation_errors: observer.errors,
       provider_timing: 'Each attempt measures direct fetch through complete response-body observation; case times also include capture/admission/recall.' } : {}),
     limits: ['Small fixed synthetic corpus; rubric matching is not a broad semantic quality estimate.', 'Replay timing measures local admission/recall; original inference latency belongs to the recording.', 'Independent SDK transports are not installed chatbot hosts.', 'No GPU, native container, deployment, or provider credential export.'],
   });
-  if (mode !== '--requests' && (observer?.errors.length || output.some(item => !item.rubric_passed) || observationEvidence?.status === 'incomplete' || (!holdout && lifecycle.status !== 'passed'))) process.exitCode = 1;
+  if (mode !== '--requests' && (observer?.errors.length || output.some(item => !item.rubric_passed) || observationEvidence?.status === 'incomplete' || (!probe.bounded && lifecycle.status !== 'passed'))) process.exitCode = 1;
 } catch (error) {
   // Preserve usage and completed rubrics even if an application/lifecycle
   // assertion aborts the run. Do not serialize raw errors or provider bodies.
-  if (holdout && currentProgress) {
+  if (probe.bounded && currentProgress) {
     const { attempt_start, ...progress } = currentProgress;
     output.push({ ...progress, status: 'failed', reason: 'evaluation_assertion_failed',
       ...(observer ? { provider_attempts: observer.records.slice(attempt_start) } : {}) });
   }
-  if (holdout) for (const item of corpus) if (!output.some(value => value.id === item.id)) output.push({ id: item.id, status: 'not_attempted', rubric_passed: false });
-  if (mode === '--live' || holdout) report({
+  if (probe.bounded) for (const item of probe.cases) if (!output.some(value => value.id === item.id)) output.push({ id: item.id, status: 'not_attempted', rubric_passed: false });
+  if (mode === '--live' || probe.bounded) report({
     schema_version: 'threadkeeper.provider-evaluation.v1', measured_at: new Date().toISOString(),
     transport: mode === '--live' ? 'direct_operator_http_provider' : 'local_http_fixture', status: 'failed', reason: 'evaluation_aborted',
-    ...holdoutMetadata(),
-    ...(holdout && mode === '--live' ? { observation_evidence: assessHoldoutObservations(output, observer?.records ?? []),
+    ...probeMetadata(),
+    ...(probe.bounded && mode === '--live' ? { observation_evidence: assessHoldoutObservations(output, observer?.records ?? [], probe.cases.length),
       provider_accounting: summarizeProviderObservations(observer?.records ?? []) } : {}),
-    cases: output, central_lifecycle: holdout ? { status: 'not_measured', reason: 'extraction_holdout_only' } : { status: 'incomplete' },
+    cases: output, central_lifecycle: probe.bounded ? { status: 'not_measured', reason: probe.lifecycleReason } : { status: 'incomplete' },
     ...(observer ? { provider_accounting: summarizeProviderObservations(observer.records),
       provider_attempts: observer.records, observation_errors: observer.errors } : {}),
   });
-  if (!holdout) throw error;
+  if (!probe.bounded) throw error;
   process.exitCode = 1;
 } finally {
   observer?.restore();
@@ -289,13 +282,13 @@ const database = databaseResource = await createTestDatabase();
     ...(databaseResource ? [databaseResource.close()] : []),
   ]);
   const cleanupFailed = cleanup.some(result => result.status === 'rejected');
-  if (holdout && deferredReport) {
+  if (probe.bounded && deferredReport) {
     if (cleanupFailed) Object.assign(deferredReport, { status: 'failed', reason: 'provider_evaluation_cleanup_failed' });
     deferredReport.cleanup = { status: cleanupFailed ? 'failed' : 'passed' };
     console.info(JSON.stringify(deferredReport, null, 2));
   }
   if (cleanupFailed) {
-    if (holdout) process.exitCode = 1;
+    if (probe.bounded) process.exitCode = 1;
     else throw new Error('provider_evaluation_cleanup_failed');
   }
 }
