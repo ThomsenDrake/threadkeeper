@@ -1,5 +1,7 @@
 # Optional hybrid recall
 
+The customer introduction summarizes search in [README.md](../README.md). This document is the operator setup for optional semantic recall.
+
 Without `EMBEDDING_MODEL`, search uses PostgreSQL full-text matching plus the existing substring fallback. Capture, correction, deletion, browsing, export/import and the synthetic checks require no provider credentials. Empty queries browse canonical records and make no embedding request.
 
 ## Configure and rebuild

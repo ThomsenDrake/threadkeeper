@@ -1,6 +1,6 @@
 # Autonomous MVP development
 
-The user's standing direction is to develop the full Threadkeeper application autonomously, including merging the session's own PRs after the GitHub `@codex review` loop. A broad request to continue development means implementing the remaining MVP, choosing the next useful feature, and continuing across reviewable increments. A narrower explicit request still controls its task. [AGENTS.md](../AGENTS.md) defines execution and merge conditions; [MVP_BRIEF.md](MVP_BRIEF.md) defines the product.
+The user's standing direction is to develop the full Threadkeeper application autonomously, including merging the session's own PRs after the GitHub `@codex review` loop. A broad request to continue development means implementing the remaining MVP, choosing the next useful feature, and continuing across reviewable increments. A narrower explicit request still controls its task. [AGENTS.md](../AGENTS.md) defines execution and merge conditions; [MVP_BRIEF.md](MVP_BRIEF.md) defines the product. [README.md](../README.md) is the customer introduction. Local commands and the repository status snapshot are in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Start from evidence
 
@@ -56,4 +56,4 @@ Self-merging permission does not authorize deployment, DNS changes, paid resourc
 
 ## Short kickoff for a future task
 
-> Continue autonomous Threadkeeper MVP development from the latest main branch. Follow AGENTS.md and docs/DEVELOPMENT_PLAN.md, inspect the current delivery snapshot in docs/HANDOFF.md and open PRs, and continue the next unblocked implementation or release-validation outcome. Reuse the six implemented flows. Run the GitHub @codex review loop for changes, merge your own qualifying PRs, and preserve the existing deployment, DNS, spending and publication boundaries.
+> Continue autonomous Threadkeeper MVP development from the latest main branch. Follow AGENTS.md, docs/DEVELOPMENT.md and docs/DEVELOPMENT_PLAN.md, inspect the current delivery snapshot in docs/HANDOFF.md and open PRs, and continue the next unblocked implementation or release-validation outcome. Reuse the six implemented flows. Run the GitHub @codex review loop for changes, merge your own qualifying PRs, and preserve the existing deployment, DNS, spending and publication boundaries. README.md stays the customer introduction.

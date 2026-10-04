@@ -1,6 +1,6 @@
 # Threadkeeper development
 
-Read README.md, docs/MVP_BRIEF.md, docs/DECISIONS.md and docs/HANDOFF.md before architectural changes. Product responsibility is personal context for existing clients through MCP. Do not add a general assistant or task manager.
+Read docs/DEVELOPMENT.md before architectural changes. It points to the product contract in docs/MVP_BRIEF.md, docs/DECISIONS.md and docs/HANDOFF.md. README.md is the customer-facing introduction. Keep agent status, scores, and local-check recipes out of it. Product responsibility is personal context for existing clients through MCP. Do not add a general assistant or task manager.
 
 ## Autonomous product development
 

@@ -1,5 +1,7 @@
 # Threadkeeper handoff
 
+[README.md](../README.md) is the customer-facing product introduction. Agent orientation, local commands, and the compact status snapshot are in [DEVELOPMENT.md](DEVELOPMENT.md). This file remains the evidence log.
+
 ## Native measurement branch reconciliation — 2026-10-04
 
 Reconciled `codex/direct-native-measurement` at **`cebfb172ce73f26c4611f31169cb8615b9057c91`** against fetched main **`784d2750287817bf593f1b7420f2f0d9769fda20`**. GitHub reported no open PRs before changes, and the sole local worktree used `work`, not the measurement branch. The reconciliation starts fresh from that main on `codex/reconcile-direct-native-checkpoint`. Earlier pending-PR statements below retain their historical checkpoint scope; PRs #15–#21 are now incorporated in main.

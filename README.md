@@ -2,115 +2,141 @@
 
 **Switch agents. Keep the thread.**
 
-Threadkeeper is a personal-context service for existing chatbots and coding agents, with an editable profile and MCP as its primary integration. The intended public domain is `threadkeep.si`. A dedicated memory model extracts source-backed records; database code owns authorization, corrections, revisions and deletion. It does not perform the user's general tasks.
+Threadkeeper is one personal memory shared by the chatbots and coding agents you already use. Tell one assistant about your project deadline or how you like things written, and the next assistant can recall it, without you repeating yourself and without the two ever seeing each other's conversations.
 
-This repository is an early MVP hosted privately at [ThomsenDrake/threadkeeper](https://github.com/ThomsenDrake/threadkeeper). It has not been publicly released or deployed. The OSS license is still undecided and must be selected before public release.
+You stay in charge of that memory. You can read everything that is remembered, see where each item came from, fix anything that is wrong, and forget anything you no longer want kept. Nothing an assistant guesses about you becomes memory until you approve it.
 
-## What works in the current slice
+> **Early preview.** Threadkeeper is in private development and runs on your own computer or server. It is not yet published or available as a hosted service, and its open-source license has not been chosen yet.
 
-- Local owner sign-in; revocable client tokens with read/capture permissions and project scopes.
-- MCP capture, live capture-status lookup, recall and source lookup, plus a secondary HTTP/OpenAPI interface.
-- PostgreSQL source records, evidence links, memories, revisions, jobs and non-content deletion tombstones.
-- Explicit captures and a bounded worker extraction adapter. The Nebius default is `nvidia/Nemotron-3_5-Lightning`.
-- Paginated profile browsing/search with loaded/matched counts, subject/project/source/status filters, provenance, revision-checked correction, deletion, client access and counted atomic import/export. Recent captures show current processing outcomes and let the owner retry eligible failed extraction jobs.
-- Credential-free PostgreSQL full-text search with a substring fallback, plus optional hybrid recall through configurable OpenAI-compatible embedding endpoints, including self-hosted servers. See [retrieval setup and limits](docs/RETRIEVAL.md).
+![Your memory profile, with search and filters](docs/images/memories.png)
 
-Owners can also correct a memory’s kind or edit it while confirming a candidate. Each revision retains its own classification; history keeps the original provider attribution alongside the separate owner-authored revisions. Current exports use v2; legacy v1 imports remain supported. See [portability and upgrade compatibility](docs/PORTABILITY.md).
+<sub>Screenshots use an example profile with made-up data: a writer named Maya, her project Harbor Notes, and two connected assistants.</sub>
 
-The central lifecycle has passed through independent MCP SDK clients and installed Codex hosts using explicit tool invocations. A separate [published OpenCode 1.18.34 run](docs/OPENCODE_HOST_VALIDATION.md) passed model-selected capture and recall under explicit prompts: capture two source events, extract through direct Nebius, recall from a separate client, correct the deadline and forget the preference, then recall only the corrected record from two fresh host sessions. This used the canonical worker in process on PGlite, full-text recall, 12 direct chats and zero embeddings; it does not establish unprompted capture or final-answer quality. Codex model turns and installed ChatGPT/Claude hosts remain unverified. See [client instructions](docs/CLIENTS.md) and [raw OpenCode evidence](docs/measurements/opencode-learned-host.json).
+## What you can do
 
-The real profile UI also passed a synthetic Chromium 153 browser walkthrough against a disposable PGlite-backed API: sign-in, capture, all four filters, provenance, revision-aware correction/deletion, search, scoped client creation and revocation, export/import and sign-out. Desktop, provenance and mobile screenshots were visually reviewed; see [browser evidence](docs/measurements/ui-qa.json). This browser test did not use inference or a deployed service.
+### See everything that is remembered
 
-Direct application calls to Nebius have verified exact Nemotron model access, JSON-object output, a no-side-effect tool call and source-backed extraction. A separate fresh [seven-control taxonomy probe](docs/ASSERTION_KIND_PROBE.md) scored **4/7** after generic kind clarification: a faithful limit was mislabeled, a fact was omitted and a report lost explicit attribution framing. No template-only false negatives were found or causal improvement established. The earlier [eight-case v2 observation](docs/EXTRACTION_HOLDOUT.md) scored **3/8** under its frozen rubrics: dialogue content and a quoted command were wrongly admitted, one job failed, and one faithful timestamped assertion failed only the finite template. Manual review is recorded separately without changing the score. V2 repeats the same semantic cases with opaque IDs; the historical v1 **5/8** was not fully blinded, and the score difference does not establish an identifier effect. The earlier eleven-case corpus remains **8/11**, with all failures preserved. Broader extraction quality remains a release gate. A separate direct Qwen batch returned nine 256-dimensional vectors and ranked four labelled paraphrase queries correctly. See [provider evidence](docs/PROVIDER_VERIFICATION.md) for usage, failures and limits.
+Your profile lists every memory in one place, and you can add your own with **Add memory**. Search it, or filter by subject, project, where it came from, or status. Each memory shows what kind it is (a preference, a decision, a fact) and whether you said it yourself or an assistant reported it.
 
-Native PostgreSQL 17.11/pgvector 0.8.7 and the application containers have also been exercised locally. The credential-free [full-stack integration harness](docs/INTEGRATION.md) uses synthetic provider HTTP responses. The strengthened [direct learned-provider native lifecycle](docs/DIRECT_PROVIDER_LIFECYCLE.md) passed all four acceptance groups at source `28a83b8` with the actual API/worker, Nemotron extraction, source-backed Qwen semantic recall, scoped authorization, owner correction and preview-confirmed forgetting with replay fences, source checksums and binding of both initial vectors and the corrected vector to their observed provider results. Eight direct requests reported 1,832 tokens with complete accounting; [PR #15](https://github.com/ThomsenDrake/threadkeeper/pull/15) records review/merge status. This native source contains neither of PR #16’s literal qualifier guards. Local GPU inference, managed hosting, robust semantic reconciliation and release-quality evaluation remain unverified.
+The profile works on a phone, too.
 
-## Run local checks
+<img src="docs/images/memories-phone.png" alt="The same profile on a phone-sized screen" width="390">
 
-Prerequisites: Node.js 24 and pnpm 11.25.0. Initial dependency downloads require network access.
+### Fix it in one step
+
+Open any memory to see the exact words it came from and every change made to it. When you correct something, your correction takes effect immediately. There is no approval step. You can also change what kind of memory it is, for example turning a "fact" into a "preference." The original wording and kind are kept alongside your correction, so you can always see what changed and why.
+
+![Correcting a launch date, with the kind selector and the original note kept as evidence](docs/images/memory-detail.png)
+
+### Approve guesses before they count
+
+Sometimes an assistant suggests something it thinks you would want remembered, like "Maya prefers to draft in the morning." Those suggestions wait in **Needs review**, and they stay out of what assistants recall until you decide. You can confirm a suggestion, edit it first, or dismiss it. Ignoring a suggestion never counts as approval.
+
+![A suggested memory waiting for you to confirm, edit, or dismiss](docs/images/needs-review.png)
+
+### Decide what each assistant can do
+
+Each assistant gets its own credential, a private access key that only it uses. For each one, you choose whether it can only read your memory or also save new things to it, and which projects it can see. Personal memories that are not tied to a project are visible to every assistant you connect. You can pause saving for every assistant at once, or revoke one assistant's access at any time.
+
+Connecting an assistant does not give Threadkeeper your chat history. An assistant only saves what it explicitly sends, under the permissions you gave it.
+
+![Saving controls, the connection address, and two assistants with different permissions](docs/images/connections.png)
+
+### Check what was saved
+
+**Captures** shows everything assistants have sent and what happened to it. Notes saved directly appear right away. Material sent for the AI model to turn into suggested memories waits its turn, and if that step fails, you can see it and try again. The original text is always kept.
+
+![Saved, waiting, and failed captures, with a retry button](docs/images/captures.png)
+
+### Take your memory with you
+
+Download your whole memory as a single file: what was said, what is remembered, and every correction. Credentials are never included. You can import that file into another Threadkeeper installation.
+
+If you restore an older backup, a separate deletion record makes sure things you already forgot do not come back.
+
+![Export, import, and the deletion record](docs/images/portability.png)
+
+## Get started
+
+Threadkeeper runs on your own machine or server. You pick where data is stored, which AI model it uses, and who can sign in. You never need a Threadkeeper account. Run the commands in this section from a copy of this repository.
+
+### Try the demo
+
+To look around before setting anything up, run the demo. It needs [Node.js 24](https://nodejs.org/) and [pnpm](https://pnpm.io/):
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm check
-pnpm demo
-```
-
-`pnpm check` runs typechecking, focused tests and the profile build. The test database is PostgreSQL via PGlite in WebAssembly, not a native PostgreSQL deployment. `pnpm demo` runs deterministic full-text and pgvector hybrid walkthroughs with synthetic embeddings, explicit captures and fresh-database export/import. It invokes neither a learned model nor a browser.
-
-With Docker, BuildKit and Compose 2.24.4 or newer, reproduce the full application stack and actual worker/provider HTTP lifecycle:
-
-```sh
-pnpm integration
-```
-
-This uses native PostgreSQL/pgvector, the API serving the built profile, the worker and a deterministic local HTTP fixture. It creates disposable credentials/resources, reports stage failures and cleans up. It validates synthetic integration; real inference and GPU checks remain separate. See [requirements and checks](docs/INTEGRATION.md) and [actual results](docs/HANDOFF.md).
-
-For an immediately runnable, disposable profile demonstration:
-
-```sh
 pnpm build
 pnpm dev:demo
 ```
 
-Open `http://127.0.0.1:3000`. Synthetic demo credentials are `demo@example.invalid` / `threadkeeper-demo-password`. This binds locally, uses a disposable PGlite database and performs no inference. Data disappears when it exits; use the persistent container setup for actual use.
+Open `http://127.0.0.1:3000` and sign in with `demo@example.invalid` and the password `threadkeeper-demo-password`. The demo uses a temporary database, does not call an AI model, and erases everything when you stop it.
 
-## Run the application with containers
+### Install it for real
 
-Docker and Compose are required. The standard Compose stack has passed a disposable build/startup/profile/sign-in check; `pnpm integration` adds native lifecycle and worker HTTP fixture validation. Configure an operator-managed provider for actual inference.
+For a setup that keeps your data, use [Docker](https://docs.docker.com/get-docker/) with Compose 2.24.4 or newer. This starts the profile, the connection service, the background processor, and the database together.
 
-```sh
-cp .env.example .env
-```
+1. Copy the example settings file:
 
-Set `POSTGRES_PASSWORD`, `BOOTSTRAP_EMAIL` and a `BOOTSTRAP_PASSWORD` of at least 12 characters in your private `.env`. Use a URL-safe database password for this Compose configuration. For the hackathon worker, configure `NEBIUS_API_KEY` securely. Do not commit `.env` or paste secrets into chat.
+   ```sh
+   cp .env.example .env
+   ```
 
-```sh
-docker compose --env-file .env -f deploy/compose.yaml up --build
-```
+2. Open `.env` and fill in:
+   - `POSTGRES_PASSWORD`: a database password. Use only letters, numbers, `-`, `_`, `.`, and `~`.
+   - `BOOTSTRAP_EMAIL` and `BOOTSTRAP_PASSWORD`: the email and password you will sign in with. The password needs at least 12 characters.
+   - `NEBIUS_API_KEY` (optional): a key for the preset AI model, described in [How memories are made](#how-memories-are-made). Without it, notes that assistants save directly still work, but suggestions cannot be generated.
 
-Open `http://localhost:3000` and sign in as the bootstrapped owner. The API serves the built profile and applies checksum-tracked transactional migrations before listening. The worker starts after API/database readiness. PostgreSQL uses a named data volume; ports are published to localhost. Changing the bootstrap settings after an owner exists does not change that owner's password.
+   Keep `.env` private. It contains your passwords.
 
-For a host-run application against an already available PostgreSQL database, set `DATABASE_URL` in `.env`, then run these in separate terminals:
+3. Start Threadkeeper:
 
-```sh
-pnpm build
-node --env-file=.env --import tsx apps/api/src/index.ts
-node --env-file=.env --import tsx apps/worker/src/index.ts
-```
+   ```sh
+   docker compose --env-file .env -f deploy/compose.yaml up --build
+   ```
 
-With `APP_ORIGIN=http://localhost:3000`, use that exact origin. Host and Origin checks reject mismatches. Public hosting also requires HTTPS and `COOKIE_SECURE=true`; no public hosting has been configured here.
+4. Open `http://localhost:3000` and sign in with the email and password from step 2.
 
-## Provider and client checks
+Your data is stored in a Docker volume and survives restarts. Threadkeeper only accepts connections from the same machine. Your sign-in password is set the first time Threadkeeper starts; changing `BOOTSTRAP_PASSWORD` afterwards does not change it.
 
-Use operator-managed environment secrets to rerun synthetic provider checks:
+Search works out of the box. For recall that also matches by meaning rather than exact words, see [retrieval setup](docs/RETRIEVAL.md). For backups and restores, see [portability and operations](docs/PORTABILITY.md).
 
-```sh
-node --env-file=.env --import tsx deploy/provider-check.ts
-```
+## Connect an assistant
 
-The script records separate checks and skips embeddings unless `EMBEDDING_MODEL` is configured. JSON-schema probing is opt-in via `PROVIDER_CHECK_SCHEMA=true`. Do not silently change the memory model when a check fails. Local compatible inference endpoints need no Nebius credentials; the selected local checkpoint alias must match that server.
+Threadkeeper connects to assistants through [MCP](https://modelcontextprotocol.io/), an open standard many chatbots and coding agents support.
 
-Create one credential per client in the profile. Connect it to `/mcp` with a bearer token, or use the operations described by `/openapi.json`. See [client instructions](docs/CLIENTS.md). Installing an MCP server does not guarantee that a host captures conversations or recalls memories automatically.
+1. Sign in and open **Connections**.
+2. Select **Create credential**, name it after the assistant, and choose whether it may save and which projects it may see.
+3. Copy the token right away. It is only shown once.
+4. Copy the MCP address. On your own machine it looks like `http://127.0.0.1:3000/mcp`.
+5. In the assistant's settings, add a remote MCP server with that address, and send the token as a bearer token in the `Authorization` header.
+6. Ask the assistant to check Threadkeeper when your context would change its answer, and to save only lasting facts, preferences, decisions, and corrections you want kept.
 
-## Corrections, deletion and portability
+The assistant needs to support remote MCP over Streamable HTTP and custom headers. Some assistants do not support custom headers yet and cannot connect. Step-by-step setup for Codex, and the full list of what an assistant can ask Threadkeeper to do, are in the [client guide](docs/CLIENTS.md).
 
-Profile edits create user-authored correction evidence and make the current revision authoritative. Owners explicitly confirm, edit-and-confirm or dismiss model candidates in Needs review. Confirmation creates separate user-confirmed evidence; original inference/proposal sources and provider history stay inspectable. Dismissed records remain in history and stay out of default recall. Fresh default retrieval uses active current records. Model output remains bounded and locally validated; source instructions cannot control owner IDs or permissions.
+Here is what that looks like with two assistants. Your writing assistant saves a deadline and a style preference. Later, your coding agent recalls both. You then correct the deadline and forget the preference in your profile. The next time either assistant asks, it gets the corrected deadline and no preference.
 
-Before forgetting a memory or saved source, the profile shows the affected source events, current memories, history counts and extraction jobs. Confirmation rechecks that exact impact, including sibling interpretations and known normalized source copies, so a concurrent change requires a fresh preview. Sources awaiting extraction can also be forgotten.
+## Privacy and control
 
-Deletion removes **whole connected source events and all memories supported by them**, including revision history and intersecting extraction jobs. This is deliberately conservative and can remove sibling memories or identical normalized source copies in other projects. A removed job's other surviving sources are not automatically requeued. Capture independent facts in separate source events for precise deletion. The central demonstration uses separate deadline and preference events.
+**Every memory shows its source.** Each memory links to the exact text it came from. Things you said, things an assistant reported, and things an assistant suggested are always labeled differently.
 
-The versioned export preserves remaining records, evidence and corrections, with non-content tombstones. It excludes accounts, credentials and access grants. An older backup can contain forgotten data. The isolated recovery utility reconciles a newer owner deletion ledger before permitting services to start, revokes restored credentials and resets owner passwords. See [portability and operations](docs/PORTABILITY.md) before restoring a database.
+**Your edits win.** A correction you make is the current version as soon as you save it.
 
-Complete self-hostability with feature parity is a binding release requirement. Model/embedding endpoints are configurable, but packaging alone does not demonstrate GPU compatibility or operation without external control-plane access. Managed deployments may charge for operations and resources, never exclusive application features.
+**Forgetting is thorough.** Before anything is removed, Threadkeeper shows you exactly what will go: the memory, the text it came from, its history, and any processing still waiting. Once you confirm, all of it is removed from your installation and from future recall. Forgetting a memory also removes the note it came from and anything else drawn from that note, so save separate facts as separate notes if you might want to forget just one.
 
-## Continue development
+Threadkeeper cannot reach back into copies that already left it. If an assistant already received a memory, or you already downloaded an export, that copy is outside Threadkeeper's control.
 
-- [Autonomous MVP development and product priorities](docs/DEVELOPMENT_PLAN.md)
-- [Codex Cloud setup](docs/CODEX_CLOUD.md)
-- [Compact MVP brief](docs/MVP_BRIEF.md)
-- [Decisions and blockers](docs/DECISIONS.md)
-- [Provider verification](docs/PROVIDER_VERIFICATION.md)
-- [Local Codex handoff](docs/HANDOFF.md)
+## How memories are made
 
-No DNS, registrar, Cloudflare or deployment changes were made by this implementation. No remote implementation was available for inspection; the starter was created locally after workspace inspection. Keep real personal history, employer data and credentials out of demos and source control.
+When an assistant sends longer material, a background processor uses an AI model to suggest memories from it. Each suggestion still waits for your review.
+
+The preset model is `nvidia/Nemotron-3_5-Lightning`, served by Nebius at `https://api.tokenfactory.nebius.com/v1/`. You can point Threadkeeper at any OpenAI-compatible model server instead, including one you run yourself, by setting `MODEL_BASE_URL` and `MODEL_ID` in `.env`.
+
+## Learn more
+
+- [Client guide](docs/CLIENTS.md): connecting assistants, and what they can save and recall
+- [Retrieval setup](docs/RETRIEVAL.md): meaning-based recall with an embedding service
+- [Portability and operations](docs/PORTABILITY.md): export format, import rules, backup, and restore
+- [Development guide](docs/DEVELOPMENT.md): running from source, project status, and contributing
+
+Threadkeeper is planned to live at `threadkeep.si`. Demos and tests use made-up data only, so please keep real conversations and credentials out of issues and pull requests.

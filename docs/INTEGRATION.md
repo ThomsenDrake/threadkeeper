@@ -82,6 +82,6 @@ node --env-file=.env --import tsx deploy/provider-check.ts
 
 This existing probe checks actual provider HTTP responses separately from the
 container fixture. To run the application against that provider, use the normal
-container command in README.md with the operator's exact endpoint/alias and
-credentials; a fixture pass does not establish that execution. No provider key or
+container command in [README.md](../README.md) with the operator's exact endpoint/alias and
+credentials. Host-run API and worker commands are in [DEVELOPMENT.md](DEVELOPMENT.md). A fixture pass does not establish that execution. No provider key or
 GPU was available in the current task; see HANDOFF.md for precise observed evidence.

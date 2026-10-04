@@ -47,7 +47,7 @@ Changes to a reusable environment require review and **Republish**; verify them 
 
 Run `pnpm check` for the baseline and `pnpm demo` for the synthetic walkthrough. For a disposable browser profile, run `pnpm dev:demo` after the build. It binds to `127.0.0.1:3000` and prints synthetic sign-in credentials. Its database disappears when the process exits. Use these fixtures when reviewing the profile, never personal exports.
 
-Provider integration is an optional, separately configured task. The default memory model is `nvidia/Nemotron-3_5-Lightning` through Nebius Token Factory; a local compatible endpoint is configurable. See [provider verification](PROVIDER_VERIFICATION.md) and [self-hosting instructions](../README.md). Baseline tests must continue to run with provider settings absent.
+Provider integration is an optional, separately configured task. The default memory model is `nvidia/Nemotron-3_5-Lightning` through Nebius Token Factory; a local compatible endpoint is configurable. See [provider verification](PROVIDER_VERIFICATION.md), the customer run steps in [README.md](../README.md), and the host-run and check commands in [DEVELOPMENT.md](DEVELOPMENT.md). Baseline tests must continue to run with provider settings absent.
 
 ## Continue after hybrid recall
 

@@ -1,5 +1,7 @@
 # Client contract
 
+Customer steps for creating a credential and copying the endpoint are in [README.md](../README.md). This document is the client and operator contract.
+
 MCP clients decide when to invoke capture and recall. Threadkeeper stores and retrieves the personal context they explicitly provide. A connection is not an automatic transcript feed.
 
 ## Connection and permissions
