@@ -1,0 +1,397 @@
+import assert from 'node:assert/strict';
+import { execFileSync, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { copyFile, mkdtemp, mkdir, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { test } from 'node:test';
+import { archiveLearnedSource, installLearnedDependencies } from '../deploy/integration/learned-run.mjs';
+import { inspectLearnedContainerImage, parseLearnedObservations, reserveEvidence, settleLearnedCleanup, verifyLearnedApplicationImages, verifyLearnedObservations, verifyLearnedSnapshot, type LearnedObservation } from '../deploy/integration/learned-support.ts';
+
+const model = 'nvidia/Nemotron-3_5-Lightning';
+const embedding = 'Qwen/Qwen3-Embedding-8B';
+const record = (service: 'api' | 'worker', ordinal: number, path = 'embeddings'): LearnedObservation => ({
+  event: 'direct_provider_request', service, ordinal, path, method: 'POST', started_at: '2026-10-03T00:00:00.000Z',
+  sent: true, elapsed_ms: 1, outcome: 'http_response', usage_status: 'reported', http_status: 200,
+  requested_model: path === 'embeddings' ? embedding : model, returned_model_matches: true, usage: { total_tokens: 10 },
+});
+const observations = () => [
+  ...Array.from({ length: 5 }, (_, i) => record('api', i + 1)),
+  record('worker', 1, 'chat/completions'), record('worker', 2), record('worker', 3),
+];
+
+test('native acceptance requires complete distinct per-process attempts and verified requested/returned models', () => {
+  assert.equal(verifyLearnedObservations(observations()).usage.total_tokens, 80);
+  const repaired = observations();
+  repaired.splice(6, 0, record('worker', 2, 'chat/completions'));
+  repaired[7].ordinal = 3; repaired[8].ordinal = 4;
+  assert.equal(verifyLearnedObservations(repaired).inference_request_count, 9);
+  assert.throws(() => verifyLearnedObservations(observations().filter(item => item.service === 'worker')), /five API/);
+  assert.throws(() => verifyLearnedObservations(observations().filter((_, i) => i !== 7)), /both worker/);
+  for (const matches of [undefined, false]) {
+    const records = observations(); records[0].returned_model_matches = matches;
+    assert.throws(() => verifyLearnedObservations(records), /identity was not verified/);
+  }
+  const wrong = observations(); wrong[0].requested_model = model;
+  assert.throws(() => verifyLearnedObservations(wrong), /requested provider model/);
+  const duplicated = observations(); duplicated[1] = duplicated[0];
+  assert.throws(() => verifyLearnedObservations(duplicated), /missing or duplicated/);
+  const absentUsage = observations(); delete absentUsage[3].usage;
+  assert.throws(() => verifyLearnedObservations(absentUsage), /usage accounting incomplete/);
+  const extra = observations(); extra.splice(5, 0, record('api', 6));
+  assert.throws(() => verifyLearnedObservations(extra), /five API/);
+});
+
+test('native accounting rejects contradictory or unsafe totals while preserving raw endpoint-specific envelopes', () => {
+  const accepted = observations();
+  accepted[0].usage = { prompt_tokens: 10, total_tokens: 10 };
+  accepted[1].usage = { input_tokens: 11, total_tokens: 11 };
+  accepted[5].usage = { prompt_tokens: 10, completion_tokens: 5, input_tokens: 10, output_tokens: 5, total_tokens: 15 };
+  const raw = JSON.stringify(accepted);
+  assert.equal(verifyLearnedObservations(accepted).usage.total_tokens, 86);
+  assert.equal(JSON.stringify(accepted), raw, 'Raw usage must never be normalized in place');
+  const invalidChatUsage: Array<NonNullable<LearnedObservation['usage']>> = [
+    { prompt_tokens: 10, completion_tokens: 5, total_tokens: 999 },
+    { input_tokens: 10, output_tokens: 5, total_tokens: 999 },
+    { prompt_tokens: 10, output_tokens: 5, total_tokens: 999 },
+    { input_tokens: 10, completion_tokens: 5, total_tokens: 999 },
+    { prompt_tokens: 10, completion_tokens: 5, input_tokens: 10, output_tokens: 6, total_tokens: 15 },
+    { prompt_tokens: 10, completion_tokens: 5, input_tokens: 11, output_tokens: 5 },
+    { prompt_tokens: 10, total_tokens: 9 },
+    { prompt_tokens: -1, completion_tokens: 5, total_tokens: 4 },
+    { prompt_tokens: 1.5, completion_tokens: 5, total_tokens: 6.5 },
+    { prompt_tokens: Number.MAX_SAFE_INTEGER, completion_tokens: 1 },
+    { total_tokens: Number.MAX_SAFE_INTEGER + 1 },
+  ];
+  for (const usage of invalidChatUsage) {
+    const records = observations(); records[5].usage = usage;
+    assert.throws(() => verifyLearnedObservations(records), /contradict|smaller|safe integer|sum is unsafe/);
+  }
+  const invalidEmbeddingUsage: Array<NonNullable<LearnedObservation['usage']>> = [{ prompt_tokens: 10, total_tokens: 11 }, { input_tokens: 10, total_tokens: 11 }, { prompt_tokens: 10, completion_tokens: 1, total_tokens: 11 }];
+  for (const usage of invalidEmbeddingUsage) {
+    const records = observations(); records[0].usage = usage;
+    assert.throws(() => verifyLearnedObservations(records), /Embedding/);
+  }
+});
+
+test('native accounting bounds every reported token detail without summing overlapping categories or inventing absent counts', () => {
+  const primary = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 };
+  const acceptedUsage: Array<NonNullable<LearnedObservation['usage']>> = [
+    { ...primary, prompt_tokens_details: { cached_tokens: 10, audio_tokens: 10 }, completion_tokens_details: { reasoning_tokens: 5, accepted_prediction_tokens: 5, rejected_prediction_tokens: 5 } },
+    { input_tokens: 10, output_tokens: 5, total_tokens: 15, prompt_tokens_details: { cached_tokens: 10 }, completion_tokens_details: { reasoning_tokens: 5 } },
+    { ...primary, input_tokens_details: { audio_tokens: 10 }, output_tokens_details: { reasoning_tokens: 5 } },
+    { total_tokens: 15, completion_tokens_details: { reasoning_tokens: 15 } },
+    { ...primary, completion_tokens_details: {} },
+    primary,
+  ];
+  for (const usage of acceptedUsage) {
+    const records = observations(); records[5].usage = usage;
+    const original = JSON.stringify(records);
+    assert.equal(verifyLearnedObservations(records).usage_complete, true);
+    assert.equal(JSON.stringify(records), original);
+  }
+  for (const [key, parent] of [['prompt_tokens_details', 10], ['input_tokens_details', 10], ['completion_tokens_details', 5], ['output_tokens_details', 5]] as const) {
+    for (const detail of ['cached_tokens', 'audio_tokens', 'reasoning_tokens', 'accepted_prediction_tokens', 'rejected_prediction_tokens']) {
+      const records = observations(); records[5].usage = { ...primary, [key]: { [detail]: parent + 1 } };
+      assert.throws(() => verifyLearnedObservations(records), /detail exceeds its parent/);
+    }
+  }
+  const totalOnly = observations(); totalOnly[5].usage = { total_tokens: 15, completion_tokens_details: { reasoning_tokens: 16 } };
+  assert.throws(() => verifyLearnedObservations(totalOnly), /detail exceeds its parent/);
+  for (const invalid of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
+    const records = observations(); records[5].usage = { ...primary, completion_tokens_details: { reasoning_tokens: invalid } };
+    assert.throws(() => verifyLearnedObservations(records), /detail must be a nonnegative safe integer/);
+  }
+});
+
+test('log collection and local credential removal still run after stop, log and Docker failures', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-harness-cleanup-'));
+  const secret = join(directory, '.env');
+  await writeFile(secret, 'BOOTSTRAP_PASSWORD=synthetic-private-password\n', { mode: 0o600 });
+  const events: string[] = [];
+  const records: LearnedObservation[] = [];
+  const failures = await settleLearnedCleanup([
+    async () => { events.push('stop'); throw new Error('synthetic stop failed'); },
+    async () => { events.push('api logs'); throw new Error('synthetic api logs failed'); },
+    async () => { events.push('worker logs'); records.push(...parseLearnedObservations('startup\n' + JSON.stringify(record('worker', 1, 'chat/completions')), 'worker')); },
+    async () => { events.push('Docker down'); throw new Error('synthetic Docker down failed'); },
+    async () => { events.push('credentials'); await rm(directory, { recursive: true, force: true }); },
+  ]);
+  assert.deepEqual(events, ['stop', 'api logs', 'worker logs', 'Docker down', 'credentials']);
+  assert.equal(failures.length, 3);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].service, 'worker');
+  await assert.rejects(readFile(secret), { code: 'ENOENT' });
+});
+
+test('exclusive evidence reservation rejects competing writers before work and discards aborted publication', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-harness-output-'));
+  const destination = join(directory, 'evidence.json');
+  let reservation: Awaited<ReturnType<typeof reserveEvidence>> | undefined;
+  try {
+    reservation = await reserveEvidence(destination);
+    await assert.rejects(reserveEvidence(destination), { code: 'EEXIST' });
+    await assert.rejects(writeFile(destination, 'competing result', { flag: 'wx' }), { code: 'EEXIST' });
+    const signal = new AbortController(); signal.abort();
+    await assert.rejects(reservation.publish('{"result":"PASS"}', signal.signal), { name: 'AbortError' });
+    await reservation.discard(); await reservation.close(); reservation = undefined;
+    await assert.rejects(readFile(destination), { code: 'ENOENT' });
+    reservation = await reserveEvidence(destination);
+    await reservation.publish('{"result":"PASS"}', new AbortController().signal);
+    assert.equal(await readFile(destination, 'utf8'), '{"result":"PASS"}');
+    reservation.discardSync();
+    await assert.rejects(readFile(destination), { code: 'ENOENT' });
+  } finally { await reservation?.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('replaced output reservations fail publication without overwriting or removing the replacement', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-harness-replacement-'));
+  const destination = join(directory, 'evidence.json');
+  const reservation = await reserveEvidence(destination);
+  try {
+    await rm(destination); await writeFile(destination, 'unrelated result');
+    await assert.rejects(reservation.publish('{"result":"PASS"}', new AbortController().signal), /reservation was replaced/);
+    await reservation.discard(); reservation.discardSync();
+    assert.equal(await readFile(destination, 'utf8'), 'unrelated result');
+  } finally { await reservation.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('same-inode overwrites cannot leave trailing bytes or reuse a previous write offset in published evidence', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-harness-inode-'));
+  const destination = join(directory, 'evidence.json');
+  const reservation = await reserveEvidence(destination);
+  try {
+    await writeFile(destination, 'unrelated longer content'.repeat(100));
+    const first = JSON.stringify({ result: 'PASS', note: 'synthetic Unicode evidence: \u03bb' }) + '\n';
+    await reservation.publish(first, new AbortController().signal);
+    assert.equal(await readFile(destination, 'utf8'), first);
+    await writeFile(destination, 'short');
+    const second = '{"result":"PASS"}\n';
+    await reservation.publish(second, new AbortController().signal);
+    assert.equal(await readFile(destination, 'utf8'), second);
+    assert.deepEqual(JSON.parse(await readFile(destination, 'utf8')), { result: 'PASS' });
+  } finally { await reservation.close(); await rm(directory, { recursive: true, force: true }); }
+});
+
+test('native build context preserves committed bytes despite source edits and detects snapshot tampering', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-harness-source-'));
+  const repository = join(directory, 'repository'), archive = join(directory, 'archive');
+  await mkdir(repository);
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: repository, stdio: 'pipe' }).toString().trim();
+  try {
+    git('init'); git('config', 'user.name', 'Synthetic test'); git('config', 'user.email', 'synthetic@example.invalid');
+    await mkdir(join(repository, 'deploy'));
+    await writeFile(join(repository, 'deploy/Dockerfile'), 'FROM synthetic:original\n');
+    await writeFile(join(repository, 'deploy/compose.yaml'), 'services: {}\n');
+    git('add', '.'); git('commit', '-m', 'Synthetic source snapshot');
+    const source = await archiveLearnedSource(repository, archive);
+    await verifyLearnedSnapshot(archive, source);
+    await writeFile(join(repository, 'deploy/Dockerfile'), 'FROM synthetic:changed\n');
+    assert.equal(await readFile(join(archive, 'deploy/Dockerfile'), 'utf8'), 'FROM synthetic:original\n');
+    assert.equal(source.files['deploy/Dockerfile'], createHash('sha256').update('FROM synthetic:original\n').digest('hex'));
+    await verifyLearnedSnapshot(archive, source);
+    git('add', '.'); git('commit', '-m', 'Concurrent synthetic edit');
+    assert.notEqual(git('rev-parse', 'HEAD'), source.commit);
+    await writeFile(join(archive, 'deploy/Dockerfile'), 'FROM synthetic:tampered\n');
+    await assert.rejects(verifyLearnedSnapshot(archive, source), /Snapshot bytes changed/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('private frozen copies and private tsx isolate archived validation from concurrent live dependency edits', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-harness-import-'));
+  const repository = join(directory, 'repository'), archive = join(directory, 'archive');
+  await mkdir(join(repository, 'deploy/integration'), { recursive: true });
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: repository, stdio: 'pipe' });
+  try {
+    for (const path of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']) await copyFile(resolve(path), join(repository, path));
+    await writeFile(join(repository, '.gitignore'), 'node_modules\n');
+    await writeFile(join(repository, 'deploy/integration/learned-execute.ts'), "import { runLearnedScenarios } from './learned-scenarios.ts'; export async function runLearnedLifecycle() { return 'recorded runner: ' + await runLearnedScenarios(); }\n");
+    await writeFile(join(repository, 'deploy/integration/learned-scenarios.ts'), "import { value } from './local-helper.ts'; import { z } from 'zod'; export async function runLearnedScenarios() { return z.string().parse(value); }\n");
+    await writeFile(join(repository, 'deploy/integration/local-helper.ts'), "export const value = 'recorded scenario helper';\n");
+    git('init'); git('config', 'user.name', 'Synthetic test'); git('config', 'user.email', 'synthetic@example.invalid');
+    git('add', '.'); git('commit', '-m', 'Recorded synthetic scenario');
+    const source = await archiveLearnedSource(repository, archive);
+    const installation = await installLearnedDependencies(archive, new AbortController().signal);
+    assert.equal(installation.evidence.package_manager, 'pnpm@11.25.0');
+    assert.equal(installation.evidence.installation, 'private_offline_frozen_copy_ignore_scripts');
+    assert((await realpath(installation.loader)).startsWith(archive + '/'));
+    const privateZod = join(archive, 'node_modules/zod/package.json');
+    assert((await realpath(privateZod)).startsWith(archive + '/'));
+    const liveZod = resolve('node_modules/zod/package.json');
+    const [privateStat, liveStat] = await Promise.all([stat(privateZod), stat(liveZod)]);
+    assert(privateStat.dev !== liveStat.dev || privateStat.ino !== liveStat.ino, 'Private dependency must not share a live workspace inode');
+    await writeFile(join(repository, 'deploy/integration/learned-execute.ts'), "export async function runLearnedLifecycle() { return 'different current runner'; }\n");
+    git('add', '.'); git('commit', '-m', 'Concurrent source commit');
+    await mkdir(join(repository, 'node_modules/zod'), { recursive: true });
+    await writeFile(join(repository, 'node_modules/zod/package.json'), '{"name":"zod","type":"module","exports":"./index.js"}');
+    await writeFile(join(repository, 'node_modules/zod/index.js'), "throw new Error('live dependency must never load');\n");
+    const gate = join(directory, 'dependency-edited');
+    const probe = join(archive, 'dependency-probe.ts');
+    await writeFile(probe, `import { access } from 'node:fs/promises';
+console.log('READY');
+while (true) { try { await access(${JSON.stringify(gate)}); break; } catch { await new Promise(resolve => setTimeout(resolve, 10)); } }
+const { runLearnedLifecycle } = await import('./deploy/integration/learned-execute.ts');
+console.log(await runLearnedLifecycle());
+`);
+    const child = spawn(process.execPath, ['--import', installation.loader, probe], { cwd: archive,
+      env: { ...process.env, NODE_OPTIONS: '', NODE_PATH: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '', stderr = '', changed: Promise<void> | undefined;
+    child.stdout.on('data', chunk => {
+      stdout += chunk;
+      if (stdout.includes('READY') && !changed) changed = (async () => {
+        await writeFile(join(repository, 'node_modules/zod/index.js'), "throw new Error('concurrent live dependency mutation');\n");
+        await writeFile(gate, 'ready');
+      })();
+    });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    const timeout = setTimeout(() => child.kill('SIGKILL'), 15_000);
+    const code = await new Promise<number | null>((resolveExit, reject) => { child.once('error', reject); child.once('close', resolveExit); }).finally(() => clearTimeout(timeout));
+    await changed;
+    assert.equal(code, 0, stderr);
+    assert(stdout.includes('recorded runner: recorded scenario helper'));
+    await verifyLearnedSnapshot(archive, source);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('native image evidence follows the service container immutable ID even without a repository digest', async () => {
+  const container = 'a'.repeat(64), image = 'sha256:' + 'b'.repeat(64);
+  const commands: string[][] = [];
+  const compose = async (args: string[]) => { assert.deepEqual(args, ['ps', '--quiet', 'postgres']); return container; };
+  for (const digests of [[], ['pgvector/pgvector@sha256:' + 'c'.repeat(64)]]) {
+    const actual = await inspectLearnedContainerImage('postgres', compose, async args => {
+      commands.push(args);
+      if (args[0] === 'container') { assert.deepEqual(args, ['container', 'inspect', container, '--format', '{{.Image}}']); return image; }
+      assert.deepEqual(args, ['image', 'inspect', image, '--format', '{{json .RepoDigests}}']);
+      return JSON.stringify(digests);
+    });
+    assert.deepEqual(actual, { image, repository_digests: digests });
+  }
+  assert(commands.every(args => !args.includes('pgvector/pgvector:pg17')), 'Mutable tag must never establish the running image');
+  await assert.rejects(inspectLearnedContainerImage('postgres', compose, async () => ''), /immutable image identity/);
+  await assert.rejects(inspectLearnedContainerImage('postgres', async () => container + '\n' + container, async () => image), /exactly one/);
+  verifyLearnedApplicationImages(image, image, image);
+  const retagged = 'sha256:' + 'd'.repeat(64);
+  assert.throws(() => verifyLearnedApplicationImages(image, retagged, retagged), /API image differs/);
+  assert.throws(() => verifyLearnedApplicationImages(image, image, retagged), /Worker image differs/);
+  assert.throws(() => verifyLearnedApplicationImages('unverified-build-tag', image, image), /Build omitted/);
+});
+
+test('actual runner removes reserved evidence and credentials despite unavailable Docker and a closed stderr pipe', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'threadkeeper-harness-process-'));
+  const repository = join(directory, 'repository'), bin = join(directory, 'bin');
+  await mkdir(join(repository, 'deploy/integration'), { recursive: true });
+  await mkdir(bin);
+  try {
+    for (const path of ['deploy/integration/learned-run.mjs', 'deploy/integration/learned-child.mjs', 'deploy/integration/learned-execute.ts', 'deploy/integration/learned-support.ts', 'deploy/integration/learned-vector-evidence.ts', 'deploy/integration/learned-extraction-evidence.ts', 'deploy/direct-provider-observer.mjs', 'deploy/embedding-fingerprints.mjs', 'deploy/extraction-fingerprints.mjs', 'packages/contracts/src/index.ts']) {
+      await mkdir(dirname(join(repository, path)), { recursive: true });
+      await copyFile(resolve(path), join(repository, path));
+    }
+    await writeFile(join(repository, 'deploy/integration/learned-scenarios.ts'), 'export async function runLearnedScenarios() { throw new Error("No scenario or provider call permitted"); }\n');
+    await writeFile(join(repository, 'package.json'), '{"type":"module"}\n');
+    await writeFile(join(repository, '.gitignore'), 'node_modules\n');
+    await symlink(resolve('node_modules'), join(repository, 'node_modules'));
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: repository, stdio: 'pipe' });
+    git('init'); git('config', 'user.name', 'Synthetic test'); git('config', 'user.email', 'synthetic@example.invalid');
+    git('add', '.'); git('commit', '-m', 'Synthetic runner fixture');
+    await writeFile(join(bin, 'docker'), `#!${process.execPath}
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.HARNESS_TEST_TRACE, JSON.stringify(args) + '\\n');
+const retag = process.env.HARNESS_TEST_RETAG === '1';
+if (retag && args.includes('info')) {
+  process.stdout.write('28.4.0');
+} else if (retag && args.includes('version')) {
+  process.stdout.write('2.40.3');
+} else if (retag && args.includes('build')) {
+  fs.writeFileSync(args[args.indexOf('--iidfile') + 1], 'sha256:' + 'b'.repeat(64));
+} else if (retag && args.includes('psql')) {
+  process.stdout.write(JSON.stringify([{postgres:'17.11',pgvector:'0.8.7'}]));
+} else if (retag && args.includes('ps')) {
+  process.stdout.write('a'.repeat(64));
+} else if (retag && args[1] === 'container' && args[2] === 'inspect') {
+  process.stdout.write('sha256:' + 'c'.repeat(64));
+} else if (retag && args[1] === 'image' && args[2] === 'inspect') {
+  process.stdout.write('[]');
+} else if (process.env.HARNESS_TEST_HANG_CLEANUP === '1' && (args.includes('down') || (args.includes('ls') && ['container', 'network', 'volume', 'image'].includes(args[1])))) {
+  process.on('SIGTERM', () => {});
+  if (args.includes('down')) fs.writeFileSync(process.env.HARNESS_TEST_CLEANUP_READY, 'ready');
+  setInterval(() => {}, 1000);
+} else if (args.includes('logs')) {
+  process.stdout.write(JSON.stringify({ event: 'direct_provider_request', ordinal: 1, path: 'embeddings', sent: true, http_status: 200, usage: { total_tokens: 10 } }) + '\\n');
+} else if (args.includes('info') || args.includes('stop') || args.includes('down')) {
+  process.stderr.write('Synthetic Docker unavailable\\n'); process.exitCode = 17;
+}
+`, { mode: 0o700 });
+    for (const [variant, closeStderr] of [['external', false], ['closed-stderr', true], ['repository-local', false], ['missing-output', false], ['cleanup-signal', false], ['retagged-image', false]] as const) {
+      const trace = join(directory, `commands-${variant}.ndjson`), evidence = join(variant === 'repository-local' ? repository : directory, `evidence-${variant}.json`);
+      const cleanupReady = join(directory, `cleanup-ready-${variant}`);
+      const runtimeDirectory = await mkdtemp(join(directory, 'runtime-'));
+      const snapshotRoot = join(runtimeDirectory, 'source');
+      const source = await archiveLearnedSource(repository, snapshotRoot);
+      // Fake-Docker child tests isolate failure behavior. The separate real
+      // copied-install test establishes host dependency isolation.
+      await symlink(resolve('node_modules'), join(snapshotRoot, 'node_modules'));
+      const manifestPath = join(runtimeDirectory, 'validation.json');
+      await writeFile(manifestPath, JSON.stringify({ root: snapshotRoot, directory: runtimeDirectory, output: evidence, source }));
+      const childArgs = variant === 'missing-output' ? ['deploy/integration/learned-run.mjs']
+        : ['--import', createRequire(import.meta.url).resolve('tsx'), join(snapshotRoot, 'deploy/integration/learned-child.mjs'), manifestPath];
+      const child = spawn(process.execPath, childArgs, {
+        cwd: repository,
+        env: { ...process.env, PATH: bin + ':' + process.env.PATH, NEBIUS_API_KEY: 'synthetic-harness-secret', HARNESS_TEST_TRACE: trace,
+          HARNESS_TEST_HANG_CLEANUP: variant === 'cleanup-signal' ? '1' : '', HARNESS_TEST_CLEANUP_READY: cleanupReady,
+          HARNESS_TEST_RETAG: variant === 'retagged-image' ? '1' : '' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let stdout = '', stderr = '';
+      child.stdout.on('data', chunk => {
+        stdout += chunk;
+        if (closeStderr && stdout.includes('Direct learned native lifecycle:')) child.stderr.destroy();
+      });
+      child.stderr.on('data', chunk => { stderr += chunk; });
+      let signalledAt: number | undefined;
+      const signalPoll = variant === 'cleanup-signal' ? setInterval(() => {
+        void readFile(cleanupReady).then(() => { if (!signalledAt) { signalledAt = Date.now(); child.kill('SIGTERM'); } }).catch(() => undefined);
+      }, 20) : undefined;
+      const timer = setTimeout(() => child.kill('SIGKILL'), 15_000);
+      const exit = await new Promise<{ code: number | null; signal: string | null }>((resolveExit, reject) => {
+        child.once('error', reject); child.once('close', (code, signal) => resolveExit({ code, signal }));
+      }).finally(() => { clearTimeout(timer); if (signalPoll) clearInterval(signalPoll); });
+      assert.deepEqual(exit, { code: 1, signal: null });
+      if (variant === 'cleanup-signal') {
+        assert(signalledAt, 'Signal was not delivered during cleanup');
+        assert(Date.now() - signalledAt < 10_000, 'Shared cleanup budget did not bound successive hung commands');
+      }
+      if (variant === 'missing-output') {
+        assert(stderr.includes('destination required'));
+        await assert.rejects(readFile(trace), { code: 'ENOENT' });
+        await assert.rejects(readFile(evidence), { code: 'ENOENT' });
+        await rm(runtimeDirectory, { recursive: true, force: true });
+        continue;
+      }
+      const commands = (await readFile(trace, 'utf8')).trim().split('\n').map(line => JSON.parse(line) as string[]);
+      if (!closeStderr) assert(commands.some(args => args.includes('stop')));
+      assert(commands.some(args => args.includes('logs') && args.at(-1) === 'api'));
+      assert(commands.some(args => args.includes('logs') && args.at(-1) === 'worker'));
+      assert(commands.some(args => args.includes('down')));
+      if (variant === 'cleanup-signal') assert(commands.slice(commands.findIndex(args => args.includes('down')) + 1).some(args => args.includes('volume')), 'Independent teardown stopped after interrupted cleanup');
+      const compose = commands.find(args => args.includes('--env-file'))!;
+      if (variant === 'retagged-image') {
+        const build = commands.find(args => args.includes('build'))!;
+        assert(build.includes('--iidfile'), 'Build must persist its immutable output identity');
+        assert.equal(dirname(build[build.indexOf('--iidfile') + 1]), dirname(compose[compose.indexOf('--env-file') + 1]), 'Build identity must use the private runtime directory');
+        assert(stderr.includes('API image differs from the recorded archive build'), 'Runner did not reject a retagged actual image');
+        assert(!stderr.includes('No scenario or provider call permitted'), 'Scenario ran before image provenance was verified');
+      }
+      await assert.rejects(readFile(compose[compose.indexOf('--env-file') + 1]), { code: 'ENOENT' });
+      await assert.rejects(readFile(join(dirname(compose[compose.indexOf('--env-file') + 1]), 'source/package.json')), { code: 'ENOENT' });
+      await assert.rejects(readFile(evidence), { code: 'ENOENT' });
+      assert(!stdout.includes('PASS')); assert(!stdout.includes('synthetic-harness-secret')); assert(!stderr.includes('synthetic-harness-secret'));
+      if (!closeStderr) {
+        const failure = JSON.parse(stderr.trim().split('\n').at(-1)!);
+        assert.equal(failure.result, 'FAIL');
+        assert.deepEqual(failure.provider_requests.map((item: LearnedObservation) => item.service), ['api', 'worker']);
+      }
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

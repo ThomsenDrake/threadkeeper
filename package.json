@@ -10,7 +10,7 @@
     "dev:web": "pnpm --filter @threadkeeper/web dev",
     "build": "pnpm --filter @threadkeeper/web build",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --test-concurrency=1 --import tsx --test tests/*.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "migrate": "node --import tsx deploy/migrate.ts",
     "reindex": "node --import tsx deploy/reindex.ts",
@@ -21,6 +21,7 @@
     "provider:check": "node --import tsx deploy/provider-check.ts",
     "demo": "node --import tsx deploy/demo.ts",
     "integration": "node --import tsx deploy/integration/run.ts",
+    "integration:learned": "node deploy/integration/learned-run.mjs",
     "dev:demo": "node --import tsx deploy/dev-demo.ts"
   },
   "dependencies": {

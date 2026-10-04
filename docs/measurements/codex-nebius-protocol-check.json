@@ -1,0 +1,242 @@
+{
+  "schema_version": "threadkeeper.installed-host-provider-compatibility.v1",
+  "host": {
+    "schema_version": "threadkeeper.codex-wire-compatibility.v1",
+    "measured_at": "2026-10-03T17:25:10.963401+00:00",
+    "host": "codex-cli 0.159.0-alpha.3",
+    "external_provider_request_count": 0,
+    "inference_count": 0,
+    "transport": "isolated actual installed Codex HTTP request to local reject-only sentinel",
+    "runs": [
+      {
+        "configuration": "default",
+        "exit_code": 1,
+        "sentinel_requests": [
+          {
+            "path": "/v1/responses",
+            "top_level_keys": [
+              "client_metadata",
+              "include",
+              "input",
+              "instructions",
+              "model",
+              "parallel_tool_calls",
+              "prompt_cache_key",
+              "reasoning",
+              "store",
+              "stream",
+              "tool_choice",
+              "tools"
+            ],
+            "unsupported_nebius_fields": [
+              "client_metadata",
+              "include",
+              "prompt_cache_key",
+              "reasoning"
+            ],
+            "model": "nvidia/Nemotron-3_5-Lightning",
+            "stream": true,
+            "reasoning": {
+              "summary": "auto"
+            },
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false,
+            "max_output_tokens_present": false,
+            "tool_types": [
+              "function",
+              "namespace",
+              "web_search"
+            ],
+            "tool_count": 9,
+            "request_sha256": "a13b8abbbda8cfad16c6df79e43bd0310f011c55175ce39b171a095456140da2"
+          }
+        ]
+      },
+      {
+        "configuration": "reasoning_none",
+        "exit_code": 1,
+        "sentinel_requests": [
+          {
+            "path": "/v1/responses",
+            "top_level_keys": [
+              "client_metadata",
+              "include",
+              "input",
+              "instructions",
+              "model",
+              "parallel_tool_calls",
+              "prompt_cache_key",
+              "reasoning",
+              "store",
+              "stream",
+              "tool_choice",
+              "tools"
+            ],
+            "unsupported_nebius_fields": [
+              "client_metadata",
+              "include",
+              "prompt_cache_key",
+              "reasoning"
+            ],
+            "model": "nvidia/Nemotron-3_5-Lightning",
+            "stream": true,
+            "reasoning": {
+              "effort": "none"
+            },
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false,
+            "max_output_tokens_present": false,
+            "tool_types": [
+              "function",
+              "namespace",
+              "web_search"
+            ],
+            "tool_count": 9,
+            "request_sha256": "a79e3cf189115e7d7ed6d8133d02cc1d3e94e2a881821a98ec6dff5feabd78c9"
+          }
+        ]
+      }
+    ],
+    "credential_policy": "Private temporary homes; no provider/client credentials inherited; files removed after exit.",
+    "conclusion": "Installed Codex emits standard nested reasoning for effort none, which measured Nebius Responses rejects; it also emits fields outside the endpoint supported-field list. Native chat wire protocol is no longer supported.",
+    "limits": "Local request serialization only; no actual host model inference or autonomous MCP tool selection.",
+    "configuration_checks": [
+      {
+        "wire_api": "chat",
+        "exit_code": 1,
+        "configuration_error": "Error: failed to load bootstrap configuration\n\nCaused by:\n    `wire_api = \"chat\"` is no longer supported.\n    How to fix: set `wire_api = \"responses\"` in your provider config.\n    More info: https://github.com/openai/codex/discussions/7782\n    in `model_providers.synthetic_wire.wire_api`\n    \n"
+      },
+      {
+        "wire_api": "chat_completions",
+        "exit_code": 1,
+        "configuration_error": "Error: failed to load bootstrap configuration\n\nCaused by:\n    unknown variant `chat_completions`, expected `responses`\n    in `model_providers.synthetic_wire.wire_api`\n    \n"
+      },
+      {
+        "wire_api": "responses",
+        "exit_code": 0,
+        "configuration_error": null
+      }
+    ]
+  },
+  "route_preflight": {
+    "measured_at": "2026-10-03T17:21:47.908Z",
+    "endpoint": "https://api.tokenfactory.nebius.com/v1/responses",
+    "method": "POST",
+    "request_body": {},
+    "http_status": 422,
+    "elapsed_ms": 221,
+    "response_sha256": "06a4ab4cc41c69fcd4ced848325c0be4238d98415a7f7183efdaef18bbf4e95a",
+    "inference_requested": false,
+    "limits": "Empty-object route preflight, no model or input supplied; does not establish inference/tool compatibility."
+  },
+  "direct_provider_checks": [
+    {
+      "schema_version": "threadkeeper.responses-capability.v1",
+      "measured_at": "2026-10-03T17:22:41.388Z",
+      "endpoint": "https://api.tokenfactory.nebius.com/v1/responses",
+      "transport": "direct_operator_https_no_relay",
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "input": "Reply with the single word READY.",
+        "max_output_tokens": 128,
+        "reasoning": {
+          "effort": "none"
+        },
+        "stream": false,
+        "store": false
+      },
+      "http_status": 400,
+      "elapsed_ms": 650,
+      "response_sha256": "cecd0bcefc7f6861d323e330b4e307e1b85a663f905c4c1f5b89f71545309d14",
+      "model_matches": false,
+      "response_status": null,
+      "ready_output": false,
+      "usage": null,
+      "limits": "One bounded synthetic protocol check; no installed-host model turn or tool selection."
+    },
+    {
+      "schema_version": "threadkeeper.responses-capability.v1",
+      "measured_at": "2026-10-03T17:23:22.805Z",
+      "endpoint": "https://api.tokenfactory.nebius.com/v1/responses",
+      "transport": "direct_operator_https_no_relay",
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "input": "Reply with the single word READY.",
+        "max_output_tokens": 128,
+        "reasoning": {
+          "effort": "none"
+        },
+        "stream": false,
+        "store": false
+      },
+      "http_status": 400,
+      "elapsed_ms": 377,
+      "response_sha256": "cecd0bcefc7f6861d323e330b4e307e1b85a663f905c4c1f5b89f71545309d14",
+      "model_matches": false,
+      "ready_output": false,
+      "usage": null,
+      "error": {
+        "code": "json_parse_error",
+        "type": "invalid_request_error",
+        "param": null,
+        "message": "Failed to deserialize the JSON body into the target type: reasoning: unknown field `reasoning`, expected one of `input`, `model`, `instructions`, `background`, `previous_response_id`, `max_output_tokens`, `stream`, `store`, `truncation`, `temperature`, `top_p`, `tools`, `tool_choice`, `parallel_tool_calls`, `text`, `request_id` at line 1 column 120"
+      },
+      "limits": "Bounded protocol diagnostic, no host model turn."
+    },
+    {
+      "schema_version": "threadkeeper.responses-capability.v1",
+      "measured_at": "2026-10-03T17:23:37.955Z",
+      "endpoint": "https://api.tokenfactory.nebius.com/v1/responses",
+      "transport": "direct_operator_https_no_relay",
+      "request": {
+        "model": "nvidia/Nemotron-3_5-Lightning",
+        "input": "Reply with the single word READY.",
+        "max_output_tokens": 128,
+        "stream": false,
+        "store": false
+      },
+      "http_status": 200,
+      "elapsed_ms": 1060,
+      "response_sha256": "e9c06d812a3ff48a3d64722a00a0f6d1e95415e292face9963cf53caed0cc95f",
+      "model_matches": true,
+      "response_status": "completed",
+      "ready_output": true,
+      "output_item_types": [
+        "reasoning",
+        "message"
+      ],
+      "usage": {
+        "input_tokens": 24,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 125,
+        "output_tokens_details": {
+          "reasoning_tokens": 121
+        },
+        "total_tokens": 149
+      },
+      "error": null,
+      "limits": "Bounded protocol diagnostic; reasoning omitted because endpoint rejects it; no host model turn."
+    }
+  ],
+  "summary": {
+    "direct_requests": 4,
+    "inference_requested": 3,
+    "successful_inference_requests": 1,
+    "reported_tokens": 149,
+    "reported_reasoning_tokens": 121,
+    "learned_installed_host_turns": 0,
+    "application_configuration_changed": false
+  },
+  "remaining_gate": "Autonomous installed Codex tool selection requires protocol-compatible provider/host support that honors bounded reasoning-none. No runtime adapter or model substitution was added. Another native chat-completions-capable installed host could also be tested when available.",
+  "limits": [
+    "The single minimal Responses success omits reasoning only to isolate the rejected field; it is not the Threadkeeper chat-completions validation configuration.",
+    "Rejected requests report no usage. 149 is the reported successful response total, not a claim that the provider billed nothing for all rejected requests.",
+    "Local sentinel observes request serialization without inference; it does not establish successful autonomous tool use."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "purpose": "Diagnose nullable usage detail schema after rejected native run",
+  "measured_at": "2026-10-03T20:46:31.043Z",
+  "http_status": 200,
+  "requested_model": "nvidia/Nemotron-3_5-Lightning",
+  "returned_model_matches": true,
+  "reasoning_effort": "none",
+  "elapsed_ms": 788,
+  "request_sha256": "ccf238c31f5d8a346f82380c34790b547914c6574f8e7f9b5f183fed2e7d4d20",
+  "response_sha256": "8f03a5949c95944101fa02e465ae38f1cae49ee838d1e7bb3eb5062d71299edb",
+  "usage": {
+    "completion_tokens": 3,
+    "prompt_tokens": 21,
+    "total_tokens": 24,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": null,
+      "audio_tokens": null,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": null
+    },
+    "prompt_tokens_details": null,
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 21
+  }
+}

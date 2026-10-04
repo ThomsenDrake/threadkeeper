@@ -31,7 +31,7 @@ test('direct observation accounts for both rejected extraction responses without
     assert(observer.records.every(record => record.request_sha256?.length === 64 && record.response_sha256?.length === 64 && record.elapsed_ms >= 0));
     assert.deepEqual(summarizeProviderObservations(observer.records), {
       observed_attempt_count: 2, direct_request_count: 2, inference_request_count: 2,
-      usage_complete: true, inference_requests_without_usage: 0, inference_requests_without_complete_usage: 0, derived_total_tokens_request_count: 0,
+      usage_complete: true, inference_requests_without_usage: 0, inference_requests_without_complete_usage: 0, inference_requests_with_invalid_usage: 0, derived_total_tokens_request_count: 0,
       usage: { prompt_tokens: 20, completion_tokens: 8, total_tokens: 28, completion_tokens_details: { reasoning_tokens: 4 } },
     });
     const serialized = JSON.stringify(observer.records);
