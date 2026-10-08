@@ -122,6 +122,32 @@ async function insertMemory(tx: Database, auth: Auth, candidate: ExplicitMemory,
 
 export function createStore(db: Database, options: { embeddings?: EmbeddingProvider } = {}) {
   const embeddingIndex = createEmbeddingIndex(db, options.embeddings);
+  async function profileOverview(auth: Auth) {
+    permission(auth, 'admin');
+    if (auth.projects !== null) throw new DomainError(403, 'owner_overview_required');
+    return db.transaction(async tx => {
+      // Canonical writes share this lock, keeping the entire subject index,
+      // saved-source count and snapshot coherent without loading memory text.
+      await lockOwner(tx, auth.ownerId);
+      const rows = await tx.query(`SELECT subject, COUNT(*) AS total_count,
+        COUNT(*) FILTER (WHERE status='active') AS active_count,
+        COUNT(*) FILTER (WHERE status='candidate') AS candidate_count
+        FROM tk_memories WHERE owner_id=$1 GROUP BY subject ORDER BY subject`, [auth.ownerId]);
+      const subjects = rows.rows.map(row => ({
+        subject: String(row.subject), total_count: Number(row.total_count),
+        active_count: Number(row.active_count), candidate_count: Number(row.candidate_count),
+      }));
+      const sourceCount = await tx.query('SELECT COUNT(*) AS source_count FROM tk_sources WHERE owner_id=$1', [auth.ownerId]);
+      return {
+        subjects,
+        total_count: subjects.reduce((sum, subject) => sum + subject.total_count, 0),
+        active_count: subjects.reduce((sum, subject) => sum + subject.active_count, 0),
+        candidate_count: subjects.reduce((sum, subject) => sum + subject.candidate_count, 0),
+        source_count: Number(sourceCount.rows[0].source_count),
+        snapshot_version: await snapshot(tx, auth.ownerId),
+      };
+    });
+  }
   async function captureSettings(auth: Auth) {
     permission(auth, 'admin');
     return db.transaction(async tx => {
@@ -743,5 +769,5 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const result = await db.query(`SELECT j.id,j.project_id,j.subject,j.status,j.attempts,j.created_at,j.started_at,j.completed_at,j.error_code,j.result FROM tk_jobs j WHERE ${scope(auth, params, 'j')} ORDER BY j.created_at DESC LIMIT 100`, params);
     return { jobs: result.rows };
   }
-  return { captureSettings, setCaptureSettings, capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, previewRemoval, previewSourceRemoval, remove, removeSource, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
+  return { profileOverview, captureSettings, setCaptureSettings, capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, previewRemoval, previewSourceRemoval, remove, removeSource, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
 }

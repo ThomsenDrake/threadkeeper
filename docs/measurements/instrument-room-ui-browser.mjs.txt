@@ -1,0 +1,169 @@
+import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+import { chromium } from '/opt/codex/runtimes/cua/lib/node_modules/playwright-core/index.mjs';
+const origin='http://127.0.0.1:3000';
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const page=await browser.newPage({viewport:{width:1512,height:1000}});
+const errors=[]; page.on('pageerror',error=>errors.push(error.message));
+const groups=[];
+const passed=name=>{groups.push(name);console.log('PASS',name);};
+const api=async(path,data,method=data?'POST':'GET')=>{const r=await page.request.fetch(origin+'/api'+path,{method,...(data?{data}:{})});assert(r.ok(),await r.text());return r.json();};
+const nav=name=>page.getByRole('navigation',{name:'Profile controls'}).getByRole('button',{name,exact:true});
+const memoryDialog=()=>page.getByRole('dialog',{name:'Memory details'});
+try {
+await page.goto(origin);
+await page.getByLabel('Email',{exact:true}).fill('demo@example.invalid');
+await page.getByLabel('Password',{exact:true}).fill('threadkeeper-demo-password');
+await page.getByRole('button',{name:'Sign in',exact:true}).click();
+await page.getByRole('heading',{name:'What Threadkeeper holds for you'}).waitFor();
+const data=[
+ ['Harbor Atlas','decision','The Harbor Atlas beta is due on 14 November 2026.'],
+ ['Harbor Atlas','constraint','Keep the first Harbor Atlas release focused on coastal field notes.'],
+ ['Harbor Atlas','project_state','The Harbor Atlas map review is scheduled for Friday.'],
+ ['Writing','preference','Use short paragraphs and a calm, direct voice in my writing.'],
+ ['Writing','preference','Prefer British English spelling in published essays.'],
+ ['Workshop','fact','The instrument-room workshop meets on Tuesday afternoons.'],
+ ['Travel','decision','Take the train for the November conference.'],
+ ['Personal','preference','I like quiet mornings for focused work.']
+];
+for (const [subject,kind,text] of data) {
+ const id=crypto.randomUUID();
+ const r=await page.request.post('http://127.0.0.1:3000/api/capture',{data:{idempotency_key:id,subject,project_id:subject==='Harbor Atlas'?'harbor-atlas':null,events:[{id,text,author_role:'user',origin:'user_explicit',capture_method:'profile_entry'}],explicit_memories:[{statement:text,quote:text,source_event_id:id,kind,origin:'user_explicit',subject}]}});
+ if(!r.ok()) throw new Error(await r.text());
+}
+await page.request.post('http://127.0.0.1:3000/api/clients',{data:{name:'Writing assistant',permissions:['read','capture'],projects:null}});
+await page.request.post('http://127.0.0.1:3000/api/clients',{data:{name:'Coding agent',permissions:['read'],projects:['harbor-atlas']}});
+await page.reload();
+await page.getByRole('button',{name:'Browse all memories'}).waitFor();
+passed('Sign-in and live overview');
+await page.screenshot({path:'/tmp/threadkeeper-ui/record-desktop.png',fullPage:true});
+await page.getByRole('radio',{name:'Overview',exact:true}).focus();
+await page.keyboard.press('ArrowDown');
+await page.getByRole('heading',{name:'Harbor Atlas',exact:true}).waitFor();
+await page.getByRole('button',{name:'The Record Explore',exact:true}).click();
+await page.getByRole('button',{name:'Browse all memories'}).click();
+await page.getByRole('searchbox',{name:'Search memories'}).fill('British');
+await page.waitForFunction(()=>document.querySelectorAll('.memory-row').length===1);
+assert.match(await page.locator('.memory-row').innerText(),/British English/);
+await page.getByRole('searchbox',{name:'Search memories'}).fill('');
+await page.getByLabel('Project',{exact:true}).fill('harbor-atlas');
+await page.waitForFunction(()=>document.querySelectorAll('.memory-row').length===3);
+await page.getByLabel('Source',{exact:true}).selectOption('profile');
+await page.getByLabel('Status',{exact:true}).selectOption('candidate');
+await page.getByText('No candidates match this view.').waitFor();
+passed('Subject keyboard navigation, search, project/source/status filters');
+await nav('The Record').click();
+await page.getByRole('button',{name:'Add memory',exact:true}).click();
+await page.getByLabel('What should be remembered?').fill('The synthetic lighthouse deadline is 14 November 2026.');
+await page.getByRole('dialog').getByRole('textbox',{name:'Subject',exact:true}).fill('Lighthouse');
+await page.getByLabel('Kind',{exact:true}).selectOption('decision');
+await page.getByRole('button',{name:'Save memory',exact:true}).click();
+await page.getByRole('radio',{name:'Lighthouse',exact:true}).waitFor();
+passed('Capture direct memory updates complete subject index');
+await page.getByRole('button',{name:'Inquiry Ask',exact:true}).click();
+await page.getByLabel('Your question').fill('lighthouse');
+await page.locator('.inquiry-form').getByRole('button',{name:'Ask Searches your Record'}).click();
+await page.getByText('Here is what your Record says:').waitFor();
+await page.getByRole('button',{name:'Cited memory 1: open in the Record'}).click();
+await memoryDialog().getByRole('button',{name:'Correct memory',exact:true}).click();
+await memoryDialog().getByLabel('Statement',{exact:true}).fill('The synthetic lighthouse deadline is 21 November 2026.');
+await page.route('**/api/memories/*',async route=>{if(route.request().method()==='PATCH')return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'internal_error'})});return route.continue();});
+await memoryDialog().getByRole('button',{name:'Save correction',exact:true}).click();
+await memoryDialog().getByRole('alert').filter({hasText:'could not complete'}).waitFor();
+await page.unroute('**/api/memories/*');
+await memoryDialog().getByRole('button',{name:'Save correction',exact:true}).click();
+await memoryDialog().getByRole('heading',{name:'The synthetic lighthouse deadline is 21 November 2026.'}).waitFor();
+assert.equal(await memoryDialog().locator('.prov-row').count(),2);
+assert.match(await memoryDialog().locator('.prov-source').allTextContents().then(x=>x.join(' ')),/14 November/);
+await page.getByRole('button',{name:'Close memory details'}).click();
+await page.getByText('Your Record changed. Ask again to retrieve the current wording and sources.').waitFor();
+assert.equal(await page.locator('.recalled-statement').count(),0);
+await page.locator('.inquiry-form').getByRole('button',{name:'Ask Searches your Record'}).click();
+await page.locator('.recalled-statement').filter({hasText:'21 November'}).waitFor();
+await page.screenshot({path:'/tmp/threadkeeper-ui/inquiry-desktop.png',fullPage:true});
+passed('Real Inquiry citations, visible failed correction, authoritative edit, provenance and stale-answer invalidation');
+await page.getByRole('button',{name:'Cited memory 1: open in the Record'}).click();
+await page.screenshot({path:'/tmp/threadkeeper-ui/detail-desktop.png'});
+await memoryDialog().getByRole('button',{name:'Forget memory',exact:true}).click();
+await memoryDialog().getByRole('button',{name:'Forget memory & related records',exact:true}).waitFor();
+await memoryDialog().getByRole('button',{name:'Forget memory & related records',exact:true}).click();
+await page.getByRole('dialog',{name:'Memory details'}).waitFor({state:'hidden'});
+await page.locator('.inquiry-form').getByRole('button',{name:'Ask Searches your Record'}).click();
+await page.getByText('No matching memories',{exact:true}).waitFor();
+assert.equal((await api('/context/search?query=lighthouse')).memories.length,0);
+passed('Guarded deletion removes citations and fresh recall');
+const candidates=[];
+for(const text of ['Use an outline before drafting the synthetic essay.','Prefer evening sessions for synthetic writing.']){
+ const id=crypto.randomUUID(); const saved=await api('/capture',{idempotency_key:id,subject:'Writing',project_id:null,events:[{id,text,author_role:'assistant',origin:'assistant_proposed'}],explicit_memories:[{statement:text,quote:text,source_event_id:id,kind:'preference',origin:'assistant_proposed'}]}); candidates.push(saved.memory_ids[0]);
+}
+await nav('The Record').click();
+await page.reload();
+await page.getByRole('button',{name:'Needs review · 2',exact:true}).click();
+await page.locator('.memory-row').filter({hasText:'outline'}).click();
+await memoryDialog().getByRole('button',{name:'Edit and confirm',exact:true}).click();
+await memoryDialog().getByLabel('Kind',{exact:true}).selectOption('constraint');
+await memoryDialog().getByRole('button',{name:'Save and confirm',exact:true}).click();
+await memoryDialog().getByText('User confirmed',{exact:true}).first().waitFor();
+await page.keyboard.press('Escape');
+await page.locator('.memory-row').filter({hasText:'evening'}).click();
+await memoryDialog().getByRole('button',{name:'Dismiss',exact:true}).click();
+await memoryDialog().getByRole('button',{name:'Dismiss candidate',exact:true}).click();
+await memoryDialog().getByText('This candidate was dismissed.',{exact:false}).waitFor();
+await page.keyboard.press('Escape');
+passed('Candidate edit-and-confirm with kind correction and dismissal');
+await nav('Connections').click();
+await page.getByRole('button',{name:'Create credential',exact:true}).click();
+await page.getByLabel('Client name',{exact:true}).fill('Synthetic UI acceptance client');
+await page.getByLabel('Scope',{exact:true}).selectOption('selected');
+await page.getByLabel('Project IDs',{exact:true}).fill('harbor-atlas');
+await page.getByRole('button',{name:'Create client token',exact:true}).click();
+await page.getByLabel('Client token',{exact:true}).waitFor();
+const token=await page.getByLabel('Client token',{exact:true}).inputValue(); assert(token.length>20);
+await page.getByRole('button',{name:'Done',exact:true}).click();
+const card=page.locator('.client-card').filter({hasText:'Synthetic UI acceptance client'});
+await card.getByRole('button',{name:'Revoke access',exact:true}).click();
+await card.getByRole('button',{name:'Revoke access',exact:true}).click();
+await card.getByText('Revoked',{exact:true}).waitFor();
+await page.getByRole('button',{name:'Pause new captures',exact:true}).click();
+await page.getByRole('button',{name:'Resume new captures',exact:true}).waitFor();
+await nav('The Record').click();
+assert(await page.getByRole('button',{name:'Add memory',exact:true}).isDisabled());
+await nav('Connections').click();
+await page.getByRole('button',{name:'Resume new captures',exact:true}).click();
+await page.getByRole('button',{name:'Pause new captures',exact:true}).waitFor();
+passed('Scoped credential creation/revocation and capture pause/resume');
+await nav('Captures').click();
+await page.locator('.capture-card').first().waitFor();
+await page.locator('.capture-card').first().locator('summary').click();
+await page.locator('.capture-card').first().getByRole('button',{name:/View source/}).first().click();
+await page.getByRole('dialog',{name:'Source evidence'}).waitFor();
+await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+passed('Capture list and preserved source dialog');
+await nav('Import & export').click();
+const downloadPromise=page.waitForEvent('download');
+await page.getByRole('button',{name:'Download JSON export',exact:true}).click();
+const download=await downloadPromise;await download.saveAs('/tmp/threadkeeper-ui/synthetic-export.json');
+await page.locator('input[type=file]').setInputFiles('/tmp/threadkeeper-ui/synthetic-export.json');
+await page.getByRole('button',{name:'Validate & import',exact:true}).click();
+await page.getByRole('heading',{name:'Import completed',exact:true}).waitFor();
+passed('Export and validated idempotent import');
+await nav('The Record').click();
+await page.route('**/api/profile/overview',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'internal_error'})}));
+await page.reload();await page.getByText('The overview is unavailable.',{exact:false}).waitFor();
+await page.getByRole('button',{name:'Browse all memories'}).click();
+await page.locator('.memory-row').first().waitFor();
+await page.unroute('**/api/profile/overview');await page.reload();
+passed('Overview failure preserves full browsing');
+for(const width of [390,760,900,1280,1512]){
+ await page.setViewportSize({width,height:844});await nav('The Record').click();
+ await page.getByRole('heading',{name:'What Threadkeeper holds for you'}).waitFor();
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow ${width}`);
+ if(width===390){await page.screenshot({path:'/tmp/threadkeeper-ui/record-mobile.png',fullPage:true});await page.getByRole('button',{name:'Browse all memories'}).click();await page.locator('.memory-row').first().click();await memoryDialog().waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'/tmp/threadkeeper-ui/detail-mobile.png'});await page.keyboard.press('Escape');}
+}
+await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('button',{name:'Inquiry Ask',exact:true}).click();await page.getByLabel('Your question').waitFor();
+await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:'/tmp/threadkeeper-ui/inquiry-mobile.png',fullPage:true});
+await nav('Sign out').click();await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();
+passed('390–1512 px layout, mobile provenance, reduced motion and sign-out');
+assert.deepEqual(errors,[]);
+await writeFile('/tmp/threadkeeper-ui/acceptance.json',JSON.stringify({date:new Date().toISOString(),browser:browser.version(),groups,pageErrors:errors,data:'synthetic',runtime:'Disposable PGlite API serving production React build',providers:'No provider inference',widths:[390,760,900,1280,1512]},null,2)+'\n');
+} catch(error){await page.screenshot({path:'/tmp/threadkeeper-ui/failure.png',fullPage:true});console.error(error);process.exitCode=1;}finally{await browser.close();}

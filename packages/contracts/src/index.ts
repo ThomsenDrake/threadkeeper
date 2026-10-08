@@ -117,6 +117,19 @@ export const MemoryListResultSchema = z.object({
   snapshot_version: z.number().int().min(0),
   ranking_version: z.string().regex(/^[a-f0-9]{64}$/),
 }).passthrough();
+export const ProfileOverviewSchema = z.object({
+  subjects: z.array(z.object({
+    subject: Identifier,
+    total_count: z.number().int().min(0),
+    active_count: z.number().int().min(0),
+    candidate_count: z.number().int().min(0),
+  })),
+  total_count: z.number().int().min(0),
+  active_count: z.number().int().min(0),
+  candidate_count: z.number().int().min(0),
+  source_count: z.number().int().min(0),
+  snapshot_version: z.number().int().min(0),
+});
 export const ImportResultSchema = z.object({
   imported_sources: z.number().int().min(0), existing_sources: z.number().int().min(0), skipped_sources: z.number().int().min(0),
   imported_memories: z.number().int().min(0), existing_memories: z.number().int().min(0), skipped_memories: z.number().int().min(0),

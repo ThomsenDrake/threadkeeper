@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+import { chromium } from '/opt/codex/runtimes/cua/lib/node_modules/playwright-core/index.mjs';
+const origin='http://127.0.0.1:3000';
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+const page=await browser.newPage({viewport:{width:1050,height:900}});const errors=[];page.on('pageerror',error=>errors.push(error.message));
+const api=async(path,data,method=data?'POST':'GET')=>{const r=await page.request.fetch(origin+'/api'+path,{method,...(data?{data}:{})});assert(r.ok(),await r.text());return r.json();};
+try{
+await page.goto(origin);await page.getByLabel('Email',{exact:true}).fill('demo@example.invalid');await page.getByLabel('Password',{exact:true}).fill('threadkeeper-demo-password');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'What Threadkeeper holds for you'}).waitFor();
+const width=await page.locator('.hall').evaluate(el=>getComputedStyle(el).gridTemplateColumns);assert(width.startsWith('330px'),width);
+const id=crypto.randomUUID(),statement='The synthetic beacon deadline is November 14.';
+const saved=await api('/capture',{idempotency_key:id,subject:'Beacon',events:[{id,text:statement,author_role:'user',origin:'user_explicit'}],explicit_memories:[{statement,quote:statement,source_event_id:id,kind:'decision',origin:'user_explicit'}]});
+const memoryPath='/memories/'+saved.memory_ids[0];
+await page.getByRole('button',{name:'Inquiry Ask',exact:true}).click();await page.getByLabel('Your question').fill('beacon');await page.locator('.inquiry-form').getByRole('button',{name:'Ask Searches your Record'}).click();await page.getByRole('button',{name:'Cited memory 1: open in the Record'}).click();
+const dialog=page.getByRole('dialog',{name:'Memory details'});await dialog.getByRole('button',{name:'Correct memory',exact:true}).click();
+await api(memoryPath,{statement:'The synthetic beacon deadline is November 21.',expected_revision:1},'PATCH');
+await dialog.getByRole('button',{name:'Save correction',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.edit-form textarea')?.value.includes('November 21'));
+assert.equal(await page.locator('.recalled-statement').count(),0);await dialog.getByRole('alert').filter({hasText:'Someone changed'}).waitFor();
+await api(memoryPath,{statement:'The synthetic beacon deadline is November 28.',expected_revision:2},'PATCH');
+await page.route('**/api'+memoryPath,route=>route.request().method()==='GET'?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'internal_error'})}):route.continue());
+await dialog.getByRole('button',{name:'Save correction',exact:true}).click();await dialog.getByText('This memory changed, but its current revision could not be loaded.',{exact:false}).waitFor();
+await page.unroute('**/api'+memoryPath);await dialog.getByRole('button',{name:'Refresh memory',exact:true}).click();await dialog.getByRole('heading',{name:'The synthetic beacon deadline is November 28.',exact:true}).waitFor();
+await page.setViewportSize({width:390,height:844});await dialog.locator('.prov-row').first().scrollIntoViewIfNeeded();await page.screenshot({path:'/tmp/threadkeeper-ui/provenance-mobile.png'});
+await page.getByRole('button',{name:'Close memory details'}).click();await page.locator('.inquiry-form').getByRole('button',{name:'Ask Searches your Record'}).click();await page.locator('.recalled-statement').filter({hasText:'November 28'}).waitFor();
+const preview=await api(memoryPath+'/deletion-preview');await api(memoryPath,{expected_revision:3,preview_hash:preview.preview_hash},'DELETE');
+await page.setViewportSize({width:1512,height:1000});await page.getByRole('button',{name:'The Record Explore',exact:true}).click();await page.reload();await page.locator('.principal-gist').waitFor();await page.screenshot({path:'/tmp/threadkeeper-ui/record-desktop.png',fullPage:true});
+assert.deepEqual(errors,[]);console.log('PASS: actual concurrent correction 409 invalidates Inquiry; failed conflict reload stays honest and retry recovers; 1050px dial width; mobile provenance.');
+await writeFile('/tmp/threadkeeper-ui/conflicts.json',JSON.stringify({data:'synthetic',concurrentCorrection:'Actual API 409 and refreshed canonical detail',failedReload:'Injected GET 503 after actual concurrent correction',inquiryInvalidation:'passed',dialWidth1050:width,pageErrors:errors},null,2)+'\n');
+}finally{await browser.close();}
