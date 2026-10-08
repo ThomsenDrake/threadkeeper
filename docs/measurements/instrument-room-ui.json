@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-08T09:58:46.797Z",
+  "browser": "151.0.7922.173",
+  "groups": [
+    "Sign-in and live overview",
+    "Subject keyboard navigation, search, project/source/status filters",
+    "Capture direct memory updates complete subject index",
+    "Real Inquiry citations, visible failed correction, authoritative edit, provenance and stale-answer invalidation",
+    "Guarded deletion removes citations and fresh recall",
+    "Candidate edit-and-confirm with kind correction and dismissal",
+    "Scoped credential creation/revocation and capture pause/resume",
+    "Capture list and preserved source dialog",
+    "Export and validated idempotent import",
+    "Overview failure preserves full browsing",
+    "390\u20131512 px layout, mobile provenance, reduced motion and sign-out"
+  ],
+  "pageErrors": [],
+  "data": "synthetic",
+  "runtime": "Disposable PGlite API serving production React build",
+  "providers": "No provider inference",
+  "widths": [
+    390,
+    760,
+    900,
+    1280,
+    1512
+  ],
+  "conflict_regression": {
+    "data": "synthetic",
+    "concurrentCorrection": "Actual API 409 and refreshed canonical detail",
+    "failedReload": "Injected GET 503 after actual concurrent correction",
+    "inquiryInvalidation": "passed",
+    "dialWidth1050": "330px 662px",
+    "pageErrors": []
+  },
+  "visual_review": {
+    "combinations": 35,
+    "pages": [
+      "login",
+      "overview",
+      "subject",
+      "inquiry",
+      "captures",
+      "connections",
+      "portability"
+    ],
+    "widths": [
+      390,
+      760,
+      900,
+      1280,
+      1512
+    ],
+    "horizontal_overflow": false,
+    "browser_errors": [],
+    "additional_width": 1050
+  },
+  "verification": {
+    "node": "24.21.0",
+    "pnpm": "11.25.0",
+    "check": "232/232 tests, typecheck and production build passed",
+    "demo": "Full-text and synthetic hybrid lifecycles passed",
+    "final_ui": "Production build, root typecheck and targeted conflict/layout regression passed after final UI repairs"
+  },
+  "limitations": [
+    "Disposable PGlite database and synthetic records only",
+    "Inquiry retrieves exact saved statements; it does not generate model answers",
+    "No provider inference, native database/container or deployed-service validation in this increment"
+  ],
+  "source_sha256": {
+    "apps/web/src/App.tsx": "cc9a8fad98890692eaceb9dc20a307ffe6bdbac5a3ad164c2cee9b12421e0156",
+    "apps/web/src/Inquiry.tsx": "3050de32ffc22217402ba4d55642b980f77a2a84122b942543ab878510a16f6c",
+    "apps/web/src/InstrumentRoom.tsx": "613f6438cee29211cbbc21598bed8ffb46840ce3476e683ae458544e2dac0414",
+    "apps/web/src/Record.tsx": "643e79a57bc259dc3e6928f0546e36aa5a86251e669c9ebb9c264918c5d7ff01",
+    "apps/web/src/types.ts": "2104d36ca84bd6c698c5d2052499872e6aa9f37a61dba50de4af0c6821af2a1f",
+    "apps/web/src/styles.css": "bb3437421c6296297fcc43e15d41a1504bcd2414b75322b78fc8f2cc3153a55a",
+    "apps/web/src/instrument-room.css": "cf0e69dd8ecb987eaa39fc4b54c6016caf1ca8376406071b6bb9b6d1a6a45cd9",
+    "apps/api/src/app.ts": "37f2780bbe1227c752faedd16ee125d3adb92c4d5ceb7f9599ad089b58fe02f1",
+    "packages/core/src/index.ts": "14dc37ae5f4f5be7fba3773fedb0a85d70574b4906f7da96c234a7dc19a471f3",
+    "packages/contracts/src/index.ts": "20b228a5c1c0ab3ce9f200bb3aa2d016ed7c9931b332677c5c198c1e79ab5a3a"
+  }
+}
