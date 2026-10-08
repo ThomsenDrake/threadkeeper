@@ -46,6 +46,7 @@
     notice: null,
     chat: [],
     focusChamber: false,
+    focusInquiry: false,
     wingsView: null,
     conduit: null,
     rebuilt: new Set()
@@ -143,6 +144,7 @@
       if (first) S.openThreads.add(first.id);
     }
     if (prev.view !== r.view) S.conduit = r.view === 'inquiry' ? 'right' : null;
+    if (r.view === 'inquiry' && prev.view !== 'inquiry') S.focusInquiry = true;
     else if (r.view === 'record' && r.topic !== prev.topic) S.conduit = 'left';
     render();
   }
@@ -679,17 +681,14 @@
         <header class="stratum-head">
           <p class="kicker">Inquiry</p>
           <h2 id="chamber-title" class="chamber-title">Ask about your context</h2>
-          <div class="simulation-plate" role="note">
-            <span class="sim-badge">Simulated</span>
-            <p>This prototype composes answers in your browser from the synthetic Record. No server, MCP endpoint or model is called. In Threadkeeper, Inquiry would call <code>context_search</code>, the same recall your agents use.</p>
-          </div>
         </header>
-        <ol class="transcript">${ex || `<li class="transcript-empty"><p>Ask something specific, such as a date, a preference or a constraint. Answers cite the memories they rest on and keep their origin labels.</p></li>`}</ol>
         <form class="inquiry-form" id="inquiry-form">
           <label class="sr-only" for="inquiry-input">Your question</label>
-          <div class="speaking-grille"><textarea id="inquiry-input" rows="2" placeholder="Ask about a date, preference or constraint\u2026"></textarea></div>
+          <div class="speaking-grille"><textarea id="inquiry-input" rows="4" placeholder="Ask about a date, preference or constraint\u2026"></textarea></div>
           ${commandSeal({ id: 'inquiry-cmd', label: 'Ask', state: 'Searches your Record', type: 'submit' })}
         </form>
+        <p class="inquiry-note" role="note"><span class="sim-badge">Simulated</span> Answers are composed in this page from the synthetic Record, labelled with their origin, and linked back to the memory. No server, MCP endpoint or model is called. In Threadkeeper this would call <code>context_search</code>.</p>
+        ${ex ? `<ol class="transcript">${ex}</ol>` : ''}
       </div>`;
   }
 
@@ -927,7 +926,11 @@
     $$('[data-focus-chamber]', chamber).forEach((a) => a.addEventListener('click', () => {
       S.focusChamber = a.dataset.focusChamber === 'keep' ? 'keep' : true;
     }));
-    if (S.focusChamber) {
+    if (S.focusInquiry) {
+      S.focusInquiry = false;
+      const input = $('#inquiry-input');
+      if (input) input.focus({ preventScroll: true });
+    } else if (S.focusChamber) {
       const keep = S.focusChamber === 'keep';
       S.focusChamber = false;
       const target = keep ? ($('.disclose', chamber) || chamber) : chamber;

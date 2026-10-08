@@ -951,14 +951,19 @@ button, input, textarea { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------------- inquiry */
 
-.simulation-plate {
-  display: flex; gap: 14px; align-items: flex-start;
-  margin-top: 18px; padding: 12px 16px;
-  background: rgba(223, 218, 206, 0.05);
-  border: 1px solid rgba(223, 218, 206, 0.22);
-  border-left: 3px solid var(--bone);
+.stratum-inquiry .stratum-head { margin-bottom: 14px; }
+.inquiry-form { margin-bottom: 12px; }
+.inquiry-form .speaking-grille textarea {
+  min-height: 148px;
+  font-size: 22px;
+  line-height: 1.4;
 }
-.simulation-plate p { margin: 0; font-family: var(--face-ui); font-size: 13.5px; line-height: 1.5; color: var(--bone-dim); }
+.inquiry-note {
+  margin: 0 0 22px;
+  max-width: 46em;
+  font-family: var(--face-ui); font-size: 13px; line-height: 1.5; color: var(--bone-dim);
+}
+.inquiry-note .sim-badge { margin-right: 8px; vertical-align: 1px; }
 .sim-badge {
   flex: none; display: inline-block;
   padding: 3px 8px 2px;
@@ -966,8 +971,7 @@ button, input, textarea { font: inherit; color: inherit; }
   font-family: var(--face-ui); font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
 }
 
-.transcript { list-style: none; margin: 0 0 26px; padding: 0; display: grid; gap: 26px; }
-.transcript-empty p { margin: 0; padding: 26px 0; max-width: 36em; font-size: 18px; font-style: italic; color: var(--bone-faint); border-top: 1px solid rgba(223, 218, 206, 0.08); border-bottom: 1px solid rgba(223, 218, 206, 0.08); }
+.transcript { list-style: none; margin: 0; padding: 22px 0 0; display: grid; gap: 26px; border-top: 1px solid rgba(223, 218, 206, 0.1); }
 .exchange { animation: stratum-in 0.45s var(--settle) both; }
 .asked { margin: 0 0 12px; font-size: 20px; font-style: italic; color: var(--bone); }
 .who { display: block; font-style: normal; font-family: var(--face-ui); font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--electrum); margin-bottom: 2px; }
@@ -991,7 +995,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .mcp-equivalent { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(223, 218, 206, 0.07); font-family: var(--face-ui); font-size: 11.5px; color: var(--bone-faint); display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .mcp-equivalent code { color: var(--bone-dim); word-break: break-all; }
 
-.inquiry-form { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: start; }
+.inquiry-form { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: end; }
 .inquiry-form .speaking-grille { margin: 0; }
 
 .suggestions { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
