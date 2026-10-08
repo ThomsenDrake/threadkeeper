@@ -1090,6 +1090,9 @@ button, input, textarea { font: inherit; color: inherit; }
     padding: 24px 18px 36px;
     gap: 22px;
   }
+  .hall[data-view="inquiry"] {
+    grid-template-areas: "chamber" "left" "right";
+  }
   .conduit, .enclosure-chamber::before, .enclosure-chamber::after { display: none; }
 
   .hall[data-view="record"] .wing-left .wing-plate { display: none; }
