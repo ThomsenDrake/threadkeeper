@@ -2,6 +2,14 @@
 
 [README.md](../README.md) is the customer-facing product introduction. Agent orientation, local commands, and the compact status snapshot are in [DEVELOPMENT.md](DEVELOPMENT.md). This file remains the evidence log.
 
+## Instrument-room design prototype — 2026-10-08
+
+A standalone overview prototype lives at [prototypes/instrument-room](../prototypes/instrument-room/README.md). It is a static page with synthetic records for Iris Calder. It does not change the profile, API, worker, database, or MCP contract, and it does not replace the next extraction-admission outcome below.
+
+The page is an instrument room: stepped metal housings, an engraved Threadkeeper inscription, the carbon/iron/bone/electrum/oxblood materials, an exploratory T seal with a written attribution, command seals for deliberate actions, and a provenance junction at the source level. The Record opens on what is held, then a subject, a thread, a memory, and sources only when requested. Correct and Forget sit on the memory, not on the overview. Inquiry is a separate destination. Its answers are labelled simulated and cite the same synthetic memories; they are not a general assistant and no server is connected.
+
+Browser checks on this page passed at 1440, 1280, 900, and 390 pixels wide, including no horizontal overflow, keyboard destination change, correction that keeps the original quotation, sibling-aware forgetting, and an Inquiry answer that follows a correction. These checks do not exercise `pnpm check`, a real provider, or the production profile.
+
 ## Current main review and resumption snapshot — 2026-10-04
 
 Fetched main **`3bf334915974b7e1286c682336e6d8359f39cc2c`** after the user reviewed and merged PRs **#15–#21**. GitHub readback confirms all seven merged, together with #22 (Cursor baseline), #23 (separate review automation), #24 (native checkpoint preservation) and #25 (customer README/developer-guide split). There were **no open PRs** at this readback. Reuse the six completed product flows and these merged provider, host and owner-control increments. The retained measurement branch and its annotated preservation tag remain intact; deleting that branch still needs the user's separate authorization.

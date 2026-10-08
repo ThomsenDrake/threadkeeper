@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Threadkeeper · Instrument room prototype</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#chamber">Skip to the chamber</a>
+
+  <div class="room">
+    <header class="lintel">
+      <div class="lintel-body">
+        <div class="lintel-attribution">
+          <span class="lintel-seal" id="lintel-seal"></span>
+          <p>
+            <span class="eyebrow">Held for</span>
+            <span class="owner" id="owner-name"></span>
+            <span class="owner-note" id="owner-note"></span>
+          </p>
+        </div>
+
+        <div class="lintel-identity">
+          <h1 id="wordmark"></h1>
+          <p class="motto">Personal context, kept for the agents you already use</p>
+        </div>
+
+        <nav class="destinations" aria-label="Destination">
+          <div class="selector" role="radiogroup" aria-label="Destination" id="destination-selector">
+            <button type="button" role="radio" data-destination="record" aria-checked="true">
+              <span class="mark mark-diamond" aria-hidden="true"></span>
+              <span class="selector-label">The Record</span>
+              <span class="selector-sub">Explore</span>
+            </button>
+            <button type="button" role="radio" data-destination="inquiry" aria-checked="false" tabindex="-1">
+              <span class="mark mark-ring" aria-hidden="true"></span>
+              <span class="selector-label">Inquiry</span>
+              <span class="selector-sub">Ask</span>
+            </button>
+            <span class="selector-carriage" aria-hidden="true"></span>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <main class="hall" id="hall" data-view="record">
+      <aside class="wing wing-left" id="wing-left"></aside>
+
+      <section class="chamber-housing" aria-labelledby="chamber-title">
+        <div class="enclosure enclosure-chamber">
+          <div class="enc-electrum"><div class="enc-iron"><div class="enc-rail"><div class="enc-well">
+            <div class="glass" aria-hidden="true"></div>
+            <div class="chamber" id="chamber" tabindex="-1"></div>
+          </div></div></div></div>
+        </div>
+      </section>
+
+      <aside class="wing wing-right" id="wing-right"></aside>
+    </main>
+
+    <footer class="plinth">
+      <p><strong>Design prototype.</strong> Every record is synthetic. Corrections, deletions and Inquiry answers run in this page only; no Threadkeeper server, MCP endpoint or model is connected.</p>
+    </footer>
+  </div>
+
+  <div class="sr-only" aria-live="polite" id="announcer"></div>
+
+  <script src="data.js"></script>
+  <script src="glyphs.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
