@@ -27,7 +27,7 @@ export function RecordOverview({ overview, error, memories, onSubject, onMemory,
 }
 
 export function Provenance({ detail, clientName }: { detail: Detail; clientName: (id: string | null) => string }) {
-  return <section className="detail-section stratum-provenance" aria-labelledby="provenance-title"><header className="stratum-head"><p className="kicker">Sources and history</p><h3 id="provenance-title" className="minor-title">How this memory was formed</h3><p className="panel-note">Every source is preserved as captured. A correction adds your wording immediately. It does not endorse or overwrite the earlier interpretation.</p></header>
+  return <section className="detail-section stratum-provenance" aria-labelledby="provenance-title"><header className="stratum-head"><p className="kicker">Sources and history</p><h3 id="provenance-title" className="minor-title">How this memory was formed</h3><p className="panel-note">Every source is preserved as captured. A correction updates the memory immediately and keeps the earlier wording in history.</p></header>
     <ol className="prov-rows">{[...detail.revisions].sort((a, b) => b.revision - a.revision).map(revision => {
       const current = revision.revision === detail.memory.revision;
       const evidence = detail.evidence?.filter(item => item.revision === revision.revision) || [];

@@ -202,8 +202,10 @@ test('owner correction enforces authorization and concurrent revisions without a
   const tools = (await a.listTools()).tools;
   assert(!tools.some(tool => /review|confirm|dismiss/.test(tool.name)));
   const searchDescription = tools.find(tool => tool.name === 'context_search')!.description!;
-  for (const label of ['You said this', 'Corrected by you', 'Reported by an agent', 'Inferred, not stated', 'Assistant suggestion, not accepted']) assert(searchDescription.includes(label));
-  assert(searchDescription.includes('You have not accepted this suggestion.'));
+  for (const label of ['You said this', 'Corrected by you', 'Reported by an agent', 'Inferred, not stated', 'From an assistant']) assert(searchDescription.includes(label));
+  assert(searchDescription.includes('Every current memory follows the same delivery, correction and deletion rules'));
+  assert(!searchDescription.includes('You have not accepted'));
+  assert(searchDescription.includes('require no user approval'));
   assert(searchDescription.includes('You have not stated this yourself.'));
   const schema = (await request('/openapi.json', { anonymous: true })).data;
   assert.equal(schema.paths['/api/memories/{memory_id}/review'], undefined);
@@ -222,7 +224,7 @@ test('owner correction enforces authorization and concurrent revisions without a
   }
 });
 
-test('forgetting an unaccepted suggestion stops fresh delivery to every client', async t => {
+test('forgetting an assistant-contributed memory stops fresh delivery to every client', async t => {
   const { store, request, grant, connect } = await startApp(t);
   const writer = await grant('Forgetting writer', ['read', 'capture']);
   const reader = await grant('Forgetting reader', ['read']);

@@ -16,7 +16,7 @@ window.TK_DATA = {
     user_confirmed: { short: 'Corrected by you', long: 'You corrected this in Threadkeeper. Your wording is authoritative.' },
     agent_reported: { short: 'Reported by an agent', long: 'An agent reported this while working for you. You did not state it yourself.' },
     inferred: { short: 'Inferred, not stated', long: 'Interpreted from conversation. You never said this outright.' },
-    assistant_proposed: { short: 'Assistant suggestion, not accepted', long: 'An assistant proposed this. You have not accepted it; agents receive it labelled as a suggestion.' }
+    assistant_proposed: { short: 'From an assistant', long: 'An assistant contributed this memory while working for you.' }
   },
 
   topics: [
@@ -28,7 +28,7 @@ window.TK_DATA = {
       threads: [
         { id: 'harbor-schedule', name: 'Schedule and commitments', summary: 'A fixed beta date and a fortnightly design review.' },
         { id: 'harbor-decisions', name: 'Technical decisions', summary: 'Storage, data import and map rendering choices.' },
-        { id: 'harbor-people', name: 'People and proposals', summary: 'Who owns what, and one open suggestion.' }
+        { id: 'harbor-people', name: 'People and context', summary: 'Who owns what, and support for chart styling.' }
       ]
     },
     {
@@ -150,9 +150,9 @@ window.TK_DATA = {
       ]
     },
     {
-      id: 'mem-cartographer', topic: 'harbor', thread: 'harbor-people', kind: 'Proposal', origin: 'assistant_proposed', effective: null,
+      id: 'mem-cartographer', topic: 'harbor', thread: 'harbor-people', kind: 'Context', origin: 'assistant_proposed', effective: null,
       revisions: [
-        { rev: 1, at: '2026-09-18 19:11', statement: 'Bring in a contract cartographer before beta to review chart styling.', sources: ['src-rc-0918'], judgment: { kind: 'extraction', label: 'Interpreted by worker', detail: 'Assistant proposal; no acceptance recorded' } }
+        { rev: 1, at: '2026-09-18 19:11', statement: 'Bring in a contract cartographer before beta to review chart styling.', sources: ['src-rc-0918'], judgment: { kind: 'extraction', label: 'Interpreted by worker', detail: 'Memory from an assistant' } }
       ]
     },
     {
@@ -259,7 +259,7 @@ window.TK_DATA = {
     'When is the Harbor Atlas beta due?',
     'How should agents write for me?',
     'When should agents avoid booking calls?',
-    'What have assistants suggested that I have not accepted?',
+    'What memories came from assistants?',
     'What do you know about my salary?'
   ]
 };

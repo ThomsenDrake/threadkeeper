@@ -1,6 +1,14 @@
 # Threadkeeper handoff
 
-## Automatic labelled delivery — 2026-10-10
+## One memory lifecycle — 2026-10-10
+
+The user's follow-up removes the suggested/accepted distinction altogether. Every current memory follows the same immediate delivery, correction and deletion flow. The profile and Inquiry now label assistant-origin records **From an assistant**, with source attribution rather than an acceptance disclaimer. MCP/OpenAPI descriptions, extraction guidance, the instrument-room prototype and current product docs use that same rule. Source roles and origin IDs remain intact; assistant wording is never relabelled as a user statement. The existing active admission/default recall, legacy candidate upgrade and explicit-dismissal exclusion remain unchanged. No new database migration is required.
+
+Verification: Node 24.19.0 and pinned pnpm 11.25.0; `pnpm check` passed **239/239 tests**, typechecking and production build. Both full-text and hybrid `pnpm demo` modes passed. Seven Chromium groups passed against the actual built profile/Express API and disposable PGlite, including equal Correct/Forget controls for every current origin, neutral assistant recall wording, correction/history, legacy candidates/dismissals, scopes, concurrent changes, Forget and 390px layout. No browser runtime errors; assistant details, Inquiry and mobile screenshots were visually reviewed. The prototype separately passed syntax and Chromium checks, including fresh recall after forgetting. Independent local review found no actionable issues; immutable final-head review and GitHub checks are recorded in the PR.
+
+[Sanitized browser evidence](measurements/unified-memory-ui.json) records runtime/build hashes; [driver](measurements/unified-memory-ui-browser.mjs.txt) uses only synthetic data. Browser and demo server stopped, and port 3000 is closed. No learned inference, native database/container, installed host or GPU verification was performed. Historical measurements below retain the wording and behavior observed at their original checkpoints. GitHub delivery preserves the README screenshot assets already on main.
+
+## Historical automatic labelled delivery — 2026-10-10
 
 The profile, recall and admission now follow the instrument-room rule: every current memory is available automatically under its origin label; delivery is not endorsement. Inferred and assistant-proposed records are active immediately without confirmation, and suggestions remain unaccepted. The five prototype labels/descriptions and Inquiry answer phrases are shared by the profile. The normal approval queue, review endpoint, Confirm, Edit and confirm, and Dismiss actions are removed. Correct and Forget appear after opening a memory. Corrections take effect immediately as authoritative `user_confirmed` wording, without model review; original evidence stays preserved and older interpretations stay in history, no longer delivered.
 

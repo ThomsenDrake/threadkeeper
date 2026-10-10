@@ -1,0 +1,232 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { writeFile } from 'node:fs/promises';
+const require = createRequire('/opt/codex/runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.js');
+const { chromium } = require('playwright');
+const browser = await chromium.launch({ executablePath: '/usr/bin/chromium', headless: true, args: ['--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+const labels = {
+  user_explicit: ['You said this', 'You stated this directly to an agent.'],
+  user_confirmed: ['Corrected by you', 'You corrected this in Threadkeeper. Your wording is authoritative.'],
+  agent_reported: ['Reported by an agent', 'An agent reported this while working for you. You did not state it yourself.'],
+  inferred: ['Inferred, not stated', 'Interpreted from conversation. You never said this outright.'],
+  assistant_proposed: ['From an assistant', 'An assistant contributed this memory while working for you.'],
+};
+const checks = [];
+try {
+  await page.goto('http://127.0.0.1:3000');
+  await page.getByLabel('Email', { exact: true }).fill('demo@example.invalid');
+  await page.getByLabel('Password', { exact: true }).fill('threadkeeper-demo-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByRole('heading', { name: 'What Threadkeeper holds for you', exact: true }).waitFor();
+  const seeded = await page.evaluate(async () => {
+    async function request(path, body) {
+      const response = await fetch(`/api${path}`, { method: body ? 'POST' : 'GET', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+      const data = await response.json();
+      if (!response.ok) throw new Error(`${path}: ${response.status}: ${data.error?.message || data.error}`);
+      return data;
+    }
+    await request('/clients', { name: 'Synthetic agent A', permissions: ['read', 'capture'], projects: null });
+    await request('/clients', { name: 'Synthetic agent B', permissions: ['read'], projects: [] });
+    await request('/clients', { name: 'Synthetic agent C', permissions: ['read'], projects: null });
+    await request('/clients', { name: 'Synthetic capture-only client', permissions: ['capture'], projects: null });
+    const fixtures = [
+      { key: 'said', origin: 'user_explicit', statement: 'Lighthouse writing should use short paragraphs.' },
+      { key: 'reported', origin: 'agent_reported', statement: 'Lighthouse review meets on Thursday.' },
+      { key: 'inferred', origin: 'inferred', statement: 'Lighthouse planning benefits from a morning routine.' },
+      { key: 'suggestion', origin: 'assistant_proposed', statement: 'Lighthouse could use a weekly digest.' },
+      { key: 'correct', origin: 'inferred', statement: 'Lighthouse deadline is Tuesday.' },
+      { key: 'scoped', origin: 'user_explicit', statement: 'Scoped synthetic project context.', project_id: 'private-project' },
+    ];
+    for (const fixture of fixtures) {
+      const event = `browser-${fixture.key}`;
+      const response = await request('/capture', {
+        idempotency_key: event, project_id: fixture.project_id || null, subject: 'self',
+        events: [{ id: event, text: fixture.statement, author_role: fixture.origin === 'user_explicit' ? 'user' : 'assistant', origin: fixture.origin, capture_method: 'explicit_capture' }],
+        explicit_memories: [{ statement: fixture.statement, kind: 'fact', source_event_id: event, quote: fixture.statement, origin: fixture.origin }],
+      });
+      fixture.id = response.memory_ids[0];
+    }
+    const bundle = await request('/export');
+    for (const [key, origin, status, statement] of [
+      ['legacy-candidate', 'inferred', 'candidate', 'Lighthouse legacy inference stays inferred.'],
+      ['legacy-dismissed', 'assistant_proposed', 'dismissed', 'Lighthouse dismissed suggestion remains removed.'],
+    ]) {
+      const template = bundle.memories.find(memory => memory.origin === origin);
+      const templateRevision = bundle.revisions.find(revision => revision.memory_id === template.id);
+      const templateEvidence = bundle.evidence.find(evidence => evidence.memory_id === template.id);
+      const templateSource = bundle.sources.find(source => source.id === templateEvidence.source_id);
+      const id = `browser-${key}`;
+      const sourceId = `${id}-source`;
+      const checksum = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(statement)))].map(value => value.toString(16).padStart(2, '0')).join('');
+      await request('/import', {
+        schema_version: 'threadkeeper.export.v2', exported_at: new Date().toISOString(), tombstones: [],
+        sources: [{ ...templateSource, id: sourceId, event_id: sourceId, text: statement, checksum, extraction_blocked: status === 'dismissed' }],
+        memories: [{ ...template, id, statement, status }],
+        revisions: [{ ...templateRevision, memory_id: id, statement, status }],
+        evidence: [{ memory_id: id, revision: 1, source_id: sourceId, quote: statement }],
+      });
+      fixtures.push({ key, id, origin, statement });
+    }
+    return fixtures;
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Browse all memories/ }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.memory-row').length === 7);
+  assert.equal(await page.getByRole('button', { name: /Needs review|^Confirm$|Edit and confirm|^Dismiss$|^Correct$|^Forget$/ }).count(), 0);
+  assert.equal(await page.getByLabel('Status', { exact: true }).locator('option[value="candidate"]').count(), 0);
+  assert.match(await page.locator('.access-plaque').innerText(), /Every current memory is available to these agents\. Open a memory to change or forget it\./);
+  assert.equal(await page.locator('.access-plaque .agents li').count(), 3);
+  checks.push('All four captured origins and an imported legacy candidate are current without approval; the list has no queue or correction/deletion actions, and only recall-capable agents appear in availability.');
+
+  for (const fixture of seeded.filter(item => item.key !== 'legacy-dismissed')) {
+    await page.locator(`.memory-row[data-memory-id="${fixture.id}"]`).click();
+    const panel = page.getByRole('dialog', { name: 'Memory details', exact: true });
+    await panel.locator('.detail-statement').waitFor();
+    assert.match(await panel.locator('.particulars').innerText(), new RegExp(labels[fixture.origin][0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.ok((await panel.locator('.particulars').innerText()).includes(labels[fixture.origin][1]));
+    assert.ok((await panel.locator('.particulars').innerText()).includes(fixture.key === 'scoped' ? 'Available to two agents' : 'Available to three agents'));
+    assert.ok((await panel.locator('.particulars').innerText()).includes('Shared automatically with your agents.'));
+    assert.equal(await panel.getByRole('button', { name: /^Confirm$|Edit and confirm|^Dismiss$/ }).count(), 0);
+    assert.equal(await panel.getByRole('button', { name: 'Correct', exact: true }).count(), 1);
+    assert.equal(await panel.getByRole('button', { name: 'Forget', exact: true }).count(), 1);
+    assert.doesNotMatch(await panel.innerText(), /unaccepted|not accepted|have not accepted|endorse|asked to approve/i);
+    if (fixture.key === 'suggestion') await page.screenshot({ path: '/tmp/threadkeeper-unified-suggestion.png', fullPage: true });
+    await panel.getByRole('button', { name: 'Close memory details', exact: true }).click();
+  }
+  checks.push('Memory details show the source labels/descriptions and automatic delivery copy; availability respects read permission and project scope.');
+
+  const corrected = seeded.find(item => item.key === 'correct');
+  await page.locator(`.memory-row[data-memory-id="${corrected.id}"]`).click();
+  let panel = page.getByRole('dialog', { name: 'Memory details', exact: true });
+  await panel.getByRole('button', { name: 'Correct', exact: true }).click();
+  await panel.getByLabel('Statement', { exact: true }).fill('Lighthouse deadline is Wednesday.');
+  await panel.getByRole('button', { name: 'Save correction', exact: true }).click();
+  await panel.getByRole('heading', { name: 'Lighthouse deadline is Wednesday.', exact: true }).waitFor();
+  const detail = await page.evaluate(async id => (await fetch(`/api/memories/${id}`)).json(), corrected.id);
+  assert.equal(detail.memory.origin, 'user_confirmed');
+  assert.equal(detail.memory.revision, 2);
+  assert.equal(detail.memory.status, 'active');
+  assert.equal(detail.revisions.find(revision => revision.revision === 1).origin, 'inferred');
+  assert.ok(detail.sources.some(source => source.text === corrected.statement && source.origin === 'inferred'));
+  assert.ok((await panel.locator('.particulars').innerText()).includes(labels.user_confirmed[1]));
+  assert.ok((await panel.innerText()).includes('Kept in history, no longer delivered'));
+  assert.ok((await panel.textContent()).includes('Preserved as captured'));
+  await page.screenshot({ path: '/tmp/threadkeeper-unified-correction.png', fullPage: true });
+  await panel.getByRole('button', { name: 'Close memory details', exact: true }).click();
+  checks.push('A UI correction becomes authoritative user_confirmed wording immediately; its inferred earlier revision and original source remain in history.');
+
+  await page.getByRole('button', { name: 'Inquiry Ask', exact: true }).click();
+  await page.getByLabel('Your question', { exact: true }).fill('Lighthouse');
+  await page.locator('.inquiry-form').getByRole('button', { name: /^Ask\b/ }).click();
+  await page.waitForFunction(() => document.querySelectorAll('.answer-points > li').length === 6);
+  const answer = await page.locator('.answer-body').innerText();
+  assert.doesNotMatch(answer, /unaccepted|not accepted|have not accepted|endorse|asked to approve/i);
+  for (const text of [
+    'You said: Lighthouse writing should use short paragraphs.',
+    'In your corrected wording: Lighthouse deadline is Wednesday.',
+    'An agent reported that lighthouse review meets on Thursday. You have not stated this yourself.',
+    'Inferred from conversation, not stated by you: Lighthouse planning benefits from a morning routine.',
+    'From an assistant: “Lighthouse could use a weekly digest.”',
+    'Inferred from conversation, not stated by you: Lighthouse legacy inference stays inferred.',
+  ]) assert.ok(answer.includes(text), `Answer missing: ${text}`);
+  assert.equal(answer.includes('dismissed suggestion'), false);
+  assert.equal(answer.includes('deadline is Tuesday'), false);
+  for (const [label] of Object.values(labels)) assert.ok(answer.includes(label));
+  await page.screenshot({ path: '/tmp/threadkeeper-unified-inquiry.png', fullPage: true });
+  checks.push('Default Inquiry recalls statements, corrected wording, agent reports, inferences and assistant contributions with source attribution and no acceptance framing; dismissed memory and superseded wording are absent.');
+
+  await page.getByRole('button', { name: 'The Record Explore', exact: true }).click();
+  await page.getByRole('button', { name: /Browse all memories/ }).click();
+  await page.getByLabel('Status', { exact: true }).selectOption('dismissed');
+  await page.waitForFunction(() => document.querySelectorAll('.memory-row').length === 1);
+  await page.locator('.memory-row').click();
+  panel = page.getByRole('dialog', { name: 'Memory details', exact: true });
+  await panel.locator('.detail-statement').waitFor();
+  assert.equal(await panel.getByRole('button', { name: 'Correct', exact: true }).count(), 0);
+  assert.ok((await panel.locator('.particulars').innerText()).includes('No longer delivered'));
+  await panel.getByRole('button', { name: 'Close memory details', exact: true }).click();
+  await page.getByLabel('Status', { exact: true }).selectOption('active');
+  await page.waitForFunction(() => document.querySelectorAll('.memory-row').length === 7);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const overflow = async () => page.evaluate(() => ({ viewport: document.documentElement.clientWidth, body: document.body.scrollWidth, document: document.documentElement.scrollWidth }));
+  assert.ok((await overflow()).document <= 390, `Mobile list overflow: ${JSON.stringify(await overflow())}`);
+  await page.locator(`.memory-row[data-memory-id="${corrected.id}"]`).click();
+  panel = page.getByRole('dialog', { name: 'Memory details', exact: true });
+  await panel.locator('.detail-statement').waitFor();
+  assert.ok((await overflow()).document <= 390, `Mobile detail overflow: ${JSON.stringify(await overflow())}`);
+  await page.screenshot({ path: '/tmp/threadkeeper-unified-mobile.png', fullPage: true });
+  await panel.getByRole('button', { name: 'Close memory details', exact: true }).click();
+  checks.push('Legacy dismissed memory stays inspectable and has no Correct action; the Record and memory details fit a 390px mobile viewport.');
+
+  const suggestion = seeded.find(item => item.key === 'suggestion');
+  await page.locator(`.memory-row[data-memory-id="${suggestion.id}"]`).click();
+  panel = page.getByRole('dialog', { name: 'Memory details', exact: true });
+  await panel.getByRole('button', { name: 'Forget', exact: true }).click();
+  const forget = panel.getByRole('button', { name: 'Forget memory & related records', exact: true });
+  await forget.waitFor();
+  await page.waitForFunction(() => !document.querySelector('.delete-confirm .button.danger')?.disabled);
+  await forget.click();
+  await page.waitForFunction(() => document.querySelector('.detail-panel') === null);
+  const recalled = await page.evaluate(async () => (await fetch('/api/context/search?query=Lighthouse')).json());
+  assert.equal(recalled.memories.some(memory => memory.id === suggestion.id), false);
+  assert.equal(recalled.memories.some(memory => memory.id === 'browser-legacy-dismissed'), false);
+  assert.ok(recalled.memories.some(memory => memory.id === corrected.id && memory.origin === 'user_confirmed'));
+  const conflictIds = await page.evaluate(async () => {
+    async function request(path, body, method = 'POST') {
+      const response = await fetch(`/api${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!response.ok) throw new Error(`${path}: ${response.status}`);
+      return response.json();
+    }
+    const ids = [];
+    for (const key of ['conflict-a', 'conflict-b']) {
+      const statement = 'Concurrent lighthouse wording.';
+      const captured = await request('/capture', { idempotency_key: key, project_id: null, subject: 'self', events: [{ id: key, text: statement, author_role: 'assistant', origin: 'inferred' }], explicit_memories: [{ statement, kind: 'fact', source_event_id: key, quote: statement, origin: 'inferred' }] });
+      ids.push(captured.memory_ids[0]);
+    }
+    return ids;
+  });
+  await page.reload();
+  await page.getByRole('button', { name: /Browse all memories/ }).click();
+  await page.locator(`.memory-row[data-memory-id="${conflictIds[0]}"]`).click();
+  panel = page.getByRole('dialog', { name: 'Memory details', exact: true });
+  await panel.getByRole('button', { name: 'Correct', exact: true }).click();
+  await panel.getByLabel('Statement', { exact: true }).fill('My concurrent correction draft.');
+  await page.evaluate(async id => {
+    const response = await fetch(`/api/memories/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ statement: 'Current concurrent corrected wording.', expected_revision: 1 }) });
+    if (!response.ok) throw new Error(`Concurrent correction: ${response.status}`);
+  }, conflictIds[1]);
+  await panel.getByRole('button', { name: 'Save correction', exact: true }).click();
+  await panel.locator('.detail-statement').waitFor();
+  assert.equal(await panel.locator('.edit-form').count(), 0);
+  assert.equal(await panel.getByRole('button', { name: 'Correct', exact: true }).count(), 0);
+  assert.ok((await panel.innerText()).includes('This memory is no longer current.'));
+  assert.ok((await panel.locator('.particulars').innerText()).includes('No longer delivered'));
+  await panel.getByRole('button', { name: 'Close memory details', exact: true }).click();
+  await page.locator(`.memory-row[data-memory-id="${conflictIds[1]}"]`).click();
+  panel = page.getByRole('dialog', { name: 'Memory details', exact: true });
+  await panel.getByRole('button', { name: 'Correct', exact: true }).click();
+  await page.evaluate(async id => {
+    const preview = await (await fetch(`/api/memories/${id}/deletion-preview`)).json();
+    const response = await fetch(`/api/memories/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected_revision: preview.expected_revision, preview_hash: preview.preview_hash }) });
+    if (!response.ok) throw new Error(`Concurrent deletion: ${response.status}`);
+  }, conflictIds[1]);
+  await panel.getByRole('button', { name: 'Save correction', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('.edit-form') === null);
+  assert.equal(await panel.locator('.edit-form').count(), 0);
+  assert.ok((await panel.innerText()).includes('This memory is no longer available.'));
+  checks.push('Concurrent supersession closes the correction editor and offers inspection/deletion only; concurrent forgetting closes the editor and reports that the memory is unavailable.');
+  assert.deepEqual(errors, []);
+  checks.push('Forget removes the assistant-origin memory from immediate default recall while corrected context remains available; there were no browser runtime errors.');
+  const result = { mode: 'Synthetic disposable PGlite profile, Chromium', checks, browser_errors: errors, screenshots: ['/tmp/threadkeeper-unified-suggestion.png', '/tmp/threadkeeper-unified-correction.png', '/tmp/threadkeeper-unified-inquiry.png', '/tmp/threadkeeper-unified-mobile.png'] };
+  await writeFile('/tmp/threadkeeper-unified-delivery-browser.json', JSON.stringify(result, null, 2) + '\n');
+  console.log(JSON.stringify(result, null, 2));
+} catch (error) {
+  await page.screenshot({ path: '/tmp/threadkeeper-unified-browser-failure.png', fullPage: true });
+  await writeFile('/tmp/threadkeeper-unified-browser-failure.txt', await page.locator('body').innerText());
+  throw error;
+} finally {
+  await browser.close();
+}

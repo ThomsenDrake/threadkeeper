@@ -167,7 +167,7 @@ export default function Inquiry({ request, onOpenMemory, onError, refreshVersion
                 <p className="plate-note">Leave a field blank to include all of that scope. Use “self” for your own subject.</p>
               </details>
             </form>
-            <p className="inquiry-note">Current matching memories, with their origin labels. Your statements, corrections, agent reports, inferences and unaccepted suggestions stay distinct.</p>
+            <p className="inquiry-note">Current matching memories from your Record. Each one shows where it came from.</p>
             <div role="status" className="inquiry-note">{searching ? 'Searching your Record…' : notice || (current ? `${memories.length} matching current ${memories.length === 1 ? 'memory' : 'memories'}.` : '')}</div>
             {error && <p className="field-error" role="alert">{error}</p>}
             {activeQuestion && <ol className="transcript"><li className="exchange">

@@ -44,7 +44,7 @@ async function demonstrate(hybrid: boolean) {
         explicit_memories: [{ statement, kind: 'project_state', source_event_id: `demo:${origin}`, quote: statement, origin }],
       }));
     }
-    console.log('1. Client A captured statements, a report, an inference and an unaccepted suggestion as separate source events.');
+    console.log('1. Client A captured statements, a report, an inference and an assistant contribution as separate source events.');
     if (hybrid) {
       assert.equal((await store.processEmbeddings()).indexed, 5);
       console.log('   Indexed deterministic synthetic vectors with pgvector; no provider credentials or network calls.');
@@ -56,7 +56,7 @@ async function demonstrate(hybrid: boolean) {
     assert.deepEqual(first.memories.map(memory => memory.origin).sort(), ['user_explicit', 'user_explicit', 'agent_reported', 'inferred', 'assistant_proposed'].sort());
     assert(first.memories.every(memory => memory.status === 'active' && !memory.authoritative));
     assert.ok(first.memories.every(memory => memory.evidence.length === 1 && memory.evidence[0].client_id === clientA.clientId));
-    console.log('2. Client B recalled every current memory immediately with its original label; delivery is not endorsement:');
+    console.log('2. Client B recalled every current memory immediately with its source label:');
     for (const memory of first.memories) console.log(`   ${memory.statement} [${memory.origin}; revision ${memory.revision}]`);
 
     const corrected = await store.correct(profile, deadline.memory_ids[0], { statement: correctedDeadline, expected_revision: 1 });

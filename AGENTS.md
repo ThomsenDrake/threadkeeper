@@ -22,7 +22,7 @@ This standing direction authorizes development, review and self-merging under th
 
 ## Product invariants
 
-Preserve source evidence independently from interpretations. Database code owns authorization, current revisions, corrections, deletion and transactions. User profile corrections require no model approval. Never infer acceptance of assistant suggestions from silence. Use synthetic data in demos, tests and recorded provider measurements.
+Preserve source evidence independently from interpretations. Database code owns authorization, current revisions, corrections, deletion and transactions. User profile corrections require no model approval. Every current memory is available automatically without approval. Origin records provenance, not an acceptance state. Never misattribute assistant wording as an original user statement. Use synthetic data in demos, tests and recorded provider measurements.
 
 All application features must be self-hostable with no hosted account, license check, telemetry requirement, cloud-only capability or paid feature gate. Exact hackathon default: nvidia/Nemotron-3_5-Lightning at https://api.tokenfactory.nebius.com/v1/. Make endpoints and aliases configurable. Never silently substitute another memory model.
 

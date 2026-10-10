@@ -3,7 +3,7 @@ export const originLabels: Record<string, string> = {
   user_confirmed: 'Corrected by you',
   agent_reported: 'Reported by an agent',
   inferred: 'Inferred, not stated',
-  assistant_proposed: 'Assistant suggestion, not accepted',
+  assistant_proposed: 'From an assistant',
 };
 
 export const originDescriptions: Record<string, string> = {
@@ -11,7 +11,7 @@ export const originDescriptions: Record<string, string> = {
   user_confirmed: 'You corrected this in Threadkeeper. Your wording is authoritative.',
   agent_reported: 'An agent reported this while working for you. You did not state it yourself.',
   inferred: 'Interpreted from conversation. You never said this outright.',
-  assistant_proposed: 'An assistant proposed this. You have not accepted it; agents receive it labelled as a suggestion.',
+  assistant_proposed: 'An assistant contributed this memory while working for you.',
 };
 
 export function sourceOriginLabel(source: { origin: string; capture_method?: string }): string {
@@ -28,7 +28,7 @@ export function recallWording(memory: { statement: string; origin: string }): st
       return `An agent reported that ${sentence} You have not stated this yourself.`;
     }
     case 'inferred': return `Inferred from conversation, not stated by you: ${statement}`;
-    case 'assistant_proposed': return `An assistant suggested: “${statement}” You have not accepted this suggestion.`;
+    case 'assistant_proposed': return `From an assistant: “${statement}”`;
     default: return statement;
   }
 }

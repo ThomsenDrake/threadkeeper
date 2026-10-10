@@ -1,0 +1,53 @@
+{
+  "mode": "Synthetic disposable PGlite profile, Chromium",
+  "checks": [
+    "All four captured origins and an imported legacy candidate are current without approval; the list has no queue or correction/deletion actions, and only recall-capable agents appear in availability.",
+    "Memory details show the source labels/descriptions and automatic delivery copy; availability respects read permission and project scope.",
+    "A UI correction becomes authoritative user_confirmed wording immediately; its inferred earlier revision and original source remain in history.",
+    "Default Inquiry recalls statements, corrected wording, agent reports, inferences and assistant contributions with source attribution and no acceptance framing; dismissed memory and superseded wording are absent.",
+    "Legacy dismissed memory stays inspectable and has no Correct action; the Record and memory details fit a 390px mobile viewport.",
+    "Concurrent supersession closes the correction editor and offers inspection/deletion only; concurrent forgetting closes the editor and reports that the memory is unavailable.",
+    "Forget removes the assistant-origin memory from immediate default recall while corrected context remains available; there were no browser runtime errors."
+  ],
+  "browser_errors": [],
+  "screenshots": [
+    "/tmp/threadkeeper-unified-suggestion.png",
+    "/tmp/threadkeeper-unified-correction.png",
+    "/tmp/threadkeeper-unified-inquiry.png",
+    "/tmp/threadkeeper-unified-mobile.png"
+  ],
+  "visual_review": "Assistant-origin memory details, Inquiry and 390px mobile correction dialog visually reviewed; source labels, equal correction/deletion controls and neutral delivery wording are visible without horizontal overflow.",
+  "source_sha256": {
+    "apps/api/src/app.ts": "8bbf90d399b4b285d6c1c9a608602e86970efc421d7fac431b341aa22557aea3",
+    "apps/api/src/auth.ts": "715448ca7a1004b6ac835831b514d2e6286b789f413ff895b6765aafe73066d7",
+    "apps/web/src/App.tsx": "66785edf8c31a1592711f4bf47796eb2b32ed9e9b5680fbc89694818214bd8cb",
+    "apps/web/src/Inquiry.tsx": "128390483efc99a4a0f19bf3fc9aaebf2e11a77cf359ccbf7dc0ee88bf75ecfc",
+    "apps/web/src/Record.tsx": "de931b60cc8394647c99f0fc842ea830f64b29979c7f26ceeb2f8a36eabb046d",
+    "apps/web/src/origins.ts": "e3f4e38b84c1abcb2c3995f1d2afa87ca14fbabe96a5e4291598a8a65171a04d",
+    "apps/web/src/instrument-room.css": "9529b593239afecc05e1b6bc8d6b0c898646acf1830e429229ec973f4067280f",
+    "packages/core/src/index.ts": "dccacd16794192cc0e9fbbbaf059a778ff81a87fcb83fef8621e88ae25e5d8a3",
+    "packages/contracts/src/index.ts": "c5817d3a96fee21f3c05cbef4e912e1adbe56123d410697292e53281e2c33a28",
+    "packages/providers/src/index.ts": "3c70f827d89565a013d741a6cfe134532360d7734e07dd3b835771c2ffff71ac",
+    "deploy/dev-demo.ts": "5839230bfac5d44aba255d30b0e852d3a34baf7be6d73b60e773083d6839f270",
+    "deploy/migrations/009_automatic_delivery.sql": "4536ce3e75317954115b718e7c4df12ae4cb4590a187af83f704f865d575ff4f"
+  },
+  "build_sha256": {
+    "apps/web/dist/assets/index-D1yWTOlc.css": "adb7bb1256d63dac9219c7f483b8c37de0b1ff30c85460fe142c1480a60f2f56",
+    "apps/web/dist/assets/index-wwC3HHnw.js": "5753720bd8a0ec6fbdccb91bc1d613350cec73c527c71c1ec845b7387eeaf1bc",
+    "apps/web/dist/assets/index-wwC3HHnw.js.map": "630ab43befe46329455e26a5d6fc4295cc37c33910454543e163da8322b2c24f",
+    "apps/web/dist/index.html": "f65b89242ca1e9d47732ee83f993944c9d5e740cc63147951c02966e76820e44"
+  },
+  "validation": {
+    "tests_passed": 239,
+    "tests_failed": 0,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "synthetic_demo_modes": [
+      "full-text",
+      "hybrid"
+    ],
+    "prototype": "Separate Chromium smoke passed assistant source label, Inquiry, immediate correction/history, Forget and fresh recall after Forget."
+  },
+  "limits": "Synthetic explicit captures and fixture imports; no learned inference, native database, containers, installed MCP host or GPU check.",
+  "cleanup": "Disposable browser and demo server stopped; port 3000 is closed."
+}
