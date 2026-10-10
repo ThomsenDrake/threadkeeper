@@ -5,7 +5,7 @@ import { createApp } from '../apps/api/src/app.ts';
 import { bootstrap } from '../apps/api/src/auth.ts';
 import { ProfileOverviewSchema, type CaptureInput } from '../packages/contracts/src/index.ts';
 import { createStore, DomainError, type Auth, type Database } from '../packages/core/src/index.ts';
-import { createTestDatabase } from './helpers.ts';
+import { createTestDatabase, seedLegacyDismissal } from './helpers.ts';
 
 const owner = (): Auth => ({ ownerId: randomUUID(), clientId: 'profile', permissions: ['*'], projects: null });
 const input = (subject: string, origin: 'user_explicit' | 'inferred' = 'user_explicit', project: string | null = null): CaptureInput => {
@@ -49,7 +49,7 @@ test('Record subject index is complete beyond a memory page and isolates owners 
   assert.equal(overview.snapshot_version, page.snapshot_version);
 });
 
-test('Record counts track confirmation, correction, dismissal and connected forgetting without dropping historical-only subjects', async t => {
+test('Record counts track immediate availability, correction, legacy removal and connected forgetting without dropping historical-only subjects', async t => {
   const database = await createTestDatabase(); t.after(() => database.close());
   const store = createStore(database.db); const profile = owner();
   const direct = await store.capture(profile, input('self'));
@@ -58,18 +58,18 @@ test('Record counts track confirmation, correction, dismissal and connected forg
   const pending = input('pending'); delete pending.explicit_memories;
   await store.capture(profile, pending);
   const initial = await store.profileOverview(profile);
-  assert.deepEqual([initial.total_count, initial.active_count, initial.candidate_count, initial.source_count], [3, 1, 2, 4]);
+  assert.deepEqual([initial.total_count, initial.active_count, initial.candidate_count, initial.source_count], [3, 3, 0, 4]);
   assert(!initial.subjects.some(subject => subject.subject === 'pending'), 'The memory subject index does not invent a memory for unprocessed evidence.');
 
-  await store.review(profile, candidate.memory_ids[0], { action: 'confirm', expected_revision: 1 });
+  await store.correct(profile, candidate.memory_ids[0], { expected_revision: 1, statement: 'Synthetic corrected Atlas context.' });
   const confirmed = await store.profileOverview(profile);
-  assert.deepEqual([confirmed.total_count, confirmed.active_count, confirmed.candidate_count, confirmed.source_count], [3, 2, 1, 5]);
+  assert.deepEqual([confirmed.total_count, confirmed.active_count, confirmed.candidate_count, confirmed.source_count], [3, 3, 0, 5]);
   assert(confirmed.snapshot_version > initial.snapshot_version);
   await store.correct(profile, direct.memory_ids[0], { expected_revision: 1, statement: 'Synthetic corrected owner preference.', kind: 'preference' });
   const corrected = await store.profileOverview(profile);
-  assert.deepEqual([corrected.total_count, corrected.active_count, corrected.candidate_count, corrected.source_count], [3, 2, 1, 6]);
+  assert.deepEqual([corrected.total_count, corrected.active_count, corrected.candidate_count, corrected.source_count], [3, 3, 0, 6]);
   assert(corrected.snapshot_version > confirmed.snapshot_version);
-  await store.review(profile, dismissed.memory_ids[0], { action: 'dismiss', expected_revision: 1 });
+  await seedLegacyDismissal(database.db, profile.ownerId, dismissed.memory_ids[0]);
   const afterDismissal = await store.profileOverview(profile);
   assert.deepEqual(afterDismissal.subjects.find(subject => subject.subject === 'archived'), { subject: 'archived', total_count: 1, active_count: 0, candidate_count: 0 });
   assert.equal(afterDismissal.candidate_count, 0); assert.equal(afterDismissal.total_count, 3);
@@ -119,14 +119,13 @@ test('Record overview HTTP endpoint requires an owner session and reflects owner
   assert.equal(capture.status, 201); const id = capture.data.memory_ids[0];
   const initial = await request('/api/profile/overview');
   assert.equal(initial.status, 200); ProfileOverviewSchema.parse(initial.data);
-  assert.deepEqual(initial.data.subjects, [{ subject: 'atlas', total_count: 1, active_count: 0, candidate_count: 1 }]);
-  assert.equal((await request(`/api/memories/${id}/review`, { body: { action: 'confirm', expected_revision: 1 } })).status, 200);
-  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body: { expected_revision: 2, statement: 'Synthetic current Atlas preference.' } })).status, 200);
+  assert.deepEqual(initial.data.subjects, [{ subject: 'atlas', total_count: 1, active_count: 1, candidate_count: 0 }]);
+  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body: { expected_revision: 1, statement: 'Synthetic current Atlas preference.' } })).status, 200);
   const corrected = await request('/api/profile/overview');
-  assert.deepEqual([corrected.data.active_count, corrected.data.candidate_count, corrected.data.source_count], [1, 0, 3]);
+  assert.deepEqual([corrected.data.active_count, corrected.data.candidate_count, corrected.data.source_count], [1, 0, 2]);
   assert(corrected.data.snapshot_version > initial.data.snapshot_version);
   const preview = await request(`/api/memories/${id}/deletion-preview`);
-  assert.equal((await request(`/api/memories/${id}`, { method: 'DELETE', body: { expected_revision: 3, preview_hash: preview.data.preview_hash } })).status, 200);
+  assert.equal((await request(`/api/memories/${id}`, { method: 'DELETE', body: { expected_revision: 2, preview_hash: preview.data.preview_hash } })).status, 200);
   const forgotten = await request('/api/profile/overview');
   assert.deepEqual(forgotten.data.subjects, []); assert.equal(forgotten.data.total_count, 0); assert.equal(forgotten.data.source_count, 0);
   const spec = (await request('/openapi.json')).data.paths['/api/profile/overview'].get;

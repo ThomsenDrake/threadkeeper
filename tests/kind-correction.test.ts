@@ -76,22 +76,23 @@ test('kind-only owner correction preserves learned history, current identity and
   } finally { await close(); }
 });
 
-test('confirmation can change kind while plain confirmation and dismissal retain it', async () => {
+test('an inferred memory can be corrected immediately, with or without changing its kind', async () => {
   const { db, close } = await createTestDatabase();
   const store = createStore(db), profile = owner();
   try {
-    for (const action of ['edited', 'plain', 'dismiss'] as const) {
-      const { id } = await learned(store, profile, `Synthetic ${action} candidate assertion.`, 'inferred');
-      if (action === 'dismiss') await assert.rejects(store.review(profile, id, { action: 'dismiss', expected_revision: 1, kind: 'decision' }), failure(400, 'invalid_input'));
-      const result = await store.review(profile, id, { action: action === 'dismiss' ? 'dismiss' : 'confirm', expected_revision: 1,
-        ...(action === 'edited' ? { kind: 'decision' } : {}) });
-      const expected = action === 'edited' ? 'decision' : 'fact';
+    for (const changeKind of [true, false]) {
+      const statement = `Synthetic ${changeKind ? 'kind-changing' : 'wording-only'} inferred assertion.`;
+      const { id } = await learned(store, profile, statement, 'inferred');
+      const result = await store.correct(profile, id, { expected_revision: 1, statement: `${statement} Corrected by its owner.`,
+        ...(changeKind ? { kind: 'decision' } : {}) });
+      const expected = changeKind ? 'decision' : 'fact';
       assert.equal(result.memory.kind, expected);
       const detail = await store.detail(profile, id);
       assert.deepEqual(detail.revisions.map(revision => revision.kind), ['fact', expected]);
       assert.equal(detail.revisions[0].extractor, 'synthetic-kind-model');
-      assert.equal(detail.sources.length, action === 'dismiss' ? 1 : 2);
-      assert.equal(detail.memory.origin, action === 'dismiss' ? 'inferred' : 'user_confirmed');
+      assert.equal(detail.sources.length, 2);
+      assert.equal(detail.memory.origin, 'user_confirmed');
+      assert.equal(detail.sources.find(source => source.capture_method === 'profile_correction')!.origin, 'user_confirmed');
     }
   } finally { await close(); }
 });

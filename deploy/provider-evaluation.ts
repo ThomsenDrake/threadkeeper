@@ -27,10 +27,17 @@ let mismatch = false;
 let currentProgress: Record<string, any> | undefined;
 let deferredReport: Record<string, any> | undefined;
 let sourceCommit: string | undefined;
+const runtimeContract = {
+  delivery: 'all_new_memories_active_with_original_origin',
+  expected_status_projection: { candidate: 'active' },
+  unsupported_capture_origin: 'user_confirmed',
+  unsupported_case_handling: 'reported_without_capture_or_provider_request; requires an actual owner profile correction',
+};
 const probeMetadata = () => probe.bounded ? {
+  runtime_contract: runtimeContract,
   [probe.metadataKey]: { manifest: probe.manifest, manifest_sha256: probe.manifestSha256, source_commit: sourceCommit ?? null },
   manual_review: { status: 'required', instruction: probe.manifest.manual_review },
-} : {};
+} : { runtime_contract: runtimeContract };
 function report(value: Record<string, any>) {
   if (probe.bounded) deferredReport = value;
   else console.info(JSON.stringify(value, null, 2));
@@ -162,6 +169,16 @@ const database = databaseResource = await createTestDatabase();
     const start = performance.now();
     const attemptStart = observer?.records.length ?? 0;
     currentProgress = { id: item.id, status: 'attempted', phase: 'capture', rubric_passed: false, attempt_start: attemptStart };
+    if (item.events.some(event => event.origin === 'user_confirmed')) {
+      // Preserve the historical case and its source labels. The current capture
+      // contract requires an actual owner correction for this origin, so there
+      // is no comparable capture/extraction measurement for this legacy case.
+      output.push({ id: item.id, status: 'unsupported', reason: 'profile_correction_required',
+        rubric_passed: false, provider_attempts: [], elapsed_ms: 0 });
+      requests.push({ id: item.id, attempts: [] });
+      currentProgress = undefined;
+      continue;
+    }
     // Assessment category names stay out of the provider's runtime context.
     // Preserve the historical corpus context for comparable old recordings.
     const project = probe.bounded ? `project-${String(index + 1).padStart(2, '0')}` : `synthetic-evaluation-${item.id}`;
@@ -178,17 +195,13 @@ const database = databaseResource = await createTestDatabase();
     if (recording) assert.equal(replayOffset, recording.cases.find(value => value.id === item.id)!.attempts.length, 'Unused recorded attempts');
     requests.push({ id: item.id, attempts });
     const active = await recall(b, project);
-    const candidates = await recall(b, project, 'candidate');
-    const canonical = [...active, ...candidates];
+    const canonical = active;
     if (probe.bounded) currentProgress.canonical_memories = canonical;
-    const first = [...await recall(a, project), ...await recall(a, project, 'candidate')];
-    const independentHttp = [
-      ...(await http(`/api/context/search?project_id=${encodeURIComponent(project)}&limit=100`, { token: reader.token })).data.memories,
-      ...(await http(`/api/context/search?project_id=${encodeURIComponent(project)}&limit=100&status=candidate`, { token: reader.token })).data.memories,
-    ];
+    const first = await recall(a, project);
+    const independentHttp = (await http(`/api/context/search?project_id=${encodeURIComponent(project)}&limit=100`, { token: reader.token })).data.memories;
     currentProgress.phase = 'transport_comparison';
     if (probe.bounded) currentProgress.transport_records = { reader_mcp: canonical, writer_mcp: first, http: independentHttp };
-    assert(active.every(memory => !['assistant_proposed', 'inferred'].includes(memory.origin)), 'Unconfirmed candidates must not enter default recall');
+    assert(active.every(memory => memory.status === 'active'), 'Every current memory must be delivered by default with its origin unchanged');
     const records = (memories: any[]) => memories.map(memory => ({
       ...memory,
       evidence: memory.evidence.map((value: any) => ({ ...value })).sort((a: any, b: any) => a.source_id.localeCompare(b.source_id)),
@@ -207,12 +220,16 @@ const database = databaseResource = await createTestDatabase();
     const memories = canonical.map(memory => ({ statement: memory.statement, kind: memory.kind, origin: memory.origin, status: memory.status,
       effective_at: memory.effective_at, evidence: memory.evidence.map((evidence: any) => ({ event_id: sourceById.get(evidence.source_id)?.event_id, quote: evidence.quote })),
     }));
-    const rubric = probe.score(index, memories, job);
+    const rubric = probe.score(index, memories, job, true);
+    const availabilityAdjusted = item.expected.some(expected => expected.status === 'candidate');
+
     output.push({ id: item.id, job_status: job.status, accepted: job.accepted,
       ...(probe.bounded ? { status: 'measured', canonical_memories: canonical, source_events: currentProgress.source_events } : {}),
       ...('error_code' in job ? { error_code: job.error_code } : {}),
       ...(observer ? { provider_attempts: observer.records.slice(attemptStart) } : {}),
       usage: 'usage' in job ? job.usage : undefined, ...rubric,
+      ...(availabilityAdjusted ? { frozen_rubric: probe.score(index, memories, job),
+        availability_projection: { expected_status_from: 'candidate', expected_status_to: 'active' } } : {}),
       empty_expected: item.empty ?? false, independent_http_mcp_recall: true, memories,
       elapsed_ms: Math.round(performance.now() - start),
       rubric_passed: job.status === 'complete' && rubric.rubric_passed,
@@ -237,7 +254,9 @@ const database = databaseResource = await createTestDatabase();
   }
   }
   const observationEvidence = probe.bounded && observer ? assessHoldoutObservations(output, observer.records, probe.cases.length) : undefined;
-  report(mode === '--requests' ? { schema_version: 'threadkeeper.provider-evaluation-recording.v1', ...probeMetadata(), cases: requests } : {
+  report(mode === '--requests' ? { schema_version: 'threadkeeper.provider-evaluation-recording.v1', ...probeMetadata(),
+    unsupported_cases: output.filter(item => item.status === 'unsupported').map(({ id, status, reason }) => ({ id, status, reason })),
+    cases: requests } : {
     schema_version: 'threadkeeper.provider-evaluation.v1', measured_at: new Date().toISOString(), model: provider.config.modelId,
     transport: mode === '--replay' ? probe.bounded ? 'recorded_responses_over_local_http_adapter' : 'recorded_learned_executor_responses_over_local_http_adapter' : 'direct_operator_http_provider',
     database: database.backend, cases: output, central_lifecycle: lifecycle,

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { createEmbeddingIndex, type EmbeddingProvider } from './embeddings.ts';
 export type { EmbeddingProvider } from './embeddings.ts';
 import {
-  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, SourceDeleteSchema, DeletionPreviewSchema, ExportSchema, ImportSchema, ExplicitMemorySchema, ReviewSchema, SearchSchema, MemoryListSchema,
+  CaptureSchema, CaptureListSchema, CaptureRetrySchema, CaptureStatusSchema, CaptureSettingsUpdateSchema, CorrectSchema, DeleteSchema, SourceDeleteSchema, DeletionPreviewSchema, ExportSchema, ImportSchema, ExplicitMemorySchema, SearchSchema, MemoryListSchema,
   type CaptureInput, type ExplicitMemory, type ExportBundle, type SourceEvent,
 } from '@threadkeeper/contracts';
 
@@ -91,13 +91,14 @@ function validateAttribution(memory: ExplicitMemory, source: any) {
   if (memory.origin === 'user_confirmed' && source.origin !== 'user_confirmed') throw new DomainError(400, 'unconfirmed_origin');
   if (source.origin === 'agent_reported' && !['agent_reported', 'inferred', 'assistant_proposed'].includes(memory.origin)) throw new DomainError(400, 'report_misattribution');
   if (source.origin === 'assistant_proposed' && !['assistant_proposed', 'inferred'].includes(memory.origin)) throw new DomainError(400, 'proposal_misattribution', 'An unaccepted assistant proposal must remain a proposal or an inference.');
-  if (source.origin === 'inferred' && !['inferred', 'assistant_proposed'].includes(memory.origin)) throw new DomainError(400, 'inference_misattribution', 'Inferred evidence cannot support an active memory without separate user confirmation.');
+  if (source.origin === 'inferred' && !['inferred', 'assistant_proposed'].includes(memory.origin)) throw new DomainError(400, 'inference_misattribution', 'Inferred evidence must retain its interpretation label and cannot become an agent report or user statement.');
 }
 function validateSource(event: SourceEvent) {
   if (['user_explicit', 'user_confirmed'].includes(event.origin) && event.author_role !== 'user') throw new DomainError(400, 'author_misattribution');
   if (event.origin === 'assistant_proposed' && event.author_role !== 'assistant') throw new DomainError(400, 'author_misattribution');
 }
 async function insertMemory(tx: Database, auth: Auth, candidate: ExplicitMemory, source: any, extractor: string | null) {
+  if (candidate.origin === 'user_confirmed') throw new DomainError(400, 'correction_required', 'Corrected by you is reserved for an owner profile correction.');
   validateAttribution(candidate, source);
   const subject = candidate.subject ?? source.subject;
   if (subject !== source.subject) throw new DomainError(400, 'evidence_scope_mismatch', 'A memory and its evidence must have the same subject.');
@@ -111,7 +112,9 @@ async function insertMemory(tx: Database, auth: Auth, candidate: ExplicitMemory,
   const existing = await tx.query('SELECT id FROM tk_memories WHERE owner_id=$1 AND content_key=$2', [auth.ownerId, contentKey]);
   if (existing.rows[0]) return { id: existing.rows[0].id, skipped: 'duplicate' };
   const id = uuid();
-  const status = ['inferred', 'assistant_proposed'].includes(candidate.origin) ? 'candidate' : 'active';
+  // Availability is delivery, not endorsement. Every admitted interpretation
+  // is current immediately, with its original origin still attached.
+  const status = 'active';
   await tx.query(`INSERT INTO tk_memories(id,owner_id,project_id,subject,statement,kind,origin,status,effective_at,extractor,content_key)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [id, auth.ownerId, source.project_id, subject, candidate.statement, candidate.kind, candidate.origin, status, candidate.effective_at ?? null, extractor, contentKey]);
   await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor,kind)
@@ -173,6 +176,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const input = parsed(CaptureSchema, raw) as CaptureInput;
     projectAllowed(auth, input.project_id);
     input.events.forEach(validateSource);
+    if (input.events.some(event => event.origin === 'user_confirmed')) throw new DomainError(400, 'correction_required', 'Corrected by you is reserved for an owner profile correction.');
     return db.transaction(async tx => {
       await lockOwner(tx, auth.ownerId);
       // Pause is rechecked under the same owner lock as admission, including
@@ -434,43 +438,6 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     }
     return siblings;
   }
-  async function review(auth: Auth, id: string, raw: unknown) {
-    permission(auth, 'review');
-    const input = parsed(ReviewSchema, raw);
-    return db.transaction(async tx => {
-      await lockOwner(tx, auth.ownerId);
-      const memory = await findMemory(tx, auth, id, true);
-      if (Number(memory.revision) !== input.expected_revision) throw new DomainError(409, 'revision_conflict');
-      if (memory.status !== 'candidate') throw new DomainError(409, 'review_unavailable');
-      const revision = Number(memory.revision) + 1;
-      // A model interpretation remains intact in its original source/revision.
-      // Owner confirmation supplies independent evidence for the accepted text.
-      await tx.query('UPDATE tk_revisions SET extractor=COALESCE(extractor,$2) WHERE memory_id=$1 AND revision=$3', [id, memory.extractor, memory.revision]);
-      if (input.action === 'confirm') {
-        const statement = input.statement ?? memory.statement;
-        const kind = input.kind ?? memory.kind;
-        const effectiveAt = input.effective_at === undefined ? memory.effective_at : input.effective_at;
-        if (await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(statement, memory.project_id, memory.subject))) throw new DomainError(410, 'deleted_content');
-        if (await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(statement))) throw new DomainError(410, 'deleted_source');
-        const siblings = await supersedeSiblings(tx, memory);
-        await blockExtraction(tx, auth.ownerId, id);
-        const sourceId = uuid();
-        await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,extraction_blocked,capture_method)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_confirmed',now(),$8,true,'profile_confirmation')`, [sourceId, auth.ownerId, auth.clientId, `confirmation:${id}:${revision}`, memory.project_id, memory.subject, statement, hash(statement)]);
-        const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,kind=$5,origin='user_confirmed',status='active',authoritative=true,revision=$3,effective_at=$4,updated_at=now(),extractor=NULL WHERE id=$1 RETURNING *`, [id, statement, revision, effectiveAt, kind])).rows[0];
-        await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor,kind) VALUES ($1,$2,$3,'user_confirmed','active',$4,$5,NULL,$6)`, [id, revision, statement, effectiveAt, auth.clientId, kind]);
-        await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,$2,$3,$4)', [id, revision, sourceId, statement]);
-        await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, revision]);
-        return { memory: memoryRow(updated), superseded_memory_ids: siblings.map(row => row.id), snapshot_version: await bump(tx, auth.ownerId) };
-      }
-      await blockExtraction(tx, auth.ownerId, id);
-      const updated = (await tx.query("UPDATE tk_memories SET status='dismissed',authoritative=false,revision=$2,updated_at=now() WHERE id=$1 RETURNING *", [id, revision])).rows[0];
-      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor,kind) VALUES ($1,$2,$3,$4,'dismissed',$5,$6,$7,$8)`, [id, revision, memory.statement, memory.origin, memory.effective_at, auth.clientId, memory.extractor, memory.kind]);
-      await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) SELECT memory_id,$2,source_id,quote FROM tk_evidence WHERE memory_id=$1 AND revision=$3', [id, revision, memory.revision]);
-      await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, revision]);
-      return { memory: memoryRow(updated), snapshot_version: await bump(tx, auth.ownerId) };
-    });
-  }
   async function correct(auth: Auth, id: string, raw: unknown) {
     permission(auth, 'correct');
     const input = parsed(CorrectSchema, raw);
@@ -478,7 +445,7 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       await lockOwner(tx, auth.ownerId);
       const memory = await findMemory(tx, auth, id, true);
       if (Number(memory.revision) !== input.expected_revision) throw new DomainError(409, 'revision_conflict');
-      if (memory.status === 'candidate' || memory.status === 'dismissed') throw new DomainError(409, 'review_required');
+      if (!['active', 'candidate'].includes(memory.status)) throw new DomainError(409, 'correction_unavailable', 'Only a current memory can be corrected.');
       if (await tombstoned(tx, auth.ownerId, 'memory_content', memoryContent(input.statement, memory.project_id, memory.subject))) throw new DomainError(410, 'deleted_content');
       if (await tombstoned(tx, auth.ownerId, 'source_content', sourceContent(input.statement))) throw new DomainError(410, 'deleted_source');
       const siblings = await supersedeSiblings(tx, memory);
@@ -487,12 +454,12 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       await blockExtraction(tx, auth.ownerId, id);
       const sourceId = uuid();
       await tx.query(`INSERT INTO tk_sources(id,owner_id,client_id,event_id,project_id,subject,text,author_role,origin,occurred_at,checksum,extraction_blocked,capture_method)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_explicit',now(),$8,true,'profile_correction')`, [sourceId, auth.ownerId, auth.clientId, `correction:${id}:${input.expected_revision + 1}`, memory.project_id, memory.subject, input.statement, hash(input.statement)]);
+        VALUES ($1,$2,$3,$4,$5,$6,$7,'user','user_confirmed',now(),$8,true,'profile_correction')`, [sourceId, auth.ownerId, auth.clientId, `correction:${id}:${input.expected_revision + 1}`, memory.project_id, memory.subject, input.statement, hash(input.statement)]);
       const effectiveAt = input.effective_at === undefined ? memory.effective_at : input.effective_at;
       const kind = input.kind ?? memory.kind;
-      const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,kind=$4,origin='user_explicit',status='active',authoritative=true,revision=revision+1,effective_at=$3,updated_at=now(),extractor=NULL
+      const updated = (await tx.query(`UPDATE tk_memories SET statement=$2,kind=$4,origin='user_confirmed',status='active',authoritative=true,revision=revision+1,effective_at=$3,updated_at=now(),extractor=NULL
         WHERE id=$1 RETURNING *`, [id, input.statement, effectiveAt, kind])).rows[0];
-      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,kind) VALUES ($1,$2,$3,'user_explicit','active',$4,$5,$6)`, [id, updated.revision, input.statement, effectiveAt, auth.clientId, kind]);
+      await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,kind) VALUES ($1,$2,$3,'user_confirmed','active',$4,$5,$6)`, [id, updated.revision, input.statement, effectiveAt, auth.clientId, kind]);
       await tx.query('INSERT INTO tk_evidence(memory_id,revision,source_id,quote) VALUES ($1,$2,$3,$4)', [id, updated.revision, sourceId, input.statement]);
       await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision<$2", [id, updated.revision]);
       return { memory: memoryRow(updated), superseded_memory_ids: siblings.map(row => row.id), snapshot_version: await bump(tx, auth.ownerId) };
@@ -608,8 +575,6 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         || (revision.revision < memory.revision && revision.status !== 'superseded'))) throw new DomainError(400, 'invalid_revision_history');
       const current = revisions.get(`${memory.id}:${memory.revision}`);
       if (!current || current.statement !== memory.statement || current.kind !== memory.kind || current.origin !== memory.origin || current.status !== memory.status || current.effective_at !== memory.effective_at) throw new DomainError(400, 'revision_mismatch');
-      if (memory.status === 'active' && ['inferred', 'assistant_proposed'].includes(memory.origin)
-        || history.some(revision => revision.status === 'active' && ['inferred', 'assistant_proposed'].includes(revision.origin))) throw new DomainError(400, 'unconfirmed_memory');
       if (current.extractor !== null && current.extractor !== memory.extractor) throw new DomainError(400, 'revision_mismatch');
       // Before migration 005, superseding a corrected sibling retained its
       // authority flag. Validate its correction provenance before normalizing
@@ -619,8 +584,9 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       if (memory.authoritative && !bundle.evidence.some(evidence => {
         if (evidence.memory_id !== memory.id || evidence.revision !== memory.revision) return false;
         const source = sources.get(evidence.source_id);
-        const confirmation = memory.origin === 'user_confirmed';
-        return source?.author_role === 'user' && source.origin === memory.origin && source.extraction_blocked && source.capture_method === (confirmation ? 'profile_confirmation' : 'profile_correction')
+        const confirmation = source?.capture_method === 'profile_confirmation';
+        return source?.author_role === 'user' && source.extraction_blocked
+          && (confirmation ? source.origin === 'user_confirmed' : source.origin === memory.origin && source.capture_method === 'profile_correction')
           && source.text === memory.statement && evidence.quote === memory.statement
           && source.event_id === `${confirmation ? 'confirmation' : 'correction'}:${memory.id}:${memory.revision}` && source.client_id === current.editor_client_id;
       })) throw new DomainError(400, 'invalid_authority', 'Authoritative records require matching owner-authored correction or confirmation evidence.');
@@ -637,6 +603,36 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
       if (!source || !memory || !revision) throw new DomainError(400, 'orphan_evidence');
       if (source.project_id !== memory.project_id || source.subject !== memory.subject) throw new DomainError(400, 'evidence_scope_mismatch');
       validateAttribution({ statement: revision.statement, kind: revision.kind, source_event_id: source.event_id, quote: evidence.quote, origin: revision.origin }, source);
+    }
+    // Validate legacy provenance before upgrading availability. An old candidate
+    // becomes current under its original label, never under a user label.
+    for (const memory of bundle.memories) if (memory.status === 'candidate') {
+      memory.status = 'active';
+      revisions.get(`${memory.id}:${memory.revision}`)!.status = 'active';
+    }
+    // Older profile corrections were stored as direct statements. Only actual
+    // correction evidence gets the corrected label; original captures stay intact.
+    // A past explicit confirmation (including ordinary confirmed captures) is
+    // a user assertion, not a correction. Preserve captured source metadata.
+    for (const revision of bundle.revisions) if (revision.origin === 'user_confirmed') {
+      const correction = bundle.evidence.some(evidence => evidence.memory_id === revision.memory_id && evidence.revision === revision.revision
+        && sources.get(evidence.source_id)?.capture_method === 'profile_correction');
+      if (correction) continue;
+      revision.origin = 'user_explicit';
+      const memory = memories.get(revision.memory_id)!;
+      if (memory.revision === revision.revision) memory.origin = 'user_explicit';
+    }
+    for (const revision of bundle.revisions) if (revision.origin === 'user_explicit') {
+      const correction = bundle.evidence.filter(evidence => evidence.memory_id === revision.memory_id && evidence.revision === revision.revision)
+        .map(evidence => ({ evidence, source: sources.get(evidence.source_id)! }))
+        .find(({ evidence, source }) => source.capture_method === 'profile_correction' && source.author_role === 'user'
+          && source.origin === 'user_explicit' && source.extraction_blocked && source.text === revision.statement && evidence.quote === revision.statement
+          && source.event_id === `correction:${revision.memory_id}:${revision.revision}` && source.client_id === revision.editor_client_id);
+      if (!correction) continue;
+      correction.source.origin = 'user_confirmed';
+      revision.origin = 'user_confirmed';
+      const memory = memories.get(revision.memory_id)!;
+      if (memory.revision === revision.revision) memory.origin = 'user_confirmed';
     }
     return db.transaction(async tx => {
       await lockOwner(tx, auth.ownerId);
@@ -727,7 +723,12 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
         await db.query("UPDATE tk_jobs SET status='cancelled',completed_at=now() WHERE id=$1 AND status='processing' AND attempts=$2", [job.id, job.attempts]);
         return { job_id: job.id, status: 'cancelled', accepted: 0, skipped: 0 };
       }
-      const extracted = await provider.extract({ events: before.map(source => ({ id: source.event_id, text: source.text, author_role: source.author_role, origin: source.origin, ...(source.occurred_at ? { occurred_at: date(source.occurred_at)! } : {}), client_id: source.client_id })), project_id: job.project_id, subject: job.subject });
+      const extracted = await provider.extract({ events: before.map(source => ({ id: source.event_id, text: source.text, author_role: source.author_role,
+        // Old capture clients could label explicit acceptance user_confirmed.
+        // It is a user statement, not a profile correction; keep raw evidence
+        // unchanged while conveying the current origin semantics to extraction.
+        origin: source.origin === 'user_confirmed' && source.capture_method !== 'profile_correction' ? 'user_explicit' : source.origin,
+        ...(source.occurred_at ? { occurred_at: date(source.occurred_at)! } : {}), client_id: source.client_id })), project_id: job.project_id, subject: job.subject });
       const candidates = parsed(z.array(ExplicitMemorySchema).max(64), extracted.memories);
       return await db.transaction(async tx => {
         await lockOwner(tx, job.owner_id);
@@ -769,5 +770,5 @@ export function createStore(db: Database, options: { embeddings?: EmbeddingProvi
     const result = await db.query(`SELECT j.id,j.project_id,j.subject,j.status,j.attempts,j.created_at,j.started_at,j.completed_at,j.error_code,j.result FROM tk_jobs j WHERE ${scope(auth, params, 'j')} ORDER BY j.created_at DESC LIMIT 100`, params);
     return { jobs: result.rows };
   }
-  return { profileOverview, captureSettings, setCaptureSettings, capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, review, correct, previewRemoval, previewSourceRemoval, remove, removeSource, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
+  return { profileOverview, captureSettings, setCaptureSettings, capture, captureStatus, listCaptures, retryCapture, search: (auth: Auth, filters: unknown) => select(auth, filters, true), list: (auth: Auth, filters: unknown = {}) => select(auth, filters, false), getSource, detail, correct, previewRemoval, previewSourceRemoval, remove, removeSource, export: exportData, import: importData, processJob, jobs, processEmbeddings: embeddingIndex.processBatch };
 }

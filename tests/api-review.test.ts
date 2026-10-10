@@ -1,13 +1,17 @@
 import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { createTestDatabase } from './helpers.ts';
 import { createApp } from '../apps/api/src/app.ts';
 import { bootstrap } from '../apps/api/src/auth.ts';
 
+type DeliveredOrigin = 'user_explicit' | 'agent_reported' | 'inferred' | 'assistant_proposed';
+type RecordInput = { statement: string; origin: DeliveredOrigin; source?: string };
+
 async function startApp(t: TestContext, port = 3196) {
   const database = await createTestDatabase();
-  await bootstrap(database.db, 'review@example.invalid', 'synthetic-password-123');
+  await bootstrap(database.db, 'delivery@example.invalid', 'synthetic-password-123');
   const base = `http://127.0.0.1:${port}`;
   const { app, store } = createApp(database.db, { origin: base });
   const server = app.listen(port, '127.0.0.1');
@@ -30,7 +34,7 @@ async function startApp(t: TestContext, port = 3196) {
     });
     return { response, data: await response.json() as any };
   };
-  const login = await request('/api/auth/login', { body: { email: 'review@example.invalid', password: 'synthetic-password-123' } });
+  const login = await request('/api/auth/login', { body: { email: 'delivery@example.invalid', password: 'synthetic-password-123' } });
   assert.equal(login.response.status, 200);
   cookie = login.response.headers.get('set-cookie')!.split(';')[0];
   const grant = async (name: string, permissions: string[]) => {
@@ -46,9 +50,7 @@ async function startApp(t: TestContext, port = 3196) {
     clients.push(client);
     return client;
   };
-  const review = (id: string, action: 'confirm' | 'dismiss', expected_revision: number, changes: Record<string, unknown> = {}) =>
-    request(`/api/memories/${id}/review`, { body: { action, expected_revision, ...changes } });
-  return { database, store, request, grant, connect, review };
+  return { database, store, request, grant, connect };
 }
 
 async function recall(client: Client, status?: string) {
@@ -57,253 +59,276 @@ async function recall(client: Client, status?: string) {
   return (result.structuredContent as any).memories as any[];
 }
 
-async function captureCandidates(store: ReturnType<typeof createApp>['store'], client: Client, statements: string[]) {
+async function captureRecords(store: ReturnType<typeof createApp>['store'], client: Client, records: RecordInput[], extracted = false) {
+  const prefix = randomUUID();
+  const events = records.map((record, index) => ({
+    id: `${prefix}-${index}`, text: record.source ?? record.statement,
+    author_role: record.origin === 'assistant_proposed' ? 'assistant' as const : record.origin === 'agent_reported' ? 'unknown' as const : 'user' as const,
+    origin: record.origin === 'inferred' ? 'user_explicit' as const : record.origin,
+  }));
+  const memories = records.map((record, index) => ({
+    statement: record.statement, kind: 'preference' as const, origin: record.origin,
+    source_event_id: events[index].id, quote: events[index].text,
+  }));
   const captured = await client.callTool({ name: 'context_capture', arguments: {
-    idempotency_key: 'synthetic-model-candidates', project_id: 'atlas',
-    events: statements.map((text, index) => ({ id: `candidate-${index}`, text, author_role: 'user', origin: 'user_explicit' })),
+    idempotency_key: prefix, project_id: 'atlas', events,
+    ...(extracted ? {} : { explicit_memories: memories }),
   } });
   assert.equal(captured.isError, undefined);
-  assert.equal((captured.structuredContent as any).status, 'pending');
-  const extracted = await store.processJob({ extract: async ({ events }) => ({
-    model: 'synthetic-review-model',
-    memories: events.map(event => ({ statement: event.text, kind: 'preference', source_event_id: event.id, quote: event.text, origin: 'inferred' })),
-  }) });
-  assert.equal(extracted?.status, 'complete');
-  return recall(client, 'candidate');
+  assert.equal((captured.structuredContent as any).status, extracted ? 'pending' : 'complete');
+  if (extracted) {
+    const result = await store.processJob({ extract: async () => ({ model: 'synthetic-delivery-model', memories }) });
+    assert.equal(result?.status, 'complete');
+    assert.equal(result?.accepted, records.length);
+  }
+  const delivered = await recall(client);
+  return records.map(record => {
+    const memory = delivered.find(memory => memory.statement === record.statement);
+    assert(memory, `Default recall must deliver ${record.origin} immediately.`);
+    return memory;
+  });
 }
 
-test('owner HTTP kind corrections and confirmations reach independent MCP clients with historical kinds intact', async t => {
-  const { store, request, grant, connect, review } = await startApp(t);
-  const writer = await grant('Kind writer', ['read', 'capture']);
-  const reader = await grant('Kind reader', ['read']);
-  const a = await connect('kind-client-a', writer.token), b = await connect('kind-client-b', reader.token);
-  const statement = 'The synthetic owner prefers written planning notes.';
-  const captured = await a.callTool({ name: 'context_capture', arguments: {
-    idempotency_key: 'kind-active', project_id: 'atlas', events: [{ id: 'kind-active-source', text: statement, author_role: 'user', origin: 'user_explicit' }],
-    explicit_memories: [{ statement, kind: 'fact', origin: 'user_explicit', source_event_id: 'kind-active-source', quote: statement }],
-  } });
-  assert.equal(captured.isError, undefined);
-  const id = (captured.structuredContent as any).memory_ids[0];
-  const body = { expected_revision: 1, statement, kind: 'preference' };
-  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body, token: writer.token })).response.status, 403);
-  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body: { ...body, kind: 'invalid' } })).response.status, 400);
-  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body })).response.status, 200);
-  assert.equal((await request(`/api/memories/${id}`, { method: 'PATCH', body })).response.status, 409);
-  for (const client of [a, b]) {
-    const current = (await recall(client)).find(memory => memory.id === id)!;
-    assert.equal(current.kind, 'preference'); assert.equal(current.revision, 2);
-    assert.equal(current.statement, statement); assert.equal(current.authoritative, true);
-  }
-  const detail = await request(`/api/memories/${id}`);
-  assert.deepEqual(detail.data.revisions.map((revision: any) => revision.kind), ['fact', 'preference']);
-  const [candidate] = await captureCandidates(store, a, ['Synthetic candidate describes a project constraint.']);
-  assert.equal((await review(candidate.id, 'dismiss', 1, { kind: 'constraint' })).response.status, 400);
-  const confirmed = await review(candidate.id, 'confirm', 1, { kind: 'constraint' });
-  assert.equal(confirmed.response.status, 200);
-  assert.equal((await recall(b)).find(memory => memory.id === candidate.id)!.kind, 'constraint');
-  const confirmedDetail = await request(`/api/memories/${candidate.id}`);
-  assert.deepEqual(confirmedDetail.data.revisions.map((revision: any) => revision.kind), ['preference', 'constraint']);
-  assert.equal(confirmedDetail.data.revisions[0].extractor, 'synthetic-review-model');
-  const exported = await request('/api/export');
-  assert.equal(exported.data.schema_version, 'threadkeeper.export.v2');
-  assert.equal((await request('/api/import', { body: exported.data })).response.status, 200);
-  const schema = (await request('/openapi.json', { anonymous: true })).data;
-  assert.deepEqual(schema.paths['/api/memories/{memory_id}'].patch.requestBody.content['application/json'].schema.properties.kind.enum,
-    ['fact', 'preference', 'decision', 'constraint', 'project_state']);
-});
-
-test('explicit owner confirm and edit-and-confirm admit model candidates with separate user evidence through fresh independent MCP recall', async t => {
-  const { store, request, grant, connect, review } = await startApp(t);
-  const writer = await grant('Synthetic client A', ['read', 'capture']);
-  const reader = await grant('Synthetic client B', ['read']);
-  const a = await connect('review-client-a', writer.token);
-  const b = await connect('review-client-b', reader.token);
-  const direct = 'I prefer concise synthetic Atlas status reports.';
-  const original = 'I might prefer short synthetic Atlas planning notes.';
-  const edited = 'I prefer detailed synthetic Atlas planning notes.';
-  const candidates = await captureCandidates(store, a, [direct, original]);
-  assert.equal(candidates.length, 2);
-  for (const candidate of candidates) {
-    assert.equal(candidate.status, 'candidate');
-    assert.equal(candidate.origin, 'inferred');
-    assert.equal(candidate.extractor, 'synthetic-review-model');
-    assert.equal(candidate.evidence[0].origin, 'user_explicit');
-  }
-  assert.deepEqual(await recall(a), []);
-  assert.deepEqual(await recall(b), []);
-  const queue = await request('/api/memories?status=candidate');
-  assert.equal(queue.response.status, 200);
-  assert.equal(queue.data.memories.length, 2);
-  const first = candidates.find(candidate => candidate.statement === direct)!;
-  const second = candidates.find(candidate => candidate.statement === original)!;
-  const implicitCorrection = await request(`/api/memories/${first.id}`, {
-    method: 'PATCH', body: { statement: direct, expected_revision: first.revision },
-  });
-  assert.equal(implicitCorrection.response.status, 409);
-  assert.equal(implicitCorrection.data.error, 'review_required');
-  const confirmed = await review(first.id, 'confirm', first.revision);
-  assert.equal(confirmed.response.status, 200);
-  assert.equal(confirmed.data.memory.id, first.id);
-  assert.equal(confirmed.data.memory.revision, first.revision + 1);
-  assert.equal(confirmed.data.memory.statement, direct);
-  assert.equal(confirmed.data.memory.status, 'active');
-  assert.equal(confirmed.data.memory.origin, 'user_confirmed');
-  assert.equal(confirmed.data.memory.authoritative, true);
-  assert.equal(confirmed.data.memory.extractor, null);
-  assert.equal((await review(first.id, 'confirm', first.revision)).response.status, 409);
-  const duplicate = await review(first.id, 'confirm', confirmed.data.memory.revision);
-  assert.equal(duplicate.response.status, 409);
-  assert.equal(duplicate.data.error, 'review_unavailable');
-  const editConfirmed = await review(second.id, 'confirm', second.revision, { statement: edited, effective_at: '2026-10-20T12:00:00Z' });
-  assert.equal(editConfirmed.response.status, 200);
-  assert.equal(editConfirmed.data.memory.statement, edited);
-  assert.equal(editConfirmed.data.memory.origin, 'user_confirmed');
-  assert.equal(editConfirmed.data.memory.effective_at, '2026-10-20T12:00:00.000Z');
+test('all five origins reach independent MCP clients immediately and only an owner correction changes the origin', async t => {
+  const { store, request, grant, connect } = await startApp(t);
+  const writer = await grant('Delivery writer', ['read', 'capture']);
+  const reader = await grant('Delivery reader', ['read']);
+  const a = await connect('delivery-client-a', writer.token), b = await connect('delivery-client-b', reader.token);
+  const direct: RecordInput[] = [
+    { statement: 'I prefer synthetic Atlas summaries in plain language.', origin: 'user_explicit' },
+    { statement: 'An agent reports that the synthetic Atlas owner uses a written plan.', origin: 'agent_reported' },
+    { statement: 'The synthetic Atlas owner may prefer morning updates.', source: 'I read synthetic Atlas updates over breakfast.', origin: 'inferred' },
+    { statement: 'An assistant suggests a synthetic Atlas weekly digest.', origin: 'assistant_proposed' },
+  ];
+  const directMemories = await captureRecords(store, a, direct);
+  const extractedRecords: RecordInput[] = [
+    { statement: 'The synthetic Atlas owner may prefer brief planning notes.', source: 'I often skim synthetic Atlas planning notes.', origin: 'inferred' },
+    { statement: 'An assistant suggests synthetic Atlas planning reminders.', origin: 'assistant_proposed' },
+  ];
+  const extractedMemories = await captureRecords(store, a, extractedRecords, true);
   for (const client of [a, b]) {
     const current = await recall(client);
-    assert.deepEqual(current.map(memory => memory.statement).sort(), [direct, edited].sort());
-    for (const memory of current) {
-      assert.equal(memory.origin, 'user_confirmed');
-      assert.equal(memory.status, 'active');
-      assert.equal(memory.evidence.length, 1);
-      assert.equal(memory.evidence[0].quote, memory.statement);
-      assert.equal(memory.evidence[0].author_role, 'user');
-      assert.equal(memory.evidence[0].origin, 'user_confirmed');
-      assert.equal(memory.evidence[0].capture_method, 'profile_confirmation');
-      assert.equal(memory.evidence[0].client_id, 'profile');
+    assert.equal(current.length, 6);
+    for (const [index, memory] of [...directMemories, ...extractedMemories].entries()) {
+      const delivered = current.find(record => record.id === memory.id)!;
+      assert.equal(delivered.origin, [...direct, ...extractedRecords][index].origin);
+      assert.equal(delivered.status, 'active');
+      assert.equal(delivered.revision, 1);
+      assert.equal(delivered.authoritative, false, 'Delivery is not owner endorsement.');
+      assert.equal(delivered.extractor, index < direct.length ? null : 'synthetic-delivery-model');
     }
     assert.deepEqual(await recall(client, 'candidate'), []);
   }
-  assert.equal((await request('/api/memories?status=candidate')).data.memories.length, 0);
-  for (const [candidate, statement] of [[first, direct], [second, edited]] as const) {
-    const detail = await request(`/api/memories/${candidate.id}`);
-    assert.equal(detail.response.status, 200);
-    assert.equal(detail.data.revisions.length, 2);
-    const oldRevision = detail.data.revisions.find((revision: any) => revision.revision === candidate.revision);
-    assert.equal(oldRevision.statement, candidate.statement);
-    assert.equal(oldRevision.origin, 'inferred');
-    assert.equal(oldRevision.status, 'superseded');
-    assert.equal(oldRevision.extractor, 'synthetic-review-model');
-    const originalSource = detail.data.sources.find((source: any) => source.id === candidate.evidence[0].source_id);
-    assert.equal(originalSource.origin, 'user_explicit');
-    assert.equal(originalSource.text, candidate.statement);
-    assert.equal(originalSource.extraction_blocked, true);
-    const currentEvidence = detail.data.evidence.filter((evidence: any) => evidence.revision === detail.data.memory.revision);
-    assert.equal(currentEvidence.length, 1);
-    assert.equal(currentEvidence[0].quote, statement);
-    const currentSource = detail.data.sources.find((source: any) => source.id === currentEvidence[0].source_id);
-    assert.notEqual(currentSource.id, originalSource.id);
-    assert.equal(currentSource.capture_method, 'profile_confirmation');
-    assert.equal(currentSource.origin, 'user_confirmed');
+  const inference = extractedMemories[0];
+  const originalSource = (await request(`/api/sources/${inference.evidence[0].source_id}`)).data;
+  const correctedText = 'I prefer detailed synthetic Atlas planning notes.';
+  const corrected = await request(`/api/memories/${inference.id}`, { method: 'PATCH', body: {
+    expected_revision: inference.revision, statement: correctedText, kind: 'constraint', effective_at: '2026-10-20T12:00:00Z',
+  } });
+  assert.equal(corrected.response.status, 200);
+  assert.equal(corrected.data.memory.origin, 'user_confirmed');
+  assert.equal(corrected.data.memory.authoritative, true);
+  for (const client of [a, b]) {
+    const current = await recall(client);
+    assert.equal(current.length, 6);
+    assert.deepEqual(new Set(current.map(memory => memory.origin)), new Set(['user_explicit', 'user_confirmed', 'agent_reported', 'inferred', 'assistant_proposed']));
+    const memory = current.find(memory => memory.id === inference.id)!;
+    assert.equal(memory.statement, correctedText);
+    assert.equal(memory.revision, 2);
+    assert.equal(memory.kind, 'constraint');
+    assert.equal(memory.effective_at, '2026-10-20T12:00:00.000Z');
+    assert.equal(memory.origin, 'user_confirmed');
+    assert.equal(memory.status, 'active');
+    assert.equal(memory.extractor, null);
+    assert.equal(memory.evidence.length, 1);
+    assert.equal(memory.evidence[0].origin, 'user_confirmed');
+    assert.equal(memory.evidence[0].author_role, 'user');
+    assert.equal(memory.evidence[0].quote, correctedText);
+    assert.equal(memory.evidence[0].capture_method, 'profile_correction');
+    assert.equal(memory.evidence[0].client_id, 'profile');
+    assert(!current.some(memory => memory.statement === inference.statement));
+    assert(current.filter(memory => memory.origin === 'assistant_proposed').every(memory => !memory.authoritative));
   }
+  const detail = (await request(`/api/memories/${inference.id}`)).data;
+  assert.deepEqual(detail.revisions.map((revision: any) => [revision.origin, revision.status, revision.kind]), [
+    ['inferred', 'superseded', 'preference'], ['user_confirmed', 'active', 'constraint'],
+  ]);
+  assert.equal(detail.revisions[0].statement, inference.statement);
+  assert.equal(detail.revisions[0].extractor, 'synthetic-delivery-model');
+  const preserved = detail.sources.find((source: any) => source.id === originalSource.id);
+  assert.deepEqual(preserved, { ...originalSource, extraction_blocked: true });
+  assert.equal(detail.sources.find((source: any) => source.capture_method === 'profile_correction').text, correctedText);
 });
 
-test('owner dismissal excludes candidates from default recall and review queue while scoped clients and another owner cannot review them', async t => {
-  const { database, store, request, grant, connect, review } = await startApp(t);
-  const writer = await grant('Synthetic writer', ['read', 'capture']);
-  const reader = await grant('Synthetic reader', ['read']);
-  const a = await connect('dismissal-client-a', writer.token);
-  const b = await connect('dismissal-client-b', reader.token);
-  const [candidate] = await captureCandidates(store, a, ['I might prefer synthetic Atlas reminders.']);
+test('owner correction enforces authorization and concurrent revisions without an approval endpoint or client-created corrected labels', async t => {
+  const { database, store, request, grant, connect } = await startApp(t);
+  const writer = await grant('Correction writer', ['read', 'capture']);
+  const reader = await grant('Correction reader', ['read']);
+  const a = await connect('correction-client-a', writer.token), b = await connect('correction-client-b', reader.token);
+  const [memory] = await captureRecords(store, a, [{ statement: 'The synthetic Atlas owner may prefer narrative notes.', origin: 'inferred' }]);
+  const body = { expected_revision: 1, statement: 'I prefer synthetic Atlas written plans.', kind: 'constraint' };
   for (const token of [writer.token, reader.token]) {
-    const denied = await request(`/api/memories/${candidate.id}/review`, { token, body: { action: 'confirm', expected_revision: candidate.revision } });
+    const denied = await request(`/api/memories/${memory.id}`, { method: 'PATCH', token, body });
     assert.equal(denied.response.status, 403);
     assert.equal(denied.data.error, 'profile_session_required');
   }
-  assert(!(await a.listTools()).tools.some(tool => /review|confirm|dismiss/.test(tool.name)));
-  const forbiddenPermission = await request('/api/clients', { body: { name: 'Cannot grant review', permissions: ['review'] } });
-  assert.equal(forbiddenPermission.response.status, 400);
+  assert.equal((await request(`/api/memories/${memory.id}`, { method: 'PATCH', anonymous: true, body })).response.status, 401);
   await database.db.query(`INSERT INTO tk_users(id,email,password_hash)
-    SELECT 'synthetic-other-review-owner','other-review@example.invalid',password_hash FROM tk_users LIMIT 1`);
-  const otherLogin = await request('/api/auth/login', { body: { email: 'other-review@example.invalid', password: 'synthetic-password-123' }, anonymous: true });
+    SELECT 'synthetic-other-delivery-owner','other-delivery@example.invalid',password_hash FROM tk_users LIMIT 1`);
+  const otherLogin = await request('/api/auth/login', { body: { email: 'other-delivery@example.invalid', password: 'synthetic-password-123' }, anonymous: true });
   assert.equal(otherLogin.response.status, 200);
   const otherCookie = otherLogin.response.headers.get('set-cookie')!.split(';')[0];
-  assert.equal((await request(`/api/memories/${candidate.id}/review`, {
-    cookie: otherCookie, body: { action: 'confirm', expected_revision: candidate.revision },
-  })).response.status, 404);
-  assert.equal((await request(`/api/memories/${candidate.id}/review`, {
-    anonymous: true, body: { action: 'confirm', expected_revision: candidate.revision },
-  })).response.status, 401);
-  for (const body of [
-    {}, { action: 'accept', expected_revision: 1 }, { action: 'confirm', expected_revision: 0 },
-    { action: 'confirm', expected_revision: 1, statement: '' }, { action: 'confirm', expected_revision: 1, statement: 'x'.repeat(4001) },
-    { action: 'dismiss', expected_revision: 1, statement: 'An edit cannot accompany dismissal.' },
-    { action: 'dismiss', expected_revision: 1, effective_at: null },
-  ]) {
-    assert.equal((await request(`/api/memories/${candidate.id}/review`, { body })).response.status, 400);
-  }
-  const dismissed = await review(candidate.id, 'dismiss', candidate.revision);
-  assert.equal(dismissed.response.status, 200);
-  assert.equal(dismissed.data.memory.status, 'dismissed');
-  assert.equal(dismissed.data.memory.origin, 'inferred');
-  assert.equal(dismissed.data.memory.authoritative, false);
-  assert.equal(dismissed.data.memory.revision, candidate.revision + 1);
-  assert.equal(dismissed.data.memory.extractor, 'synthetic-review-model');
-  const implicitRevival = await request(`/api/memories/${candidate.id}`, {
-    method: 'PATCH', body: { statement: candidate.statement, expected_revision: dismissed.data.memory.revision },
-  });
-  assert.equal(implicitRevival.response.status, 409);
-  assert.equal(implicitRevival.data.error, 'review_required');
+  assert.equal((await request(`/api/memories/${memory.id}`, { method: 'PATCH', cookie: otherCookie, body })).response.status, 404);
+  assert.equal((await request(`/api/memories/${memory.id}`, { method: 'PATCH', body: { ...body, kind: 'invalid' } })).response.status, 400);
+  const results = await Promise.all([
+    request(`/api/memories/${memory.id}`, { method: 'PATCH', body }),
+    request(`/api/memories/${memory.id}`, { method: 'PATCH', body: { ...body, statement: 'I prefer synthetic Atlas visual plans.' } }),
+  ]);
+  assert.deepEqual(results.map(result => result.response.status).sort(), [200, 409]);
+  assert.equal(results.find(result => result.response.status === 409)!.data.error, 'revision_conflict');
+  const corrected = results.find(result => result.response.status === 200)!.data.memory;
   for (const client of [a, b]) {
-    assert.deepEqual(await recall(client), []);
-    assert.deepEqual(await recall(client, 'candidate'), []);
-    const dismissedRecords = await recall(client, 'dismissed');
-    assert.equal(dismissedRecords.length, 1);
-    assert.equal(dismissedRecords[0].id, candidate.id);
+    const [current] = await recall(client);
+    assert.equal(current.statement, corrected.statement);
+    assert.equal(current.kind, 'constraint');
+    assert.equal(current.origin, 'user_confirmed');
+    assert.equal(current.revision, 2);
   }
-  assert.deepEqual((await request('/api/memories?status=candidate')).data.memories, []);
-  const stale = await review(candidate.id, 'confirm', candidate.revision);
-  assert.equal(stale.response.status, 409);
-  assert.equal(stale.data.error, 'revision_conflict');
-  for (const action of ['confirm', 'dismiss'] as const) {
-    const duplicate = await review(candidate.id, action, dismissed.data.memory.revision);
-    assert.equal(duplicate.response.status, 409);
-    assert.equal(duplicate.data.error, 'review_unavailable');
+  const detail = (await request(`/api/memories/${memory.id}`)).data;
+  assert.equal(detail.revisions.length, 2);
+  assert.deepEqual(detail.revisions.map((revision: any) => revision.kind), ['preference', 'constraint']);
+  assert.equal((await request(`/api/memories/${memory.id}/review`, { body: { action: 'confirm', expected_revision: 2 } })).response.status, 404);
+  assert.equal((await request('/api/clients', { body: { name: 'No approval permission', permissions: ['review'] } })).response.status, 400);
+  const tools = (await a.listTools()).tools;
+  assert(!tools.some(tool => /review|confirm|dismiss/.test(tool.name)));
+  const searchDescription = tools.find(tool => tool.name === 'context_search')!.description!;
+  for (const label of ['You said this', 'Corrected by you', 'Reported by an agent', 'Inferred, not stated', 'Assistant suggestion, not accepted']) assert(searchDescription.includes(label));
+  assert(searchDescription.includes('You have not accepted this suggestion.'));
+  assert(searchDescription.includes('You have not stated this yourself.'));
+  const schema = (await request('/openapi.json', { anonymous: true })).data;
+  assert.equal(schema.paths['/api/memories/{memory_id}/review'], undefined);
+  assert.equal(schema.paths['/api/context/search'].get.description, searchDescription);
+  assert.deepEqual(schema.paths['/api/memories/{memory_id}'].patch.requestBody.content['application/json'].schema.properties.kind.enum,
+    ['fact', 'preference', 'decision', 'constraint', 'project_state']);
+  const sourceText = 'A client cannot call its own saved text a profile correction.';
+  for (const origin of ['user_explicit', 'user_confirmed']) {
+    const forged = await request('/api/capture', { token: writer.token, body: {
+      idempotency_key: `forged-correction-${origin}`, project_id: 'atlas',
+      events: [{ id: `forged-source-${origin}`, text: sourceText, author_role: 'user', origin }],
+      explicit_memories: [{ statement: sourceText, kind: 'fact', origin: 'user_confirmed', source_event_id: `forged-source-${origin}`, quote: sourceText }],
+    } });
+    assert.equal(forged.response.status, 400);
+    assert.equal(forged.data.error, 'correction_required');
   }
-  assert.equal((await review('missing', 'confirm', 1)).response.status, 404);
-  const schema = (await request('/openapi.json')).data.paths['/api/memories/{memory_id}/review'].post;
-  assert.equal(schema.operationId, 'profile_review_memory');
-  assert.deepEqual(schema.security, [{ ownerSession: [] }]);
-  assert.deepEqual(schema.requestBody.content['application/json'].schema.properties.action.enum, ['confirm', 'dismiss']);
 });
 
-test('HTTP export and fresh-instance import preserve confirmation evidence, original model revisions and dismissed candidates', async t => {
+test('forgetting an unaccepted suggestion stops fresh delivery to every client', async t => {
+  const { store, request, grant, connect } = await startApp(t);
+  const writer = await grant('Forgetting writer', ['read', 'capture']);
+  const reader = await grant('Forgetting reader', ['read']);
+  const a = await connect('forgetting-client-a', writer.token), b = await connect('forgetting-client-b', reader.token);
+  const [suggestion, inference] = await captureRecords(store, a, [
+    { statement: 'An assistant suggests synthetic Atlas evening reminders.', origin: 'assistant_proposed' },
+    { statement: 'The synthetic Atlas owner may prefer morning notes.', origin: 'inferred' },
+  ]);
+  assert.equal((await recall(b)).length, 2);
+  const preview = await request(`/api/memories/${suggestion.id}/deletion-preview`);
+  assert.equal(preview.response.status, 200);
+  const forgotten = await request(`/api/memories/${suggestion.id}`, { method: 'DELETE', body: {
+    expected_revision: suggestion.revision, preview_hash: preview.data.preview_hash,
+  } });
+  assert.equal(forgotten.response.status, 200);
+  for (const client of [a, b]) {
+    const current = await recall(client);
+    assert.equal(current.length, 1);
+    const [remaining] = current;
+    assert.equal(remaining.id, inference.id);
+    assert.equal(remaining.origin, 'inferred');
+    assert.equal(remaining.authoritative, false);
+  }
+  assert.equal((await request(`/api/memories/${suggestion.id}`)).response.status, 404);
+  assert.equal((await request(`/api/sources/${suggestion.evidence[0].source_id}`)).response.status, 404);
+});
+
+test('legacy candidate imports become available with original origins while dismissed records stay removed and corrections retain history', async t => {
   const source = await startApp(t);
-  const writer = await source.grant('Export source client', ['read', 'capture']);
-  const a = await source.connect('export-review-client', writer.token);
-  const direct = 'I prefer synthetic Atlas summaries in plain language.';
-  const inferred = 'I might prefer synthetic Atlas bullet lists.';
-  const edited = 'I prefer synthetic Atlas narrative notes.';
-  const candidates = await captureCandidates(source.store, a, [direct, inferred]);
-  const accepted = candidates.find(candidate => candidate.statement === direct)!;
-  const rejected = candidates.find(candidate => candidate.statement === inferred)!;
-  const confirmed = await source.review(accepted.id, 'confirm', accepted.revision, { statement: edited });
-  assert.equal(confirmed.response.status, 200);
-  assert.equal((await source.review(rejected.id, 'dismiss', rejected.revision)).response.status, 200);
+  const writer = await source.grant('Legacy export writer', ['read', 'capture']);
+  const a = await source.connect('legacy-export-client', writer.token);
+  const [inference, suggestion, dismissed, reported] = await captureRecords(source.store, a, [
+    { statement: 'The synthetic Atlas owner may prefer emailed summaries.', origin: 'inferred' },
+    { statement: 'An assistant suggests synthetic Atlas Friday reminders.', origin: 'assistant_proposed' },
+    { statement: 'The synthetic Atlas owner may prefer daily recaps.', origin: 'inferred' },
+    { statement: 'An agent reports a synthetic Atlas planning constraint.', origin: 'agent_reported' },
+  ], true);
+  const correctedText = 'My synthetic Atlas planning constraint is one meeting per week.';
+  assert.equal((await source.request(`/api/memories/${reported.id}`, { method: 'PATCH', body: {
+    expected_revision: 1, statement: correctedText, kind: 'constraint',
+  } })).response.status, 200);
   const exported = await source.request('/api/export');
   assert.equal(exported.response.status, 200);
-  assert.equal(exported.data.memories.find((memory: any) => memory.id === accepted.id).origin, 'user_confirmed');
-  assert.equal(exported.data.memories.find((memory: any) => memory.id === rejected.id).status, 'dismissed');
-  assert.equal(exported.data.revisions.find((revision: any) => revision.memory_id === accepted.id && revision.revision === 1).extractor, 'synthetic-review-model');
-  assert(exported.data.sources.some((source: any) => source.capture_method === 'profile_confirmation' && source.text === edited));
+  assert.equal(exported.data.schema_version, 'threadkeeper.export.v2');
+  const legacy = structuredClone(exported.data);
+  for (const memory of [inference, suggestion]) {
+    legacy.memories.find((record: any) => record.id === memory.id).status = 'candidate';
+    legacy.revisions.find((record: any) => record.memory_id === memory.id && record.revision === 1).status = 'candidate';
+  }
+  const dismissedMemory = legacy.memories.find((memory: any) => memory.id === dismissed.id);
+  dismissedMemory.status = 'dismissed';
+  dismissedMemory.revision = 2;
+  const initialRevision = legacy.revisions.find((revision: any) => revision.memory_id === dismissed.id);
+  legacy.revisions.push({ ...initialRevision, revision: 2, status: 'dismissed', editor_client_id: 'profile' });
+  initialRevision.status = 'superseded';
+  const initialEvidence = legacy.evidence.find((evidence: any) => evidence.memory_id === dismissed.id);
+  legacy.evidence.push({ ...initialEvidence, revision: 2 });
+  legacy.sources.find((source: any) => source.id === initialEvidence.source_id).extraction_blocked = true;
   const restored = await startApp(t, 3195);
-  const imported = await restored.request('/api/import', { body: exported.data });
+  const imported = await restored.request('/api/import', { body: legacy });
   assert.equal(imported.response.status, 200);
-  assert.equal(imported.data.imported_memories, 2);
-  const reader = await restored.grant('Restored recall client', ['read']);
-  const b = await restored.connect('restored-review-client', reader.token);
+  assert.equal(imported.data.imported_memories, 4);
+  const reader = await restored.grant('Restored independent reader', ['read']);
+  const b = await restored.connect('legacy-restored-client', reader.token);
   const active = await recall(b);
-  assert.equal(active.length, 1);
-  assert.equal(active[0].id, accepted.id);
-  assert.equal(active[0].statement, edited);
-  assert.equal(active[0].origin, 'user_confirmed');
-  assert.equal(active[0].evidence[0].capture_method, 'profile_confirmation');
-  assert.equal(active[0].evidence[0].origin, 'user_confirmed');
+  assert.equal(active.length, 3);
+  for (const memory of [inference, suggestion]) {
+    const current = active.find(record => record.id === memory.id)!;
+    assert.equal(current.status, 'active');
+    assert.equal(current.origin, memory.origin);
+    assert.equal(current.revision, 1);
+    assert.equal(current.authoritative, false);
+    assert.equal(current.extractor, 'synthetic-delivery-model');
+    const detail = (await restored.request(`/api/memories/${memory.id}`)).data;
+    assert.equal(detail.revisions.length, 1);
+    assert.equal(detail.revisions[0].status, 'active');
+    assert.equal(detail.revisions[0].origin, memory.origin);
+  }
+  const correction = active.find(memory => memory.id === reported.id)!;
+  assert.equal(correction.statement, correctedText);
+  assert.equal(correction.origin, 'user_confirmed');
+  assert.equal(correction.authoritative, true);
+  assert.equal(correction.evidence[0].capture_method, 'profile_correction');
+  assert.equal(correction.evidence[0].origin, 'user_confirmed');
+  const correctedDetail = (await restored.request(`/api/memories/${reported.id}`)).data;
+  assert.equal(correctedDetail.revisions[0].origin, 'agent_reported');
+  assert.equal(correctedDetail.revisions[0].status, 'superseded');
+  assert.equal(correctedDetail.revisions[0].extractor, 'synthetic-delivery-model');
+  assert(correctedDetail.sources.some((source: any) => source.text === reported.statement && source.origin === 'agent_reported'));
   assert.deepEqual(await recall(b, 'candidate'), []);
-  assert.equal((await recall(b, 'dismissed'))[0].id, rejected.id);
-  const detail = (await restored.request(`/api/memories/${accepted.id}`)).data;
-  assert.equal(detail.revisions.find((revision: any) => revision.revision === 1).origin, 'inferred');
-  assert.equal(detail.revisions.find((revision: any) => revision.revision === 1).extractor, 'synthetic-review-model');
-  assert(detail.sources.some((source: any) => source.text === direct && source.origin === 'user_explicit'));
+  const [removed] = await recall(b, 'dismissed');
+  assert.equal(removed.id, dismissed.id);
+  assert.equal(removed.origin, 'inferred');
+  assert.equal(removed.authoritative, false);
+  const revival = await restored.request(`/api/memories/${dismissed.id}`, { method: 'PATCH', body: {
+    expected_revision: 2, statement: 'Please revive the synthetic Atlas recap.',
+  } });
+  assert.equal(revival.response.status, 409);
+  assert.equal((await recall(b)).length, 3);
+  const normalized = await restored.request('/api/export');
+  assert.equal(normalized.response.status, 200);
+  assert(normalized.data.memories.filter((memory: any) => [inference.id, suggestion.id].includes(memory.id)).every((memory: any) => memory.status === 'active'));
+  assert.equal(normalized.data.memories.find((memory: any) => memory.id === dismissed.id).status, 'dismissed');
+  const repeated = await restored.request('/api/import', { body: legacy });
+  assert.equal(repeated.response.status, 200);
+  assert.equal(repeated.data.imported_memories, 0);
+  assert.equal(repeated.data.existing_memories, 4);
   assert.equal((await restored.request('/api/clients')).data.clients.length, 1, 'Import does not restore source credentials.');
 });

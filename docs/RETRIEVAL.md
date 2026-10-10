@@ -20,7 +20,7 @@ The dimension is required for runtime hybrid recall, must be between 1 and 16000
 
 Install pgvector in the PostgreSQL server and run the application migrations. When the extension is available, migrations create the optional vector table and lifecycle trigger. They remain rerunnable without pgvector. After installing an extension or changing schema/configuration, restart API and worker: capability detection is cached per process.
 
-The worker indexes missing or mismatched current active/candidate memories in bounded batches. Claims and retry deadlines persist in PostgreSQL, so restarting a worker preserves failed work and its cooldown. To complete a rebuild independently of extraction, run:
+The worker indexes missing or mismatched current active memories in bounded batches. Claims and retry deadlines persist in PostgreSQL, so restarting a worker preserves failed work and its cooldown. To complete a rebuild independently of extraction, run:
 
 ```sh
 node --env-file=.env --import tsx deploy/reindex.ts
@@ -38,7 +38,7 @@ An embedding space is identified by endpoint, model alias, dimensions and the ve
 
 ## Ranking and correctness
 
-The API validates read permission and requested project scope before requesting a query embedding. Owner, project, subject, originating source/client and status filters define one database relation shared by both ranking paths. Clients with project grants can also read the existing global (`project_id IS NULL`) context. Inferences and assistant proposals retain their candidate status and attribution until explicit owner review. Confirmation creates an active `user_confirmed` current revision with separate evidence; dismissal retains a `dismissed` record. Default recall returns active records. Explicit status filters still allow inspecting other states.
+The API validates read permission and requested project scope before requesting a query embedding. Owner, project, subject, originating source/client and status filters define one database relation shared by both ranking paths. Clients with project grants can also read the existing global (`project_id IS NULL`) context. Every origin is available as current active context immediately. Inferences and unaccepted assistant proposals keep their original origins; delivery never implies endorsement. Owner corrections create authoritative `user_confirmed` revisions with separate `profile_correction` evidence. Migration 009 and imports upgrade existing candidates without relabeling them. Legacy dismissed records remain out of default recall. Explicit status filters still allow inspecting historical states.
 
 Lexical ranking keeps full-text and substring matches. Vector ranking computes exact cosine similarity over compatible, current-revision embeddings in the filtered relation. Each path contributes up to four times the requested result limit. Reciprocal-rank fusion adds `1 / (60 + rank)` from each path, deduplicates memory IDs and applies the final limit. Vector-only candidates must meet a cosine threshold of 0.3; this is an initial heuristic, not a calibrated quality guarantee. Nonfinite similarities are excluded. A semantic query about an old deadline may return its corrected statement because the topic still matches; it must never return the obsolete statement as current context.
 

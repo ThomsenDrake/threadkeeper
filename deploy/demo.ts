@@ -18,9 +18,12 @@ async function demonstrate(hybrid: boolean) {
     const originalDeadline = 'The launch deadline is October 20, 2026.';
     const correctedDeadline = 'The launch deadline is October 27, 2026.';
     const preference = 'Use short paragraphs in my writing.';
+    const reported = 'An agent reported that the synthetic draft is ready.';
+    const inference = 'Inferred from conversation: morning drafting may work well.';
+    const proposal = 'An assistant suggested adding a synthetic weekly outline.';
     const recallQuery = hybrid ? 'personal working context' : '';
     const embeddings = hybrid ? syntheticEmbeddings(Object.fromEntries(
-      [originalDeadline, correctedDeadline, preference, recallQuery].map(text => [text, [1, 0, 0, 0]]),
+      [originalDeadline, correctedDeadline, preference, reported, inference, proposal, recallQuery].map(text => [text, [1, 0, 0, 0]]),
     )) : undefined;
     const store = createStore(sourceDatabase.db, { embeddings });
     function capture(statement: string, name: string, kind: 'fact' | 'preference') {
@@ -33,21 +36,36 @@ async function demonstrate(hybrid: boolean) {
 
     const deadline = await capture(originalDeadline, 'deadline', 'fact');
     const writing = await capture(preference, 'writing-preference', 'preference');
-    console.log('1. Client A captured a deadline and a writing preference in separate source events.');
+    const interpretations = [];
+    for (const [origin, statement] of [['agent_reported', reported], ['inferred', inference], ['assistant_proposed', proposal]] as const) {
+      interpretations.push(await store.capture(clientA, {
+        idempotency_key: `demo:${origin}`, project_id: 'launch', subject: 'self',
+        events: [{ id: `demo:${origin}`, text: statement, author_role: 'assistant', origin }],
+        explicit_memories: [{ statement, kind: 'project_state', source_event_id: `demo:${origin}`, quote: statement, origin }],
+      }));
+    }
+    console.log('1. Client A captured statements, a report, an inference and an unaccepted suggestion as separate source events.');
     if (hybrid) {
-      assert.equal((await store.processEmbeddings()).indexed, 2);
+      assert.equal((await store.processEmbeddings()).indexed, 5);
       console.log('   Indexed deterministic synthetic vectors with pgvector; no provider credentials or network calls.');
     }
 
     const first = await store.search(clientB, { query: recallQuery });
     assert.equal(first.coverage.retrieval, hybrid ? 'postgresql_hybrid' : 'postgresql_full_text');
-    assert.deepEqual(first.memories.map(memory => memory.statement).sort(), [originalDeadline, preference].sort());
+    assert.deepEqual(first.memories.map(memory => memory.statement).sort(), [originalDeadline, preference, reported, inference, proposal].sort());
+    assert.deepEqual(first.memories.map(memory => memory.origin).sort(), ['user_explicit', 'user_explicit', 'agent_reported', 'inferred', 'assistant_proposed'].sort());
+    assert(first.memories.every(memory => memory.status === 'active' && !memory.authoritative));
     assert.ok(first.memories.every(memory => memory.evidence.length === 1 && memory.evidence[0].client_id === clientA.clientId));
-    console.log('2. Client B recalled both from the shared store without receiving Client A’s transcript:');
+    console.log('2. Client B recalled every current memory immediately with its original label; delivery is not endorsement:');
     for (const memory of first.memories) console.log(`   ${memory.statement} [${memory.origin}; revision ${memory.revision}]`);
 
-    await store.correct(profile, deadline.memory_ids[0], { statement: correctedDeadline, expected_revision: 1 });
+    const corrected = await store.correct(profile, deadline.memory_ids[0], { statement: correctedDeadline, expected_revision: 1 });
+    assert.equal(corrected.memory.origin, 'user_confirmed');
     await store.remove(profile, writing.memory_ids[0], { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, writing.memory_ids[0])).preview_hash });
+    for (const interpretation of interpretations) {
+      const id = interpretation.memory_ids[0];
+      await store.remove(profile, id, { expected_revision: 1, preview_hash: (await store.previewRemoval(profile, id)).preview_hash });
+    }
     console.log('3. The owner profile principal changed the deadline and deleted the preference.');
     if (hybrid) {
       assert.equal((await sourceDatabase.db.query('SELECT count(*)::int AS count FROM tk_embeddings')).rows[0].count, 0);

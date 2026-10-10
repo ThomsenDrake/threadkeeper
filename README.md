@@ -4,7 +4,7 @@
 
 Threadkeeper is one personal memory shared by the chatbots and coding agents you already use. Tell one assistant about your project deadline or how you like things written, and the next assistant can recall it, without you repeating yourself and without the two ever seeing each other's conversations.
 
-You stay in charge of that memory. You can read everything that is remembered, see where each item came from, fix anything that is wrong, and forget anything you no longer want kept. Nothing an assistant guesses about you becomes memory until you approve it.
+You stay in charge of that memory. You can read everything that is remembered, see where each item came from, fix anything that is wrong, and forget anything you no longer want kept. Every current memory is available to your connected agents with its origin label. Availability does not mean you endorsed it.
 
 > **Early preview.** Threadkeeper is in private development and runs on your own computer or server. It is not yet published or available as a hosted service, and its open-source license has not been chosen yet.
 
@@ -28,11 +28,11 @@ Open any memory to see the exact words it came from and every change made to it.
 
 ![Correcting a launch date, with the kind selector and the original note kept as evidence](docs/images/memory-detail.png)
 
-### Approve guesses before they count
+### See where a memory came from
 
-Sometimes an assistant suggests something it thinks you would want remembered, like "Maya prefers to draft in the morning." Those suggestions wait in **Needs review**, and they stay out of what assistants recall until you decide. You can confirm a suggestion, edit it first, or dismiss it. Ignoring a suggestion never counts as approval.
+Every current memory is delivered automatically with its label: **You said this**, **Corrected by you**, **Reported by an agent**, **Inferred, not stated**, or **Assistant suggestion, not accepted**. An assistant suggestion remains unaccepted while agents receive it labelled as a suggestion. Silence never counts as acceptance.
 
-![A suggested memory waiting for you to confirm, edit, or dismiss](docs/images/needs-review.png)
+Open a memory to inspect its sources, correct it, or forget it. Your correction becomes the wording agents receive immediately. The earlier interpretation stays in history and is no longer delivered.
 
 ### Decide what each assistant can do
 
@@ -128,7 +128,7 @@ Threadkeeper cannot reach back into copies that already left it. If an assistant
 
 ## How memories are made
 
-When an assistant sends longer material, a background processor uses an AI model to suggest memories from it. Each suggestion still waits for your review.
+When an assistant sends longer material, a background processor uses an AI model to suggest memories from it. Each admitted memory becomes available immediately with its origin label.
 
 The preset model is `nvidia/Nemotron-3_5-Lightning`, served by Nebius at `https://api.tokenfactory.nebius.com/v1/`. You can point Threadkeeper at any OpenAI-compatible model server instead, including one you run yourself, by setting `MODEL_BASE_URL` and `MODEL_ID` in `.env`.
 

@@ -92,13 +92,13 @@ test('owner, project, read permission, subject, source, and status filters const
   const scoped = { ...clientB, projects: ['launch'] };
   for (const query of ['orchid', 'garden context']) {
     const result = await store.search(scoped, { query, subject: 'Alex', source: 'client-a', project_id: 'launch', status: 'active' });
-    assert.deepEqual(statements(result), [allowed]);
+    assert.deepEqual(statements(result), [allowed, statementsToIndex[4]].sort());
     assert.equal(result.coverage.retrieval, 'postgresql_hybrid');
-    const inferred = await store.search(scoped, { query, subject: 'Alex', source: 'client-a', status: 'candidate' });
-    assert.deepEqual(statements(inferred), [statementsToIndex[4]]);
-    assert.equal(inferred.memories[0].origin, 'inferred');
-    assert.equal(inferred.memories[0].evidence[0].quote, statementsToIndex[4]);
-    assert.equal(inferred.memories[0].evidence[0].origin, 'user_explicit', 'The source role remains separate from the interpretation.');
+    const inferred = result.memories.find(memory => memory.origin === 'inferred')!;
+    assert.equal(inferred.statement, statementsToIndex[4]);
+    assert.equal(inferred.evidence[0].quote, statementsToIndex[4]);
+    assert.equal(inferred.evidence[0].origin, 'user_explicit', 'The source role remains separate from the interpretation.');
+    assert.deepEqual((await store.search(scoped, { query, status: 'candidate' })).memories, []);
   }
   const beforeDenied = embeddings.calls.length;
   await assert.rejects(store.search({ ...profile, permissions: ['capture'] }, { query: 'garden context' }), hasError(403, 'permission_denied'));

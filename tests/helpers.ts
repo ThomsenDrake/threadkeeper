@@ -5,7 +5,24 @@ import { vector } from '@electric-sql/pglite-pgvector';
 import type { Database } from '../packages/core/src/index.ts';
 import { connectDatabase } from '../packages/core/src/db.ts';
 
-const migrations = ['001_init.sql', '002_auth.sql', '003_embeddings.sql', '004_capture_status.sql', '005_candidate_review.sql', '006_client_control.sql', '007_embedding_attempts.sql', '008_revision_kind.sql'];
+const migrations = ['001_init.sql', '002_auth.sql', '003_embeddings.sql', '004_capture_status.sql', '005_candidate_review.sql', '006_client_control.sql', '007_embedding_attempts.sql', '008_revision_kind.sql', '009_automatic_delivery.sql'];
+
+/** Seed an explicit removal made by the retired review flow, including its history. */
+export async function seedLegacyDismissal(db: Database, ownerId: string, memoryId: string) {
+  await db.transaction(async tx => {
+    const memory = (await tx.query('SELECT * FROM tk_memories WHERE owner_id=$1 AND id=$2', [ownerId, memoryId])).rows[0];
+    if (!memory) throw new Error('Legacy dismissal fixture memory is missing.');
+    await tx.query("UPDATE tk_revisions SET status='superseded' WHERE memory_id=$1 AND revision=$2", [memoryId, memory.revision]);
+    await tx.query("UPDATE tk_memories SET status='dismissed',authoritative=false,revision=revision+1 WHERE id=$1", [memoryId]);
+    await tx.query(`INSERT INTO tk_revisions(memory_id,revision,statement,origin,status,effective_at,editor_client_id,extractor,kind)
+      VALUES ($1,$2,$3,$4,'dismissed',$5,'profile',$6,$7)`, [memoryId, Number(memory.revision) + 1, memory.statement, memory.origin, memory.effective_at, memory.extractor, memory.kind]);
+    await tx.query(`INSERT INTO tk_evidence(memory_id,revision,source_id,quote)
+      SELECT memory_id,$2,source_id,quote FROM tk_evidence WHERE memory_id=$1 AND revision=$3`, [memoryId, Number(memory.revision) + 1, memory.revision]);
+    await tx.query('UPDATE tk_sources SET extraction_blocked=true WHERE id IN (SELECT source_id FROM tk_evidence WHERE memory_id=$1)', [memoryId]);
+    await tx.query('DELETE FROM tk_embedding_attempts WHERE memory_id=$1', [memoryId]);
+    await tx.query('UPDATE tk_owners SET snapshot_version=snapshot_version+1 WHERE id=$1', [ownerId]);
+  });
+}
 
 // Explicit synthetic-only native opt-in. Every fixture owns a fresh schema;
 // normal checks and no-vector fallback tests still run without native services.

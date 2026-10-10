@@ -4,7 +4,7 @@ import test, { type TestContext } from 'node:test';
 import { createStore, DomainError, type Auth } from '../packages/core/src/index.ts';
 import type { CaptureInput, ExplicitMemory } from '../packages/contracts/src/index.ts';
 import { DeletionPreviewSchema } from '../packages/contracts/src/index.ts';
-import { createTestDatabase } from './helpers.ts';
+import { createTestDatabase, seedLegacyDismissal } from './helpers.ts';
 import { syntheticEmbeddings } from './hybrid-fixtures.ts';
 
 const denied = (status: number, code: string) => (error: unknown) => error instanceof DomainError && error.status === status && error.code === code;
@@ -23,7 +23,7 @@ async function fixture(t: TestContext, vector = true) {
 }
 const ids = (records: Array<{ id: string }>) => records.map(record => record.id).sort();
 
-test('memory preview includes siblings, candidates, same assertion histories, owner corrections and their vectors', async t => {
+test('memory preview includes siblings, inferred memories, same assertion histories, owner corrections and their vectors', async t => {
   const { database, store, profile, client } = await fixture(t, true);
   const original = 'The synthetic release deadline is 20 October.';
   const capture = input(original);
@@ -41,7 +41,7 @@ test('memory preview includes siblings, candidates, same assertion histories, ow
   assert.equal(preview.sources.length, 3);
   assert.equal(preview.revision_count, 4);
   assert.equal(preview.evidence_count, 4);
-  assert.ok(preview.memories.some(memory => memory.status === 'candidate'));
+  assert.ok(preview.memories.some(memory => memory.origin === 'inferred' && memory.status === 'active'));
   assert.ok(preview.sources.some(source => source.capture_method === 'profile_correction'));
   const removed = await store.remove(profile, saved.memory_ids[0], { expected_revision: 2, preview_hash: preview.preview_hash });
   assert.deepEqual(removed.deleted_memory_ids, ids(preview.memories));
@@ -226,18 +226,18 @@ test('an owner correction cannot recreate forgotten source-only content under a 
   assert.ok(!(await store.export(profile)).sources.some(source => source.text.toLowerCase().includes(forgotten.toLowerCase())));
 });
 
-test('forgetting includes confirmed owner evidence and dismissed candidate histories after explicit review', async t => {
-  const { store, profile, client } = await fixture(t);
+test('forgetting includes corrected owner evidence and legacy dismissed memory histories', async t => {
+  const { database, store, profile, client } = await fixture(t);
   const confirmed = await store.capture(client, input('Original synthetic confirmation evidence.', { statement: 'A synthetic inference for explicit owner confirmation.', origin: 'inferred' }));
   const dismissed = await store.capture(client, input('Independent synthetic dismissal evidence.', { statement: 'A synthetic inference the owner dismisses.', origin: 'inferred' }));
-  await store.review(profile, confirmed.memory_ids[0], { action: 'confirm', expected_revision: 1, statement: 'The owner confirmed the edited synthetic assertion.' });
-  await store.review(profile, dismissed.memory_ids[0], { action: 'dismiss', expected_revision: 1 });
+  await store.correct(profile, confirmed.memory_ids[0], { expected_revision: 1, statement: 'The owner corrected the synthetic assertion.' });
+  await seedLegacyDismissal(database.db, profile.ownerId, dismissed.memory_ids[0]);
   const confirmationPreview = await store.previewSourceRemoval(profile, confirmed.source_ids[0]);
   assert.equal(confirmationPreview.memories[0].origin, 'user_confirmed');
   assert.equal(confirmationPreview.memories[0].revision, 2);
   assert.equal(confirmationPreview.revision_count, 2);
   assert.equal(confirmationPreview.sources.length, 2);
-  assert.ok(confirmationPreview.sources.some(source => source.capture_method === 'profile_confirmation'));
+  assert.ok(confirmationPreview.sources.some(source => source.capture_method === 'profile_correction'));
   await store.removeSource(profile, confirmed.source_ids[0], { preview_hash: confirmationPreview.preview_hash });
   const dismissalPreview = await store.previewRemoval(profile, dismissed.memory_ids[0]);
   assert.equal(dismissalPreview.memories[0].status, 'dismissed');

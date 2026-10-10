@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createStore, type Database, type Auth, type EmbeddingProvider } from '../packages/core/src/index.ts';
 import { connectedDeletionRecords, applyDeletionRecords } from '../packages/core/src/deletion.ts';
 import { bootstrap, createAuth } from '../apps/api/src/auth.ts';
+import { seedLegacyDismissal } from './helpers.ts';
 import { exportDeletionLedger } from '../packages/core/src/recovery.ts';
 
 const vectors: EmbeddingProvider = { config: { baseUrl: 'http://synthetic.invalid/v1', modelId: 'synthetic-recovery-vectors', dimensions: 3 },
@@ -29,7 +30,8 @@ export async function seedRecoveryFixture(db: Database) {
       events: [{ id: event, text, author_role: 'user', origin: 'user_explicit' }] });
     await store.processJob({ extract: async () => ({ model: 'synthetic-recovery-model', memories: [{ statement: text, quote: text, source_event_id: event, kind: 'preference', origin: 'inferred' }] }) });
     const memoryId = (await store.captureStatus(profile, captured.capture_id)).memory_ids[0];
-    await store.review(profile, memoryId, { expected_revision: 1, action, ...(action === 'confirm' ? { statement: 'Synthetic owner confirms detailed river notes.' } : {}) });
+    if (action === 'confirm') await store.correct(profile, memoryId, { expected_revision: 1, statement: 'Synthetic owner corrects river notes to use detail.' });
+    else await seedLegacyDismissal(db, ownerId, memoryId);
     return memoryId;
   }
   const confirmed = await candidate('Synthetic river notes might be concise.', 'confirm');

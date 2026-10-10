@@ -9,7 +9,15 @@ import { evaluateHoldoutOutcome } from './provider-holdout-checks.ts';
 
 type Job = { status: string; accepted: number };
 function scoredCases<T extends EvaluationCase>(cases: T[], evaluate: (item: T, memories: EvaluationMemory[], job: Job) => ReturnType<typeof evaluateMemoryRubric>) {
-  return { cases, score: (index: number, memories: EvaluationMemory[], job: Job) => evaluate(cases[index], memories, job) };
+  return { cases, score: (index: number, memories: EvaluationMemory[], job: Job, automaticDelivery = false) => {
+    const item = cases[index];
+    // Frozen cases and historical grading remain unchanged. New runtime checks
+    // explicitly project only the old candidate availability requirement.
+    const runtimeItem = automaticDelivery ? { ...item, expected: item.expected.map(expected => ({
+      ...expected, status: expected.status === 'candidate' ? 'active' : expected.status,
+    })) } as T : item;
+    return evaluate(runtimeItem, memories, job);
+  } };
 }
 const probes = {
   corpus: { ...scoredCases(evaluationCorpus, evaluateMemoryRubric), bounded: false as const, flags: [] },
