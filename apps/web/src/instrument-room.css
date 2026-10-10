@@ -649,7 +649,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .origin-agent_reported .origin-mark { border: 1.5px solid #9aa0a6; }
 .origin-inferred .origin-mark { border: 1.5px dashed var(--electrum); border-radius: 50%; }
 .origin-assistant_proposed .origin-mark { background: transparent; border: 0; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--bone-faint); }
-.origin-assistant_proposed, .origin-inferred { font-style: italic; }
+.origin-inferred { font-style: italic; }
 
 /* ---------------------------------------------------------------- overview */
 

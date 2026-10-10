@@ -9,7 +9,7 @@ Date: 2026-10-02 UTC / 2026-10-03 Europe/Paris. User-confirmed requirements take
 | Shared schema validation | The HTTP and MCP interfaces must enforce the same capture, correction and export contracts |
 | Local owner authentication and revocable scoped client tokens | No required cloud identity provider or Threadkeeper account; session/token values are opaque and hashes are stored |
 | Separate source events and derived memory | Quotations, author roles and capture method remain inspectable; model interpretation cannot impersonate an original user statement |
-| Immediate labelled availability | Every current memory is delivered automatically under its original origin; availability is not endorsement. Inferred and proposed records need no confirmation. Legacy dismissed records stay out of default recall |
+| Immediate labelled availability | Every current memory is delivered automatically under its original origin; origin describes provenance rather than acceptance. All origins use the same memory lifecycle without confirmation. Legacy dismissed records stay out of default recall |
 | Direct user edits become authoritative source events | The user needs no model approval or external citation to correct their own profile; stale extraction cannot reverse an edit |
 | Revision checks on writes | Concurrent profile/client changes must fail explicitly rather than overwrite silently |
 | Conservative deletion and non-content tombstones | Delete relevant source/evidence/derived content and block pending extraction/reimport from recreating the forgotten assertion; keep only non-content identifiers/hashes needed for this protection |

@@ -32,7 +32,7 @@ Explicit entries can exercise the memory lifecycle before model extraction is av
 - Recall only authorized owner/project context. Client-provided identifiers cannot select another owner.
 - Filter by subject, project, originating source/client, and memory status.
 - Preserve source roles, dates, stable IDs, quotations, capture method, and revisions independently from interpretations.
-- Label direct statements, user corrections, unaccepted assistant proposals, agent reports, and inferences distinctly. Deliver every current memory with its origin label; availability is not endorsement. Never infer acceptance from silence.
+- Label direct statements, user corrections, assistant contributions, agent reports, and inferences distinctly. Deliver every current memory with its origin label; origin is provenance only. All current memories use the same lifecycle without approval.
 - Apply revision-checked user corrections authoritatively within matching scope.
 - Export a documented versioned bundle with sources, remaining memories, evidence and correction history. Do not export secrets or reactivate access grants.
 - Run the same application features with local authentication, inference and embeddings. Managed deployments do not receive exclusive product features.

@@ -90,7 +90,7 @@ function validateAttribution(memory: ExplicitMemory, source: any) {
   }
   if (memory.origin === 'user_confirmed' && source.origin !== 'user_confirmed') throw new DomainError(400, 'unconfirmed_origin');
   if (source.origin === 'agent_reported' && !['agent_reported', 'inferred', 'assistant_proposed'].includes(memory.origin)) throw new DomainError(400, 'report_misattribution');
-  if (source.origin === 'assistant_proposed' && !['assistant_proposed', 'inferred'].includes(memory.origin)) throw new DomainError(400, 'proposal_misattribution', 'An unaccepted assistant proposal must remain a proposal or an inference.');
+  if (source.origin === 'assistant_proposed' && !['assistant_proposed', 'inferred'].includes(memory.origin)) throw new DomainError(400, 'proposal_misattribution', 'A memory from an assistant must keep its assistant or inferred source attribution.');
   if (source.origin === 'inferred' && !['inferred', 'assistant_proposed'].includes(memory.origin)) throw new DomainError(400, 'inference_misattribution', 'Inferred evidence must retain its interpretation label and cannot become an agent report or user statement.');
 }
 function validateSource(event: SourceEvent) {

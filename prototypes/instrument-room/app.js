@@ -329,7 +329,7 @@
       <div class="access-plaque">
         <h2 class="plate-title plate-title-minor">Available to your agents</h2>
         <ul class="agents">${agents}</ul>
-        <p class="plate-note">Every current memory reaches these agents with its origin label. Available does not mean endorsed by you.</p>
+        <p class="plate-note">Every current memory reaches these agents with its origin label.</p>
       </div>
     `, '<span class="conduit conduit-right" aria-hidden="true"><span class="conduit-pulse"></span></span>');
   }
@@ -546,7 +546,7 @@
     const o = D.origins[m.origin];
     const rows = [
       ['How it arrived', `${originTag(m.origin)}<span class="dd-note">${esc(o.long)}</span>`],
-      ['Availability', `<span class="avail">Available to ${count(D.agents.length, 'agent')}</span><span class="dd-note">Delivered automatically with its label. You have not been asked to approve it.</span>`],
+      ['Availability', `<span class="avail">Available to ${count(D.agents.length, 'agent')}</span><span class="dd-note">Delivered automatically to your agents with its origin label.</span>`],
       m.effective ? ['Effective', esc(fmtDate(m.effective))] : null,
       ['Current wording', `Revision ${c.rev}, ${esc(fmtDate(c.at))}`]
     ].filter(Boolean);
@@ -656,7 +656,7 @@
           <h2 id="chamber-title" class="sr-only">Memory: ${esc(c.statement)}</h2>
         </header>
         ${noticeHTML()}
-        <blockquote class="statement ${m.origin === 'assistant_proposed' ? 'is-proposal' : ''}"><p>${esc(c.statement)}</p></blockquote>
+        <blockquote class="statement"><p>${esc(c.statement)}</p></blockquote>
         ${particulars(m)}
         <div class="memory-controls">
           <a class="disclose" href="${provHref}" aria-expanded="${r.sources}" data-focus-chamber="keep">
@@ -701,7 +701,7 @@
       case 'user_confirmed': return `In your corrected wording: ${s}`;
       case 'agent_reported': return `An agent reported that ${sentence} You have not stated this yourself.`;
       case 'inferred': return `Inferred from conversation, not stated by you: ${s}`;
-      case 'assistant_proposed': return `An assistant suggested: \u201c${s}\u201d You have not accepted this suggestion.`;
+      case 'assistant_proposed': return `From an assistant: \u201c${s}\u201d`;
       default: return s;
     }
   }
@@ -738,20 +738,16 @@
   function answer(q) {
     const curated = CURATED[q.trim().toLowerCase().replace(/[?]/g, '')];
     if (curated) return { q, cites: curated };
+    if (/from\s+assistants?\b/i.test(q)) return { q, cites: memories.filter((m) => m.origin === 'assistant_proposed').map((m) => m.id) };
     const qt = tokens(q).flatMap((w) => [w, ...(SYNONYMS[w] || [])]);
-    let hits;
-    if (/suggest|propos|accept/i.test(q)) {
-      hits = memories.filter((m) => m.origin === 'assistant_proposed');
-    } else {
-      const scored = memories.map((m) => {
-        const t = topicById(m.topic);
-        const th = t.threads.find((x) => x.id === m.thread);
-        const hay = new Set(tokens(`${current(m).statement} ${th.name} ${m.kind}`));
-        return { m, s: qt.filter((w) => hay.has(w)).length };
-      }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
-      const max = scored.length ? scored[0].s : 0;
-      hits = scored.filter((x) => x.s >= max * 0.75).slice(0, 4).map((x) => x.m);
-    }
+    const scored = memories.map((m) => {
+      const t = topicById(m.topic);
+      const th = t.threads.find((x) => x.id === m.thread);
+      const hay = new Set(tokens(`${current(m).statement} ${th.name} ${m.kind}`));
+      return { m, s: qt.filter((w) => hay.has(w)).length };
+    }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+    const max = scored.length ? scored[0].s : 0;
+    const hits = scored.filter((x) => x.s >= max * 0.75).slice(0, 4).map((x) => x.m);
     return { q, cites: hits.map((m) => m.id) };
   }
 

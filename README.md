@@ -4,7 +4,7 @@
 
 Threadkeeper is one personal memory shared by the chatbots and coding agents you already use. Tell one assistant about your project deadline or how you like things written, and the next assistant can recall it, without you repeating yourself and without the two ever seeing each other's conversations.
 
-You stay in charge of that memory. You can read everything that is remembered, see where each item came from, fix anything that is wrong, and forget anything you no longer want kept. Every current memory is available to your connected agents with its origin label. Availability does not mean you endorsed it.
+You stay in charge of that memory. You can read everything that is remembered, see where each item came from, fix anything that is wrong, and forget anything you no longer want kept. Every memory is available to your connected agents as soon as it is saved. If a memory is wrong, you can change or forget it.
 
 > **Early preview.** Threadkeeper is in private development and runs on your own computer or server. It is not yet published or available as a hosted service, and its open-source license has not been chosen yet.
 
@@ -30,7 +30,7 @@ Open any memory to see the exact words it came from and every change made to it.
 
 ### See where a memory came from
 
-Every current memory is delivered automatically with its label: **You said this**, **Corrected by you**, **Reported by an agent**, **Inferred, not stated**, or **Assistant suggestion, not accepted**. An assistant suggestion remains unaccepted while agents receive it labelled as a suggestion. Silence never counts as acceptance.
+Every memory is available automatically. Source labels show where it came from: **You said this**, **Corrected by you**, **Reported by an agent**, **Inferred, not stated**, or **From an assistant**. You do not need to approve memories.
 
 Open a memory to inspect its sources, correct it, or forget it. Your correction becomes the wording agents receive immediately. The earlier interpretation stays in history and is no longer delivered.
 
@@ -44,7 +44,7 @@ Connecting an assistant does not give Threadkeeper your chat history. An assista
 
 ### Check what was saved
 
-**Captures** shows everything assistants have sent and what happened to it. Notes saved directly appear right away. Material sent for the AI model to turn into suggested memories waits its turn, and if that step fails, you can see it and try again. The original text is always kept.
+**Captures** shows everything assistants have sent and what happened to it. Notes saved directly appear right away. Material sent for the AI model to turn into memories waits its turn, and if that step fails, you can see it and try again. The original text is always kept.
 
 ![Saved, waiting, and failed captures, with a retry button](docs/images/captures.png)
 
@@ -85,7 +85,7 @@ For a setup that keeps your data, use [Docker](https://docs.docker.com/get-docke
 2. Open `.env` and fill in:
    - `POSTGRES_PASSWORD`: a database password. Use only letters, numbers, `-`, `_`, `.`, and `~`.
    - `BOOTSTRAP_EMAIL` and `BOOTSTRAP_PASSWORD`: the email and password you will sign in with. The password needs at least 12 characters.
-   - `NEBIUS_API_KEY` (optional): a key for the preset AI model, described in [How memories are made](#how-memories-are-made). Without it, notes that assistants save directly still work, but suggestions cannot be generated.
+   - `NEBIUS_API_KEY` (optional): a key for the preset AI model, described in [How memories are made](#how-memories-are-made). Without it, notes that assistants save directly still work, but memories cannot be extracted from longer source material.
 
    Keep `.env` private. It contains your passwords.
 
