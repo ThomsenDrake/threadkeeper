@@ -107,7 +107,7 @@ test('actual extraction/storage binds origin normalization, subject defaults and
   const originalFetch = globalThis.fetch;
   const sources = [
     { id: 'explicit', text: ' Starting at 2027-02-03T08:30:00+01:00, I prefer morning meetings. ', author_role: 'user', origin: 'user_explicit' },
-    { id: 'confirmed', text: 'I confirmed the original plan.', author_role: 'user', origin: 'user_confirmed' },
+    { id: 'stated', text: 'I prefer the original plan.', author_role: 'user', origin: 'user_explicit' },
     { id: 'reported', text: 'The agent reported completed checks.', author_role: 'assistant', origin: 'agent_reported' },
     { id: 'proposed', text: 'The assistant proposed moving the demo.', author_role: 'assistant', origin: 'assistant_proposed' },
     { id: 'inferred', text: 'The synthetic launch may require a checklist.', author_role: 'assistant', origin: 'inferred' },
@@ -142,7 +142,7 @@ test('actual extraction/storage binds origin normalization, subject defaults and
     assert(persisted.some(memory => memory.origin === 'agent_reported') && persisted.some(memory => memory.origin === 'assistant_proposed'));
     const inference = persisted.find(memory => memory.statement === sources[4].text)!;
     assert.equal(inference.origin, 'inferred');
-    assert.equal(inference.status, 'candidate');
+    assert.equal(inference.status, 'active');
     const wrongFinal = structuredClone(records);
     wrongFinal[0].extraction_fingerprints = snapshot;
     wrongFinal[1].extraction_fingerprints!.memories_sha256 = '0'.repeat(64);
@@ -170,7 +170,7 @@ test('inferred response fingerprints agree with the actual adapter and reject pr
     const result = await new OpenAICompatibleProvider({ ...providerConfigFromEnv({}), baseUrl }).extract(input);
     assert.equal(result.memories[0].origin, 'inferred');
     const canonical = result.memories.map(memory => ({ ...memory, project_id: input.project_id, subject: input.subject,
-      status: 'candidate', effective_at: null }));
+      status: 'active', effective_at: null }));
     const observed = extractionResponseFingerprint(capturedRequest, raw);
     assert(observed);
     assert.deepEqual(observed, extractionRecordsFingerprint(canonical, input));

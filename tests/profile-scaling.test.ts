@@ -11,7 +11,7 @@ async function forget(store: ReturnType<typeof createStore>, auth: Auth, id: str
   return store.remove(auth, id, { expected_revision: expectedRevision, preview_hash: preview.preview_hash });
 }
 
-const owner = (): Auth => ({ ownerId: randomUUID(), clientId: 'profile', permissions: ['read', 'capture', 'correct', 'delete', 'export', 'import', 'review'], projects: null });
+const owner = (): Auth => ({ ownerId: randomUUID(), clientId: 'profile', permissions: ['read', 'capture', 'correct', 'delete', 'export', 'import'], projects: null });
 const error = (status: number, code: string) => (cause: unknown) => cause instanceof DomainError && cause.status === status && cause.code === code;
 const capture = (statement: string, options: Partial<CaptureInput> = {}, inferred = false): CaptureInput => ({
   idempotency_key: randomUUID(), project_id: null, subject: 'self',
@@ -50,7 +50,7 @@ test('owner pages reach a realistic mixed collection with stable ties, truthful 
     const subject = index % 2 ? 'Alex' : 'self'; const source = index % 4 ? 'profile' : 'synthetic-client';
     const inferred = index % 12 === 0;
     const result = await save(store, { ...auth, clientId: source }, `Synthetic archive item ${String(index).padStart(3, '0')} uses common context.`, { project_id: project, subject }, inferred);
-    expected.push({ id: result.memory_ids[0], project, subject, source, status: inferred ? 'candidate' : 'active' });
+    expected.push({ id: result.memory_ids[0], project, subject, source, status: 'active' });
   }
   await save(store, owner(), 'Synthetic archive item belonging to another owner.');
   // Equal timestamps specifically exercise the ID tie-breaker across page boundaries.
@@ -158,7 +158,7 @@ test('import counts new/existing sources and memories, explains deletion/evidenc
   for (const evidence of reinterpretation.evidence) if (evidence.source_id === oldSourceId) { evidence.source_id = source.id; evidence.quote = source.text; }
   const excluded = await store.import(destination, reinterpretation);
   assert.equal(excluded.imported_sources, 1); assert.equal(excluded.skipped_memories, 1); assert.equal(excluded.tombstone_excluded_memories, 1); assert.equal(excluded.evidence_excluded_memories, 0);
-  // Confirmed current text can be innocuous while its earlier interpretation
+  // Corrected current text can be innocuous while its earlier interpretation
   // matches deletion history. Distinct safe quotes/identities must not bypass it.
   const historicalOwner = owner();
   const historicalInput = capture('Synthetic forgotten import record.', {
@@ -167,8 +167,8 @@ test('import counts new/existing sources and memories, explains deletion/evidenc
   historicalInput.explicit_memories![0].source_event_id = historicalInput.events[0].id;
   historicalInput.explicit_memories![0].quote = historicalInput.events[0].text;
   const historical = await sourceStore.capture(historicalOwner, historicalInput);
-  await sourceStore.review(historicalOwner, historical.memory_ids[0], {
-    action: 'confirm', expected_revision: 1, statement: 'Synthetic accepted current interpretation with safe wording.',
+  await sourceStore.correct(historicalOwner, historical.memory_ids[0], {
+    expected_revision: 1, statement: 'Synthetic corrected current interpretation with safe wording.',
   });
   const historicalBundle = await sourceStore.export(historicalOwner);
   assert(historicalBundle.memories[0].authoritative);

@@ -134,7 +134,7 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(current.effective_at, original.memory.effective_at, 'A statement-only correction must preserve the original effective time');
   assert.equal(current.created_at, original.memory.created_at, 'Correction must preserve the original creation time');
   assert(Date.parse(current.updated_at) > Date.parse(original.memory.updated_at), 'Correction must advance the original update time');
-  assert.equal(current.origin, 'user_explicit');
+  assert.equal(current.origin, 'user_confirmed');
   assert.equal(current.status, 'active');
   assert.equal(current.revision, 2);
   assert.equal(current.authoritative, true);
@@ -147,7 +147,7 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.equal(correction.text, current.statement);
   assert.equal(correction.capture_method, 'profile_correction');
   assert.equal(correction.author_role, 'user');
-  assert.equal(correction.origin, 'user_explicit');
+  assert.equal(correction.origin, 'user_confirmed');
   assert.equal(correction.client_id, 'profile', 'Correction evidence must be authored by the owner profile');
   assert.equal(correction.event_id, `correction:${current.id}:${current.revision}`, 'Correction evidence must retain its portable revision identity');
   assert.equal(correction.project_id, current.project_id);
@@ -160,7 +160,7 @@ export function assertLearnedDeadlineHistory(raw: unknown, original: LearnedDeta
   assert.deepEqual(detail.revisions.find(revision => revision.revision === 1), { ...original.revisions[0], status: 'superseded' });
   const revision = detail.revisions.find(revision => revision.revision === 2)!;
   assert.equal(revision.statement, current.statement);
-  assert.equal(revision.origin, 'user_explicit');
+  assert.equal(revision.origin, 'user_confirmed');
   assert.equal(revision.status, 'active');
   assert.equal(revision.extractor, null);
   assert.equal(revision.effective_at, current.effective_at);

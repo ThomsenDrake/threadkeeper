@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { CommandButton, Enclosure } from './InstrumentRoom';
+import { originDescriptions, originLabels, recallWording } from './origins';
 
 type RecalledMemory = {
   id: string;
@@ -26,16 +27,8 @@ export type InquiryProps = {
   initialQuery?: string;
 };
 
-const originLabels: Record<string, string> = {
-  user_explicit: 'Direct user statement',
-  user_confirmed: 'User confirmed',
-  agent_reported: 'Client-reported context',
-  inferred: 'Model inference',
-  assistant_proposed: 'Assistant proposal',
-};
-
 function Origin({ value }: { value: string }) {
-  return <span className={`origin origin-${value}`}><span className="origin-mark" aria-hidden="true" />{originLabels[value] || value}</span>;
+  return <span className={`origin origin-${value}`} title={originDescriptions[value]}><span className="origin-mark" aria-hidden="true" />{originLabels[value] || value}</span>;
 }
 
 function scopeLabel(question: Question) {
@@ -174,19 +167,19 @@ export default function Inquiry({ request, onOpenMemory, onError, refreshVersion
                 <p className="plate-note">Leave a field blank to include all of that scope. Use “self” for your own subject.</p>
               </details>
             </form>
-            <p className="inquiry-note">Current matching memories, in their saved wording. Origin labels distinguish your statements, client reports and model interpretations.</p>
-            <div role="status" className="inquiry-note">{searching ? 'Searching your Record…' : notice || (current ? `${memories.length} matching active ${memories.length === 1 ? 'memory' : 'memories'}.` : '')}</div>
+            <p className="inquiry-note">Current matching memories, with their origin labels. Your statements, corrections, agent reports, inferences and unaccepted suggestions stay distinct.</p>
+            <div role="status" className="inquiry-note">{searching ? 'Searching your Record…' : notice || (current ? `${memories.length} matching current ${memories.length === 1 ? 'memory' : 'memories'}.` : '')}</div>
             {error && <p className="field-error" role="alert">{error}</p>}
             {activeQuestion && <ol className="transcript"><li className="exchange">
               <p className="asked"><span className="who">You asked</span>{activeQuestion.query}</p>
               <p className="inquiry-note">{scopeLabel(activeQuestion)}</p>
               {current && <Enclosure className="enclosure-answer">
-                <p className="answer-tag">{memories.length ? `From ${memories.length} active ${memories.length === 1 ? 'memory' : 'memories'}` : 'No matching memories'}</p>
+                <p className="answer-tag">{memories.length ? `From ${memories.length} current ${memories.length === 1 ? 'memory' : 'memories'}` : 'No matching memories'}</p>
                 <div className="answer-body">
                   {memories.length ? <><p>Here is what your Record says:</p><ol className="answer-points">{memories.map((memory, index) => <li key={memory.id}>
                     <Origin value={memory.origin} />
-                    <p className="recalled-statement">{memory.statement} <button type="button" className="cite" onClick={() => onOpenMemory(memory.id)} aria-label={`Cited memory ${index + 1}: open in the Record`}>{index + 1}</button></p>
-                  </li>)}</ol></> : <p>No matching active memories were found for this query and scope. Try a distinctive word or broaden the scope.</p>}
+                    <p className="recalled-statement">{recallWording(memory)} <button type="button" className="cite" onClick={() => onOpenMemory(memory.id)} aria-label={`Cited memory ${index + 1}: open in the Record`}>{index + 1}</button></p>
+                  </li>)}</ol></> : <p>No matching current memories were found for this query and scope. Try a distinctive word or broaden the scope.</p>}
                 </div>
                 {memories.length >= (current.response.coverage?.result_limit || 20) && <p className="plate-note">Showing up to {current.response.coverage?.result_limit || 20} matches. Refine your question or scope for more specific context.</p>}
               </Enclosure>}

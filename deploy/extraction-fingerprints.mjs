@@ -81,7 +81,7 @@ export function extractionResponseFingerprint(request, response) {
       } else origin = source.origin;
     }
     memories.push({ ...memory, origin, subject: memory.subject ?? context.subject, project_id: context.project_id,
-      status: ['inferred', 'assistant_proposed'].includes(origin) ? 'candidate' : 'active', effective_at: memory.effective_at ?? null });
+      status: 'active', effective_at: memory.effective_at ?? null });
   }
   return extractionRecordsFingerprint(memories, context);
 }

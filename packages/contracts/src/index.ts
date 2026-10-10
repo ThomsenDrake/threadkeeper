@@ -70,15 +70,6 @@ export const CorrectSchema = z.object({
 const PreviewHash = z.string().regex(/^[a-f0-9]{64}$/);
 export const SourceDeleteSchema = z.object({ preview_hash: PreviewHash }).strict();
 export const DeleteSchema = SourceDeleteSchema.extend({ expected_revision: z.number().int().positive() }).strict();
-export const ReviewSchema = z.object({
-  action: z.enum(['confirm', 'dismiss']), expected_revision: z.number().int().positive(),
-  kind: MemoryKindSchema.optional(),
-  statement: z.string().min(1).max(4_000).optional(), effective_at: Timestamp.nullable().optional(),
-}).strict().superRefine((input, ctx) => {
-  if (input.action === 'dismiss' && (input.statement !== undefined || input.effective_at !== undefined || input.kind !== undefined)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Dismissal retains the current statement, kind and effective date.' });
-  }
-});
 export const CaptureSettingsSchema = z.object({
   paused: z.boolean(), version: z.number().int().min(0),
 }).strict();

@@ -108,8 +108,8 @@ test('hybrid recall through two authenticated MCP clients reflects profile corre
   assert.deepEqual(await store.processEmbeddings(), { status: 'complete', indexed: 3, skipped: 0, pending: 0, deferred: 0, retry_after_ms: 0 });
   const first = await recall(b, semanticQuery, { project_id: 'atlas' });
   assert.equal(first.coverage.retrieval, 'postgresql_hybrid');
-  assert.deepEqual(statements(first), [deadline, preference].sort());
-  for (const memory of first.memories) {
+  assert.deepEqual(statements(first), [deadline, preference, inference].sort());
+  for (const memory of first.memories.filter((memory: any) => memory.origin === 'user_explicit')) {
     assert.equal(memory.origin, 'user_explicit');
     assert.equal(memory.evidence.length, 1);
     assert.equal(memory.evidence[0].quote, memory.statement);
@@ -117,14 +117,14 @@ test('hybrid recall through two authenticated MCP clients reflects profile corre
     assert.equal(memory.evidence[0].origin, 'user_explicit');
     assert.equal(memory.evidence[0].client_id, grantA.client.id);
   }
-  const candidates = await recall(b, semanticQuery, { status: 'candidate' });
-  assert.deepEqual(statements(candidates), [inference]);
-  assert.equal(candidates.memories[0].origin, 'inferred');
-  assert.equal(candidates.memories[0].evidence[0].quote, preference);
-  assert.equal(candidates.memories[0].evidence[0].origin, 'user_explicit');
+  const inferred = first.memories.find((memory: any) => memory.origin === 'inferred');
+  assert.equal(inferred.statement, inference);
+  assert.equal(inferred.evidence[0].quote, preference);
+  assert.equal(inferred.evidence[0].origin, 'user_explicit');
+  assert.deepEqual(statements(await recall(b, semanticQuery, { status: 'candidate' })), []);
 
   const dl = first.memories.find((memory: any) => memory.kind === 'project_state');
-  const pref = first.memories.find((memory: any) => memory.kind === 'preference');
+  const pref = first.memories.find((memory: any) => memory.kind === 'preference' && memory.origin === 'user_explicit');
   assert.equal((await request(`/api/memories/${dl.id}`, {
     method: 'PATCH', body: { statement: correctedDeadline, expected_revision: dl.revision },
   })).response.status, 200);
@@ -135,7 +135,7 @@ test('hybrid recall through two authenticated MCP clients reflects profile corre
 
   for (const client of [a, b]) {
     // Corrected memories are immediately available lexically; obsolete vectors
-    // and deleted derived candidates cannot be recalled while reindex is pending.
+    // and deleted derived memories cannot be recalled while reindex is pending.
     assert.deepEqual(statements(await recall(client, 'deadline')), [correctedDeadline]);
     assert.deepEqual(statements(await recall(client)), []);
     assert.deepEqual(statements(await recall(client, semanticQuery, { status: 'candidate' })), []);
@@ -151,7 +151,7 @@ test('hybrid recall through two authenticated MCP clients reflects profile corre
     assert.deepEqual(statements(fresh), [correctedDeadline]);
     assert.equal(fresh.memories[0].revision, 2);
     assert.equal(fresh.memories[0].authoritative, true);
-    assert.equal(fresh.memories[0].origin, 'user_explicit');
+    assert.equal(fresh.memories[0].origin, 'user_confirmed');
     assert.equal(fresh.memories[0].evidence[0].quote, correctedDeadline);
     assert.equal(fresh.memories[0].evidence[0].capture_method, 'profile_correction');
   }

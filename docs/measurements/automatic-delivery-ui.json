@@ -1,0 +1,49 @@
+{
+  "mode": "Synthetic disposable PGlite profile, Chromium",
+  "checks": [
+    "All four captured origins and an imported legacy candidate are current without approval; the list has no queue or correction/deletion actions, and only recall-capable agents appear in availability.",
+    "Memory details show the exact labels/descriptions and automatic delivery copy; availability respects read permission and project scope.",
+    "A UI correction becomes authoritative user_confirmed wording immediately; its inferred earlier revision and original source remain in history.",
+    "Default Inquiry recalls statements, corrected wording, agent reports, inferences and unaccepted proposals with the prototype phrasing and labels; dismissed memory and superseded wording are absent.",
+    "Legacy dismissed memory stays inspectable and has no Correct action; the Record and memory details fit a 390px mobile viewport.",
+    "Concurrent supersession closes the correction editor and offers inspection/deletion only; concurrent forgetting closes the editor and reports that the memory is unavailable.",
+    "Forget removes the suggestion from immediate default recall while corrected context remains available; there were no browser runtime errors."
+  ],
+  "browser_errors": [],
+  "screenshots": [
+    "/tmp/threadkeeper-profile-suggestion.png",
+    "/tmp/threadkeeper-profile-correction.png",
+    "/tmp/threadkeeper-profile-inquiry.png",
+    "/tmp/threadkeeper-profile-mobile.png",
+    "/tmp/threadkeeper-profile-mobile-viewport.png"
+  ],
+  "visual_review": "Desktop suggestion, correction and Inquiry screenshots and 390px viewport-only mobile memory dialog visually reviewed. Mobile dialog is 366px wide in a 390px viewport and scrolls vertically without horizontal overflow.",
+  "source_sha256": {
+    "apps/api/src/app.ts": "97d4288c334b2ad2ea2a8f9344bdbeb21fcedfdd057d958f862066ed5b6a0787",
+    "apps/api/src/auth.ts": "715448ca7a1004b6ac835831b514d2e6286b789f413ff895b6765aafe73066d7",
+    "apps/web/src/App.tsx": "cbd4a6d94a06309049bcf837166120f7f9687318e2ac8ae815e3c57e665021c1",
+    "apps/web/src/Inquiry.tsx": "058f8e4c822b0516250e9454166cadf7abef36950cf51aaede7f7d163d7c2dba",
+    "apps/web/src/Record.tsx": "d48d3ae2938f6c22903f5660e8327f97cd94c802e0c2821116a81a9c54d1c223",
+    "apps/web/src/styles.css": "d2c6e7a5008f466b890d64608a10f0be520372ca869f8d4f5ad6231e1e98ba77",
+    "deploy/demo.ts": "528ef3c1209af53737a758c20e127bb57cc438ae29e17cb668c57cc3e8f51130",
+    "deploy/extraction-fingerprints.mjs": "efbd2fdeecab60cf2ab9a59db9d52c09d2a9071af73e32d16312b9a1f1678625",
+    "deploy/integration/learned-assertions.ts": "8c17b3271ae32d5e5e27624e726c16932dcd68ce3b069117273f921843571078",
+    "deploy/integration/run.ts": "a0bdb21490605757b94e09b57e98e6c0dc02edd44e25b038270e318b1db3b3d8",
+    "deploy/integration/scenarios.ts": "ceed71a6eab1e448a506d706e120d486f01e52b89564b62f6ab6e289f2ec51ef",
+    "deploy/provider-evaluation-probe.ts": "23a8c1a649cff9b6419a7df1a60874d46135158ce9d1c5615c23771ecbe7f757",
+    "deploy/provider-evaluation.ts": "0d5d717d4f7652a003cca0d12fe152e7249918eed2f4d292d10e5b5c45309f46",
+    "packages/contracts/src/index.ts": "c5817d3a96fee21f3c05cbef4e912e1adbe56123d410697292e53281e2c33a28",
+    "packages/core/src/index.ts": "f559fca4ac2b3caafa84826b83e3ab2872b9d9a4db32f5f2159627b83629162d",
+    "packages/providers/src/index.ts": "5a68087fa60b6bc050b031b64b187a15c5842d75d28a03ab7a3d9adff657c742",
+    "apps/web/src/origins.ts": "6e0d838315ef1e73858d7a1204d4ccd95570802430778350cb76a0dc68ce3633",
+    "deploy/migrations/009_automatic_delivery.sql": "4536ce3e75317954115b718e7c4df12ae4cb4590a187af83f704f865d575ff4f"
+  },
+  "build_sha256": {
+    "apps/web/dist/index.html": "0bba0ebe067bbcdf95282d206e2b2fe2628c73d2cad6ea817e95bce5a348174c",
+    "apps/web/dist/assets/index-CWlzGZFp.js.map": "be89bfe971e7d34f905e09eb9db521da598b709d0b85605af9bf079264d7d788",
+    "apps/web/dist/assets/index-fPmitR0e.css": "3a602d89fb9ab05c3874e691a2011e4451d4ad64615a5792848fe7238bc1f499",
+    "apps/web/dist/assets/index-CWlzGZFp.js": "13d0dfdb3dcdb2285f4276de02886667ceac48b73f79d6d839dadc67392b2f2e"
+  },
+  "limits": "Synthetic explicit captures and fixture imports; no learned inference, native database, containers, installed MCP host or GPU check.",
+  "cleanup": "Disposable browser and demo server stopped; /health unavailable after shutdown."
+}

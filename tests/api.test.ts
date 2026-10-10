@@ -29,7 +29,7 @@ test('two independent MCP clients observe profile correction and deletion throug
   const edited=await request(`/api/memories/${dl.id}`,{statement:'The Atlas deadline is 23 October 2026.',expected_revision:dl.revision},'PATCH');assert.equal(edited.r.status,200);
   const stale=await request(`/api/memories/${dl.id}`,{statement:'Stale overwrite',expected_revision:dl.revision},'PATCH');assert.equal(stale.r.status,409);
   const removed=await request(`/api/memories/${pref.id}`,{expected_revision:pref.revision,preview_hash:(await request(`/api/memories/${pref.id}/deletion-preview`)).data.preview_hash},'DELETE');assert.equal(removed.r.status,200);
-  for(const c of [a,b]){const result=await recall(c);assert.equal(result.memories.length,1);assert.equal(result.memories[0].statement,'The Atlas deadline is 23 October 2026.');assert.equal(result.memories[0].origin,'user_explicit');}
+  for(const c of [a,b]){const result=await recall(c);assert.equal(result.memories.length,1);assert.equal(result.memories[0].statement,'The Atlas deadline is 23 October 2026.');assert.equal(result.memories[0].origin,'user_confirmed');}
   assert.equal((await request(`/api/sources/${pref.evidence[0].source_id}`)).r.status,404);
   const exported=(await request('/api/export')).data;assert(!JSON.stringify(exported).includes(preference));
   const schema=await request('/openapi.json');assert.equal(schema.r.status,200);assert.equal(schema.data.openapi,'3.1.0');

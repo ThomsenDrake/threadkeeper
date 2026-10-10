@@ -41,7 +41,7 @@ test('owner HTTP previews guard every memory/source deletion while clients retai
   assert.equal((await request(sourcePath, { method: 'DELETE', body: { preview_hash: sourcePreview.preview_hash } })).response.status, 409);
   const memoryId = admitted.memory_ids[0], memoryPath = `/api/memories/${memoryId}`;
   const memoryPreview = DeletionPreviewSchema.parse((await request(memoryPath + '/deletion-preview')).data);
-  assert.equal(memoryPreview.memories[0].status, 'candidate');
+  assert.equal(memoryPreview.memories[0].status, 'active');
   assert.equal((await request(memoryPath + '/deletion-preview', { token: writer.token })).response.status, 403);
   assert.equal((await request(memoryPath, { method: 'DELETE', body: { expected_revision: 1 } })).response.status, 400);
   assert.equal((await request(sourcePath, { method: 'DELETE', body: { preview_hash: memoryPreview.preview_hash } })).response.status, 409);

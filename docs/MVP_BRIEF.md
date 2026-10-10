@@ -32,7 +32,7 @@ Explicit entries can exercise the memory lifecycle before model extraction is av
 - Recall only authorized owner/project context. Client-provided identifiers cannot select another owner.
 - Filter by subject, project, originating source/client, and memory status.
 - Preserve source roles, dates, stable IDs, quotations, capture method, and revisions independently from interpretations.
-- Label direct statements, confirmed facts, assistant proposals, agent reports, and inferences distinctly. Never infer acceptance from silence.
+- Label direct statements, user corrections, unaccepted assistant proposals, agent reports, and inferences distinctly. Deliver every current memory with its origin label; availability is not endorsement. Never infer acceptance from silence.
 - Apply revision-checked user corrections authoritatively within matching scope.
 - Export a documented versioned bundle with sources, remaining memories, evidence and correction history. Do not export secrets or reactivate access grants.
 - Run the same application features with local authentication, inference and embeddings. Managed deployments do not receive exclusive product features.
@@ -45,7 +45,7 @@ The release gate additionally requires independent existing chatbot/coding-agent
 
 ## Existing implementation and infrastructure
 
-The private repository now contains the React profile, authenticated HTTP/MCP service, bounded extraction/indexing worker and PostgreSQL/optional pgvector store. Captures and retries, explicit candidate review, scoped client controls, guarded source/memory forgetting, complete owner pagination/import feedback and isolated deletion-aware recovery work through the canonical database. [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [HANDOFF.md](HANDOFF.md) record actual merge state and synthetic acceptance evidence; inspect current main and pending PRs before continuing development.
+The private repository now contains the React profile, authenticated HTTP/MCP service, bounded extraction/indexing worker and PostgreSQL/optional pgvector store. Captures and retries, immediate labelled delivery and owner correction, scoped client controls, guarded source/memory forgetting, complete owner pagination/import feedback and isolated deletion-aware recovery work through the canonical database. [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) and [HANDOFF.md](HANDOFF.md) record actual merge state and synthetic acceptance evidence; inspect current main and pending PRs before continuing development.
 
 DNS migration is existing user-reported work. This build makes no registrar, Cloudflare, domain, deployment, or paid-resource changes. No public demo is implied by local code or checks.
 

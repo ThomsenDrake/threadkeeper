@@ -8,7 +8,7 @@ const deadline = 'The Atlas deadline is 20 October 2026.';
 const correctedDeadline = 'The Atlas deadline is 27 October 2026.';
 const preference = 'Use short paragraphs in my writing.';
 const inference = 'The writer may favor concise explanations.';
-const confirmedInference = 'Use concise explanations when discussing my writing.';
+const correctedInference = 'Use concise explanations when discussing my writing.';
 const semanticQuery = 'milestones and prose style';
 const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
 const statements = (result: any): string[] => result.memories.map((memory: any) => memory.statement).sort();
@@ -155,9 +155,9 @@ export async function runScenarios(options: {
     return row;
   }
   async function indexed() {
-    await poll('all current active/candidate memories indexed', async () => {
+    await poll('all current memories indexed', async () => {
       const row = (await sql(`SELECT count(*) AS n FROM tk_memories m
-        WHERE m.status IN ('active','candidate') AND NOT EXISTS
+        WHERE m.status='active' AND NOT EXISTS
         (SELECT 1 FROM tk_embeddings e WHERE e.memory_id=m.id AND e.revision=m.revision
           AND e.provider_model=${literal(FIXTURE_EMBEDDING_MODEL)} AND e.dimensions=3
           AND vector_dims(e.embedding)=3)`))[0];
@@ -175,7 +175,7 @@ export async function runScenarios(options: {
     await control('reset', {});
     let a!: Client, b!: Client;
     let grantA!: Awaited<ReturnType<typeof grant>>, grantB!: Awaited<ReturnType<typeof grant>>;
-    let ownerId = '', dl: any, pref: any, confirmed: any, confirmationSourceId = '';
+    let ownerId = '', dl: any, pref: any, corrected: any, correctionSourceId = '';
     await stage('profile and two independently authenticated MCP clients', async () => {
       const owner = await login(options.email);
       cookie = owner.session; ownerId = owner.user.id;
@@ -238,151 +238,140 @@ export async function runScenarios(options: {
       ensure(Number(lexical.n) === 0, 'semantic demonstration unexpectedly matched lexical retrieval');
       const first = await recall(b);
       ensure(first.coverage.retrieval === 'postgresql_hybrid' && first.coverage.semantic_search === 'enabled', 'hybrid retrieval was not enabled');
-      sameStatements(first, [deadline, preference], 'Client B did not recall both source-derived assertions');
+      sameStatements(first, [deadline, preference, inference], 'Client B did not receive every source-derived memory immediately');
       dl = first.memories.find((memory: any) => memory.statement === deadline);
       pref = first.memories.find((memory: any) => memory.statement === preference);
-      for (const memory of first.memories) {
+      for (const memory of [dl, pref]) {
         ensure(memory.origin === 'user_explicit' && memory.status === 'active', 'direct memory lost its evidence label');
         ensure(memory.extractor === DEFAULT_MODEL_ID && memory.effective_at === null, 'extraction metadata or effective date changed');
         ensure(memory.evidence.length === 1 && memory.evidence[0].quote === memory.statement
           && memory.evidence[0].author_role === 'user' && memory.evidence[0].origin === 'user_explicit'
           && memory.evidence[0].client_id === grantA.client.id, 'original evidence attribution was not preserved');
       }
-      const candidate = await recall(b, semanticQuery, { status: 'candidate' });
-      sameStatements(candidate, [inference], 'inferred interpretation was missing or leaked into active results');
-      ensure(candidate.memories[0].origin === 'inferred' && candidate.memories[0].evidence[0].quote === preference
-        && candidate.memories[0].evidence[0].origin === 'user_explicit', 'inference label confused interpretation with its original evidence');
-      sameStatements(await recall(b, semanticQuery, { source: grantA.client.id }), [deadline, preference], 'originating-client filter lost captured context');
+      const inferred = first.memories.find((memory: any) => memory.statement === inference);
+      ensure(inferred?.status === 'active' && inferred.origin === 'inferred' && inferred.authoritative === false
+        && inferred.evidence[0].quote === preference && inferred.evidence[0].origin === 'user_explicit',
+      'delivered inference lost its distinction from the original user statement');
+      sameStatements(await recall(b, semanticQuery, { source: grantA.client.id }), [deadline, preference, inference],
+        'originating-client filter lost delivered context');
       sameStatements(await recall(b, semanticQuery, { source: dl.evidence[0].source_id }), [deadline], 'source filter crossed independent events');
       sameStatements(await recall(b, semanticQuery, { source: grantB.client.id }), [], 'reader client became the source attribution');
     });
-    await stage('explicit owner confirmation and dismissal preserve original provenance through independent recall', async () => {
-      const [candidate] = (await recall(b, semanticQuery, { status: 'candidate', source: pref.evidence[0].source_id })).memories;
-      ensure(candidate?.statement === inference && candidate.origin === 'inferred' && candidate.revision === 1
-        && candidate.extractor === DEFAULT_MODEL_ID, 'review flow did not begin with the configured worker inference');
-      const before = (await expected('/api/memories/' + candidate.id, 200)).data;
+    await stage('immediate delivery and owner correction preserve original provenance through independent recall', async () => {
+      const interpreted = (await recall(b, semanticQuery, { source: pref.evidence[0].source_id })).memories
+        .find((memory: any) => memory.origin === 'inferred');
+      ensure(interpreted?.statement === inference && interpreted.status === 'active' && interpreted.revision === 1
+        && interpreted.extractor === DEFAULT_MODEL_ID, 'correction flow did not begin with the delivered worker inference');
+      const before = (await expected('/api/memories/' + interpreted.id, 200)).data;
       const originalSource = before.sources.find((source: any) => source.id === pref.evidence[0].source_id);
       ensure(originalSource?.text === preference && originalSource.author_role === 'user'
-        && originalSource.origin === 'user_explicit', 'review candidate lost the original user-authored preference');
-      const implicit = await expected('/api/memories/' + candidate.id, 409, {
-        method: 'PATCH', body: { statement: confirmedInference, expected_revision: candidate.revision },
+        && originalSource.origin === 'user_explicit', 'delivered inference lost the original user-authored preference');
+      for (const token of [grantA.token, grantB.token]) await expected(`/api/memories/${interpreted.id}`, 403, {
+        method: 'PATCH', token, body: { statement: correctedInference, expected_revision: interpreted.revision },
       });
-      ensure(implicit.data.error === 'review_required', 'generic correction bypassed explicit candidate review');
-      for (const token of [grantA.token, grantB.token]) await expected(`/api/memories/${candidate.id}/review`, 403, {
-        token, body: { action: 'confirm', statement: confirmedInference, expected_revision: candidate.revision },
-      });
-      confirmed = (await expected(`/api/memories/${candidate.id}/review`, 200, {
-        body: { action: 'confirm', statement: confirmedInference, expected_revision: candidate.revision },
-      })).data.memory;
-      ensure(confirmed.id === candidate.id && confirmed.statement === confirmedInference && confirmed.revision === 2
-        && confirmed.status === 'active' && confirmed.origin === 'user_confirmed'
-        && confirmed.authoritative === true && confirmed.extractor === null,
-      'owner edit-and-confirm did not create the authoritative current record');
-      const detail = (await expected('/api/memories/' + confirmed.id, 200)).data;
+      const providerRequests = (await control('status')).chatRequests;
+      corrected = await patch(interpreted, correctedInference);
+      ensure((await control('status')).chatRequests === providerRequests, 'owner correction required model review');
+      ensure(corrected.id === interpreted.id && corrected.statement === correctedInference && corrected.revision === 2
+        && corrected.status === 'active' && corrected.origin === 'user_confirmed'
+        && corrected.authoritative === true && corrected.extractor === null,
+      'owner correction did not immediately create the authoritative current record');
+      const detail = (await expected('/api/memories/' + corrected.id, 200)).data;
       const history = detail.revisions.find((revision: any) => revision.revision === 1);
       ensure(detail.revisions.length === 2 && history?.statement === inference && history.origin === 'inferred'
         && history.status === 'superseded' && history.extractor === DEFAULT_MODEL_ID,
-      'confirmation rewrote the original inference or configured extractor history');
+      'correction rewrote the original inference or configured extractor history');
       const preservedSource = detail.sources.find((source: any) => source.id === originalSource.id);
       ensure(preservedSource?.text === preference && preservedSource.author_role === 'user'
         && preservedSource.origin === 'user_explicit' && preservedSource.extraction_blocked === true,
-      'confirmation changed original source attribution or left it available for re-extraction');
+      'correction changed original source attribution or left it available for re-extraction');
       const oldEvidence = detail.evidence.filter((evidence: any) => evidence.revision === 1);
       ensure(oldEvidence.length === 1 && oldEvidence[0].source_id === originalSource.id
-        && oldEvidence[0].quote === preference, 'confirmation lost the inference original quotation');
-      const currentEvidence = detail.evidence.filter((evidence: any) => evidence.revision === confirmed.revision);
-      ensure(currentEvidence.length === 1 && currentEvidence[0].quote === confirmedInference,
-        'confirmation did not create distinct current-revision user evidence');
-      confirmationSourceId = currentEvidence[0].source_id;
-      const confirmationSource = detail.sources.find((source: any) => source.id === confirmationSourceId);
-      ensure(confirmationSourceId !== originalSource.id && confirmationSource?.text === confirmedInference
-        && confirmationSource.author_role === 'user' && confirmationSource.origin === 'user_confirmed'
-        && confirmationSource.client_id === 'profile' && confirmationSource.capture_method === 'profile_confirmation'
-        && confirmationSource.extraction_blocked === true,
-      'owner confirmation evidence was confused with the captured source');
+        && oldEvidence[0].quote === preference, 'correction lost the inference original quotation');
+      const currentEvidence = detail.evidence.filter((evidence: any) => evidence.revision === corrected.revision);
+      ensure(currentEvidence.length === 1 && currentEvidence[0].quote === correctedInference,
+        'correction did not create distinct current-revision user evidence');
+      correctionSourceId = currentEvidence[0].source_id;
+      const correctionSource = detail.sources.find((source: any) => source.id === correctionSourceId);
+      ensure(correctionSourceId !== originalSource.id && correctionSource?.text === correctedInference
+        && correctionSource.author_role === 'user' && correctionSource.origin === 'user_confirmed'
+        && correctionSource.client_id === 'profile' && correctionSource.capture_method === 'profile_correction'
+        && correctionSource.extraction_blocked === true,
+      'owner correction evidence was confused with the captured source');
       await indexed();
-      const active = await recall(b, semanticQuery, { source: confirmationSourceId });
-      sameStatements(active, [confirmedInference], 'Client B did not recall the owner-confirmed current record');
-      ensure(active.memories[0].id === confirmed.id && active.memories[0].origin === 'user_confirmed'
-        && active.memories[0].authoritative === true && active.memories[0].evidence[0].source_id === confirmationSourceId
-        && active.memories[0].evidence[0].capture_method === 'profile_confirmation',
-      'fresh independent recall did not use the current confirmation evidence');
-      sameStatements(await recall(b, semanticQuery, { status: 'candidate', source: confirmationSourceId }), [],
-        'confirmed record remained in the needs-review queue');
-      sameStatements(await recall(b), [deadline, preference, confirmedInference],
-        'default independent recall did not include the current confirmed statement');
-      const stale = await expected(`/api/memories/${candidate.id}/review`, 409, {
-        body: { action: 'dismiss', expected_revision: candidate.revision },
+      const active = await recall(b, semanticQuery, { source: correctionSourceId });
+      sameStatements(active, [correctedInference], 'Client B did not receive the owner correction');
+      ensure(active.memories[0].id === corrected.id && active.memories[0].origin === 'user_confirmed'
+        && active.memories[0].authoritative === true && active.memories[0].evidence[0].source_id === correctionSourceId
+        && active.memories[0].evidence[0].capture_method === 'profile_correction',
+      'fresh independent recall did not use the current correction evidence');
+      sameStatements(await recall(b), [deadline, preference, correctedInference],
+        'default independent recall did not include the current corrected wording');
+      const stale = await expected(`/api/memories/${interpreted.id}`, 409, {
+        method: 'PATCH', body: { statement: inference, expected_revision: interpreted.revision },
       });
-      ensure(stale.data.error === 'revision_conflict', 'stale owner review did not enforce the candidate revision');
+      ensure(stale.data.error === 'revision_conflict', 'stale owner correction did not enforce the current revision');
 
       const proposal = 'I suggest weekly writing reminders for Atlas.';
+      const reported = 'The writing agent reported completing the Atlas style check.';
       const proposed = await tool(a, 'context_capture', {
-        idempotency_key: 'integration-assistant-proposal', project_id: 'atlas',
-        events: [{ id: 'assistant-review-proposal', text: proposal, author_role: 'assistant', origin: 'assistant_proposed' }],
-        explicit_memories: [{ statement: proposal, kind: 'preference', source_event_id: 'assistant-review-proposal', quote: proposal, origin: 'assistant_proposed' }],
+        idempotency_key: 'integration-agent-context', project_id: 'atlas',
+        events: [
+          { id: 'assistant-proposal', text: proposal, author_role: 'assistant', origin: 'assistant_proposed' },
+          { id: 'agent-report', text: reported, author_role: 'assistant', origin: 'agent_reported' },
+        ],
+        explicit_memories: [
+          { statement: proposal, kind: 'project_state', source_event_id: 'assistant-proposal', quote: proposal, origin: 'assistant_proposed' },
+          { statement: reported, kind: 'project_state', source_event_id: 'agent-report', quote: reported, origin: 'agent_reported' },
+        ],
       });
-      const proposedBefore = (await expected('/api/memories/' + proposed.memory_ids[0], 200)).data;
-      ensure(proposedBefore.memory.status === 'candidate' && proposedBefore.memory.origin === 'assistant_proposed'
-        && proposedBefore.sources[0].author_role === 'assistant' && proposedBefore.sources[0].origin === 'assistant_proposed',
-      'assistant proposal became a user assertion before owner review');
       await indexed();
-      sameStatements(await recall(b, semanticQuery, { source: proposed.source_ids[0] }), [],
-        'unconfirmed assistant proposal entered default recall');
-      sameStatements(await recall(b, semanticQuery, { status: 'candidate', source: proposed.source_ids[0] }), [proposal],
-        'assistant proposal was absent from the review queue');
-      const dismissed = (await expected(`/api/memories/${proposedBefore.memory.id}/review`, 200, {
-        body: { action: 'dismiss', expected_revision: proposedBefore.memory.revision },
-      })).data.memory;
-      ensure(dismissed.id === proposedBefore.memory.id && dismissed.revision === 2 && dismissed.status === 'dismissed'
-        && dismissed.origin === 'assistant_proposed' && dismissed.statement === proposal && dismissed.authoritative === false,
-      'owner dismissal changed the proposal text or mislabeled acceptance');
-      sameStatements(await recall(b, semanticQuery, { source: proposed.source_ids[0] }), [],
-        'dismissed assistant proposal remained in default recall');
-      sameStatements(await recall(b, semanticQuery, { status: 'candidate', source: proposed.source_ids[0] }), [],
-        'dismissed assistant proposal remained in the review queue');
-      const dismissedDetail = (await expected('/api/memories/' + dismissed.id, 200)).data;
-      ensure(dismissedDetail.sources.length === 1 && dismissedDetail.sources[0].id === proposed.source_ids[0]
-        && dismissedDetail.sources[0].text === proposal && dismissedDetail.sources[0].author_role === 'assistant'
-        && dismissedDetail.sources[0].origin === 'assistant_proposed' && dismissedDetail.sources[0].extraction_blocked === true
-        && dismissedDetail.revisions.length === 2
-        && dismissedDetail.revisions[0].statement === proposal && dismissedDetail.revisions[0].origin === 'assistant_proposed'
-        && dismissedDetail.revisions[0].status === 'superseded'
-        && dismissedDetail.revisions[1].origin === 'assistant_proposed' && dismissedDetail.revisions[1].status === 'dismissed',
-      'dismissal did not preserve inspectable original assistant provenance and history');
-      const exported = (await expected('/api/export', 200)).data;
-      ensure(exported.memories.some((memory: any) => memory.id === dismissed.id && memory.status === 'dismissed')
-        && exported.sources.some((source: any) => source.id === proposed.source_ids[0]
-          && source.author_role === 'assistant' && source.origin === 'assistant_proposed')
-        && exported.revisions.some((revision: any) => revision.memory_id === dismissed.id
-          && revision.revision === 1 && revision.origin === 'assistant_proposed'),
-      'export lost the dismissed proposal or its original provenance/history');
-      await remove(dismissed);
-      await expected('/api/memories/' + dismissed.id, 404);
-      await expected('/api/sources/' + proposed.source_ids[0], 404, { token: grantB.token });
+      const delivered = await recall(b, semanticQuery, { source: grantA.client.id });
+      for (const [statement, origin] of [[proposal, 'assistant_proposed'], [reported, 'agent_reported']]) {
+        const memory = delivered.memories.find((memory: any) => memory.statement === statement);
+        ensure(memory?.status === 'active' && memory.origin === origin && memory.authoritative === false
+          && memory.evidence[0].author_role === 'assistant' && memory.evidence[0].origin === origin,
+        'delivered agent context was mislabeled as a user assertion or acceptance');
+        const original = (await expected('/api/memories/' + memory.id, 200)).data;
+        ensure(original.revisions.length === 1 && original.sources.length === 1
+          && original.sources[0].text === statement && original.sources[0].origin === origin,
+        'delivery rewrote the original agent context or created endorsement history');
+        for (const token of [grantA.token, grantB.token]) await expected(`/api/memories/${memory.id}`, 403, {
+          method: 'DELETE', token, body: { expected_revision: memory.revision, preview_hash: 'not-owner-authorized' },
+        });
+        await remove(memory);
+        await expected('/api/memories/' + memory.id, 404);
+        await expected('/api/sources/' + memory.evidence[0].source_id, 404, { token: grantB.token });
+        await toolDenied(b, 'context_get_source', { source_id: memory.evidence[0].source_id });
+        sameStatements(await recall(b, semanticQuery, { source: memory.evidence[0].source_id }), [],
+          'forgotten agent context remained delivered');
+      }
+      const exported = JSON.stringify((await expected('/api/export', 200)).data);
+      ensure(!exported.includes(proposal) && !exported.includes(reported), 'export retained forgotten agent context');
+      ensure(proposed.memory_ids.length === 2, 'agent context capture did not admit both independent memories');
     });
     await stage('authoritative profile correction and complete preference deletion', async () => {
       dl = await patch(dl, correctedDeadline);
       await remove(pref);
       await expected(`/api/sources/${pref.evidence[0].source_id}`, 404, { token: grantB.token });
       await toolDenied(b, 'context_get_source', { source_id: pref.evidence[0].source_id });
-      await expected('/api/memories/' + confirmed.id, 404);
-      await expected('/api/sources/' + confirmationSourceId, 404, { token: grantB.token });
-      await toolDenied(b, 'context_get_source', { source_id: confirmationSourceId });
+      await expected('/api/memories/' + corrected.id, 404);
+      await expected('/api/sources/' + correctionSourceId, 404, { token: grantB.token });
+      await toolDenied(b, 'context_get_source', { source_id: correctionSourceId });
       for (const client of [a, b]) sameStatements(await recall(client, 'deadline'), [correctedDeadline], 'fresh lexical recall retained an obsolete assertion');
-      sameStatements(await recall(b, semanticQuery, { status: 'candidate' }), [], 'deletion retained the preference inference');
+      sameStatements(await recall(b, semanticQuery, { source: pref.evidence[0].source_id }), [], 'deletion retained the preference interpretation');
       await indexed();
       for (const client of [a, b]) {
         const fresh = await recall(client);
         sameStatements(fresh, [correctedDeadline], 'fresh hybrid recall retained deleted or obsolete context');
         const memory = fresh.memories[0];
-        ensure(memory.revision === 2 && memory.authoritative === true && memory.origin === 'user_explicit'
-          && memory.evidence[0].quote === correctedDeadline && memory.evidence[0].capture_method === 'profile_correction',
+        ensure(memory.revision === 2 && memory.authoritative === true && memory.origin === 'user_confirmed'
+          && memory.evidence[0].origin === 'user_confirmed' && memory.evidence[0].quote === correctedDeadline && memory.evidence[0].capture_method === 'profile_correction',
         'correction was not authoritative current-revision profile evidence');
       }
       const exported = JSON.stringify((await expected('/api/export', 200)).data);
-      ensure(!exported.includes(preference) && !exported.includes(inference) && !exported.includes(confirmedInference),
-        'export retained deleted original, inferred or confirmed preference content');
+      ensure(!exported.includes(preference) && !exported.includes(inference) && !exported.includes(correctedInference),
+        'export retained deleted original, inferred or corrected preference content');
       await expected(`/api/memories/${dl.id}`, 409, { method: 'PATCH', body: { statement: deadline, expected_revision: 1 } });
     });
     await stage('owner capture pause rejects new saves and replay while authorized recall and queued extraction continue', async () => {
