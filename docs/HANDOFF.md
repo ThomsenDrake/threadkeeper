@@ -1,5 +1,11 @@
 # Threadkeeper handoff
 
+## README screenshots — 2026-10-10
+
+Replaced all seven README screenshots with the instrument-room production UI from main `adc64b081e89cf706bfe9b9b3d6e1c73383e59e7`: desktop Record overview, phone overview, correction with both source revisions, candidate review, connection controls, saved/pending/failed captures with retry, and portability. The image descriptions now identify the Record overview and accurately describe the two example credentials.
+
+`pnpm build` passed with Node 24.19.0 and pinned pnpm 11.25.0. Chromium 151 captured the actual built app and Express API against disposable PGlite with synthetic Maya/Harbor Notes data. The candidate and failed capture use deterministic fixture extraction through the real store; no inference provider or installed assistant was exercised. Desktop capture width was 1512 CSS pixels; the phone image is a scrolled 390×768 viewport at 2× resolution. Visual review checked all seven images, complete correction evidence, review actions, capture retry, and absence of tokens. All seven README image links resolve; browser capture reported no runtime exceptions or phone document overflow. Application code is unchanged, so the full behavioral suite was not rerun.
+
 [README.md](../README.md) is the customer-facing product introduction. Agent orientation, local commands, and the compact status snapshot are in [DEVELOPMENT.md](DEVELOPMENT.md). This file remains the evidence log.
 
 ## Instrument-room live profile implementation — 2026-10-08
