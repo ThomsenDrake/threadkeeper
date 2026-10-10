@@ -8,9 +8,9 @@ You stay in charge of that memory. You can read everything that is remembered, s
 
 > **Early preview.** Threadkeeper is in private development and runs on your own computer or server. It is not yet published or available as a hosted service, and its open-source license has not been chosen yet.
 
-![Your memory profile, with search and filters](docs/images/memories.png)
+![The Record overview, with subjects, saved memories, and Inquiry](docs/images/memories.png)
 
-<sub>Screenshots use an example profile with made-up data: a writer named Maya, her project Harbor Notes, and two connected assistants.</sub>
+<sub>Screenshots use an example profile with made-up data: a writer named Maya, her project Harbor Notes, and two example assistant credentials.</sub>
 
 ## What you can do
 
@@ -20,7 +20,7 @@ Your profile lists every memory in one place, and you can add your own with **Ad
 
 The profile works on a phone, too.
 
-<img src="docs/images/memories-phone.png" alt="The same profile on a phone-sized screen" width="390">
+<img src="docs/images/memories-phone.png" alt="The Record overview on a phone-sized screen" width="390">
 
 ### Fix it in one step
 
