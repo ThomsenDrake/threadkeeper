@@ -566,7 +566,7 @@
     if (S.mode === 'correct') {
       return `<form class="action-panel correct-panel" id="correct-form">
         <h3 class="minor-title">Correct this memory</h3>
-        <p class="panel-note">Your wording takes effect immediately and becomes authoritative. No model reviews it. The original source stays preserved alongside your correction.</p>
+        <p class="panel-note">Agents receive your wording immediately. The original source and earlier wording stay in history.</p>
         <label class="field-label" for="correct-input">Corrected wording</label>
         <div class="engraving-field"><textarea id="correct-input" rows="3">${esc(current(m).statement)}</textarea></div>
         <label class="field-label" for="correct-effective">Effective date</label>
@@ -615,7 +615,7 @@
           ${enclosure('enclosure-evidence', `<p class="prov-label">Source event</p>${srcs}`, '<span class="port port-out" aria-hidden="true"></span>')}
         </div>
         <div class="prov-cell prov-junction">
-          <span class="junction-seal">${GL.seal({ size: 46, centre: r.judgment.kind === 'correction' ? 'check' : 'monogram' })}</span>
+          <span class="junction-seal">${GL.seal({ size: 46, centre: 'monogram' })}</span>
           <span class="junction-label">${esc(r.judgment.label)}</span>
           <span class="junction-detail">${esc(r.judgment.detail)}</span>
         </div>

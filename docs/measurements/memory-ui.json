@@ -1,0 +1,72 @@
+{
+  "mode": "Synthetic disposable PGlite profile, Chromium",
+  "checks": [
+    "All four captured origins and an imported legacy candidate are current without approval; the list has no queue or correction/deletion actions, and only recall-capable agents appear in availability.",
+    "Every source label has equal neutral styling; memory details offer the same Correct/Forget controls, labels and automatic availability with read/project scopes.",
+    "A UI correction becomes authoritative user_confirmed wording immediately; its inferred earlier revision and original source remain in history.",
+    "Default Inquiry recalls statements, corrected wording, agent reports, inferences and assistant contributions with source attribution and no acceptance framing; dismissed memory and superseded wording are absent.",
+    "Legacy dismissed memory stays inspectable and has no Correct action; the Record and memory details fit a 390px mobile viewport.",
+    "Concurrent supersession closes the correction editor and offers inspection/deletion only; concurrent forgetting closes the editor and reports that the memory is unavailable.",
+    "Forget removes the assistant-origin memory from immediate default recall while corrected context remains available; there were no browser runtime errors."
+  ],
+  "browser_errors": [],
+  "screenshots": {
+    "mode": "Synthetic disposable PGlite; actual production React/Express profile; Chromium",
+    "screenshots": [
+      "/workspace/threadkeeper/docs/images/memories.png",
+      "/workspace/threadkeeper/docs/images/memories-phone.png",
+      "/workspace/threadkeeper/docs/images/memory-detail.png",
+      "/workspace/threadkeeper/docs/images/memory-source.png",
+      "/workspace/threadkeeper/docs/images/connections.png",
+      "/workspace/threadkeeper/docs/images/captures.png",
+      "/workspace/threadkeeper/docs/images/portability.png"
+    ],
+    "browser_errors": []
+  },
+  "prototype": {
+    "checks": [
+      "Uniform neutral source labels/marks",
+      "Assistant memory details and preserved sources without acceptance framing"
+    ],
+    "browser_errors": []
+  },
+  "validation": {
+    "node": "24.19.0",
+    "pnpm": "11.25.0",
+    "typecheck": "passed",
+    "production_build": "passed",
+    "browser_groups": 7,
+    "full_unit_suite": "Not rerun for UI-only copy, styles and screenshots; preceding lifecycle baseline remains historical."
+  },
+  "source_sha256": {
+    "apps/web/src/App.tsx": "a3bde9a13648a5b049d893700bd88707b53b23382ffc73176f4c33b162661d76",
+    "apps/web/src/Inquiry.tsx": "cb6914933bd76f8921a926df81f6b464c945d12aa50583ddaea955681142ce70",
+    "apps/web/src/Record.tsx": "285e6f8d082fde7f783676408bc5c5606c3b4dd138ef99ce526006d2fe57bfba",
+    "apps/web/src/origins.ts": "e3f4e38b84c1abcb2c3995f1d2afa87ca14fbabe96a5e4291598a8a65171a04d",
+    "apps/web/src/styles.css": "fd2ff465b8ad8fd9c368b26ea989d4e304a527a6f25079c3487e7f9c6f37e13f",
+    "apps/web/src/instrument-room.css": "cb7ceb74c52c3fe473a022b46bdb1eb8022dcc44f08656690333955d8388eec4",
+    "apps/web/src/InstrumentRoom.tsx": "613f6438cee29211cbbc21598bed8ffb46840ce3476e683ae458544e2dac0414",
+    "apps/api/src/app.ts": "8bbf90d399b4b285d6c1c9a608602e86970efc421d7fac431b341aa22557aea3",
+    "packages/core/src/index.ts": "dccacd16794192cc0e9fbbbaf059a778ff81a87fcb83fef8621e88ae25e5d8a3",
+    "prototypes/instrument-room/app.js": "a4b4124bb3170979c07180113610a5a857c315ab48ca0c4649a2092779f6c30f",
+    "prototypes/instrument-room/styles.css": "14ffae155f693a4cebed25a7a75bee7b2844d535df22f2e83b510cd34e6c60ec"
+  },
+  "build_sha256": {
+    "apps/web/dist/assets/index-OKkzwXT-.js": "2d96ac570eb4a61ed9ba2366f1b9a30c26a8ac01ad154ce53882686061b7423f",
+    "apps/web/dist/assets/index-OKkzwXT-.js.map": "37a49c49d0f6a02a1bd175a6f51cc8857f78e578f3bd66c19795bead621d799d",
+    "apps/web/dist/assets/index-rQzJP881.css": "4e7dc446396113d04643d462e27f346759bb9fe47280328e6e6a1383f8993022",
+    "apps/web/dist/index.html": "cc256c0114d563f3c73f42c5e0a6e0f0cb53012e7cfcc2c3239f2b008c62a111"
+  },
+  "screenshot_sha256": {
+    "docs/images/memories.png": "5c33c3c87761d126b56dbfea2aef93478203a428243a32d4b79daeadec9de19b",
+    "docs/images/memories-phone.png": "c769002ca76f33def00a4e82ee36213e873f75570e94439399ecc04282a728ae",
+    "docs/images/memory-detail.png": "7b383841541a24e08387c4113b44aea58dcfacb21a3ca9055e84578cedb90d3c",
+    "docs/images/memory-source.png": "e2f8eca52e9b24f4ec6e1f6ad3eb4d450ec6dd7980aee9f8d4c104b0d09e2365",
+    "docs/images/connections.png": "4bb8597ae61432c596f7274a6e0dfb014190584717e44795faf339a4ec0134dd",
+    "docs/images/captures.png": "05383be2866417437cb01a6fb533a6bfa9812653d8d9c8a5ac6ed96929c7a026",
+    "docs/images/portability.png": "14a9f9b3be83125414277166d0e622af87d10fb24883ed34830c6e935341dfdb"
+  },
+  "visual_review": "Desktop Record, 390px scrolled phone overview, assistant memory, corrected memory with both source revisions, Inquiry, Connections, Captures and portability inspected. Source labels have equal neutral styling; automatic availability and optional Correct/Forget controls are visible. No credentials or provider data are displayed.",
+  "cleanup": "Disposable browsers and both PGlite profile servers stopped; ports 3000 and 4173 are closed.",
+  "limits": "Synthetic explicit captures, imports and deterministic extraction fixtures; no learned inference, native database/container, installed MCP host or GPU check."
+}

@@ -26,13 +26,15 @@ The profile works on a phone, too.
 
 Open any memory to see the exact words it came from and every change made to it. When you correct something, your correction takes effect immediately. There is no approval step. You can also change what kind of memory it is, for example turning a "fact" into a "preference." The original wording and kind are kept alongside your correction, so you can always see what changed and why.
 
-![Correcting a launch date, with the kind selector and the original note kept as evidence](docs/images/memory-detail.png)
+![A corrected beta date, with the original wording and source history preserved](docs/images/memory-detail.png)
 
 ### See where a memory came from
 
 Every memory is available automatically. Source labels show where it came from: **You said this**, **Corrected by you**, **Reported by an agent**, **Inferred, not stated**, or **From an assistant**. You do not need to approve memories.
 
 Open a memory to inspect its sources, correct it, or forget it. Your correction becomes the wording agents receive immediately. The earlier interpretation stays in history and is no longer delivered.
+
+![A current memory from an assistant, available automatically with the same Correct and Forget controls](docs/images/memory-source.png)
 
 ### Decide what each assistant can do
 
@@ -128,7 +130,7 @@ Threadkeeper cannot reach back into copies that already left it. If an assistant
 
 ## How memories are made
 
-When an assistant sends longer material, a background processor uses an AI model to suggest memories from it. Each admitted memory becomes available immediately with its origin label.
+When an assistant sends longer material, a background processor extracts memories from it. Each memory becomes available immediately with its source label.
 
 The preset model is `nvidia/Nemotron-3_5-Lightning`, served by Nebius at `https://api.tokenfactory.nebius.com/v1/`. You can point Threadkeeper at any OpenAI-compatible model server instead, including one you run yourself, by setting `MODEL_BASE_URL` and `MODEL_ID` in `.env`.
 
