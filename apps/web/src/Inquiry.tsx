@@ -28,7 +28,7 @@ export type InquiryProps = {
 };
 
 function Origin({ value }: { value: string }) {
-  return <span className={`origin origin-${value}`} title={originDescriptions[value]}><span className="origin-mark" aria-hidden="true" />{originLabels[value] || value}</span>;
+  return <span className={`origin origin-${value}`} title={originDescriptions[value]} aria-label={`Source: ${originLabels[value] || value}`}><span className="origin-mark" aria-hidden="true" />{originLabels[value] || value}</span>;
 }
 
 function scopeLabel(question: Question) {

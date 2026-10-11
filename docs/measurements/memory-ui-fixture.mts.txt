@@ -1,0 +1,42 @@
+// Disposable synthetic fixture for production UI screenshots. No model/provider calls.
+import {createTestDatabase} from '/workspace/threadkeeper/tests/helpers.ts';
+import {bootstrap,createAuth} from '/workspace/threadkeeper/apps/api/src/auth.ts';
+import {createApp} from '/workspace/threadkeeper/apps/api/src/app.ts';
+import {createStore} from '/workspace/threadkeeper/packages/core/src/index.ts';
+import {writeFile} from 'node:fs/promises';
+const db=await createTestDatabase();
+await bootstrap(db.db,'maya@example.invalid','threadkeeper-demo-password');
+const owner=(await db.db.query('SELECT id FROM tk_users LIMIT 1')).rows[0].id;
+const auth=createAuth(db.db);
+const writer=await auth.createClient(owner,'Writing assistant',['read','capture'],null);
+await auth.createClient(owner,'Coding agent',['read','capture'],['harbor-atlas']);
+const profile={ownerId:owner,clientId:'profile',permissions:['read','capture','correct','delete','export','import'],projects:null};
+const client={...profile,clientId:writer.client.id,permissions:['read','capture']};
+const store=createStore(db.db);
+const ids={};
+async function save(key,subject,statement,kind,origin='user_explicit',project_id=null){
+ const event={id:key,text:statement,author_role:origin==='user_explicit'?'user':'assistant',origin,capture_method:'explicit_capture',occurred_at:'2026-10-08T09:00:00Z'};
+ const receipt=await store.capture(client,{idempotency_key:key,subject,project_id,events:[event],explicit_memories:[{statement,kind,source_event_id:key,quote:statement,origin}]});
+ ids[key]=receipt.memory_ids[0];return receipt;
+}
+await save('paragraphs','Maya','Use short paragraphs and plain language in my writing.','preference');
+await save('british','Maya','Use British spelling in my writing.','preference');
+await save('calls','Maya','Keep weekday calls before 15:00 so I can do the school pickup.','constraint');
+await save('beta','Harbor Atlas','The Harbor Atlas beta is due on 7 November 2026.','fact','inferred','harbor-atlas');
+await store.correct(profile,ids.beta,{statement:'The Harbor Atlas beta is due on 14 November 2026.',kind:'fact',expected_revision:1});
+await save('digest','Harbor Atlas','A weekly digest could keep the Harbor Atlas field team up to date.','project_state','assistant_proposed','harbor-atlas');
+await save('tests','Harbor Atlas','The Harbor Atlas import tests passed with the coastal sample.','project_state','agent_reported','harbor-atlas');
+await save('focus','Harbor Atlas','Keep the first Harbor Atlas release focused on coastal field notes.','decision','user_explicit','harbor-atlas');
+await save('morning','Practice','Morning drafting seems to work well for longer pieces.','preference','inferred');
+await save('commits','Practice','Use small commits with clear descriptions.','preference');
+await save('done','Practice','I keep Fridays free for reviewing the week.','constraint');
+const extractEvent=(id,text)=>({id,text,author_role:'user',origin:'user_explicit',capture_method:'explicit_capture'});
+const completed=await store.capture(client,{idempotency_key:'completed-source',subject:'Maya',project_id:null,events:[extractEvent('completed-source','I prefer meetings with a short agenda.')]});
+await store.processJob({extract:async input=>({model:'synthetic-ui-fixture',memories:input.events.map(event=>({statement:event.text,kind:'preference',source_event_id:event.id,quote:event.text,origin:'user_explicit'}))})});
+const failed=await store.capture(client,{idempotency_key:'failed-source',subject:'Harbor Atlas',project_id:'harbor-atlas',events:[extractEvent('failed-source','Please keep the Harbor Atlas launch checklist in one place.')]});
+await store.processJob({extract:async()=>{throw new Error('Synthetic UI fixture failure');}});
+await store.capture(client,{idempotency_key:'pending-source',subject:'Harbor Atlas',project_id:'harbor-atlas',events:[extractEvent('pending-source','The coastal field notes are ready for the next map review.')]});
+await writeFile('/tmp/threadkeeper-memory-ui-fixture.json',JSON.stringify({ids,completed:completed.capture_id,failed:failed.capture_id}));
+const {app}=createApp(db.db,{origin:'http://127.0.0.1:3000'});
+const server=app.listen(3000,'127.0.0.1',()=>console.log('Synthetic screenshot profile ready on port 3000.'));
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(async()=>{await db.close();process.exit(0);}));

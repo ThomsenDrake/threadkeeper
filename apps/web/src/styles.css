@@ -94,8 +94,8 @@ code { overflow-wrap: anywhere; }
 .updated { display: flex; gap: 10px; font-family: var(--face-ui); font-size: 10px; color: var(--bone-faint); }
 .updated small { font: inherit; }
 .badge { display: inline-block; padding: 4px 7px; border: 1px solid var(--electrum-faint); font-family: var(--face-ui); font-size: 10px; line-height: 1.4; color: var(--bone-dim); }
-.origin-user_explicit, .origin-user_confirmed, .status-active, .capture-status-complete, .capture-status-saved { color: var(--electrum-hi); }
-.origin-inferred, .origin-assistant_proposed, .capture-status-pending { color: #d4b8cc; border-color: #9c708c66; }
+.status-active, .capture-status-complete, .capture-status-saved { color: var(--electrum-hi); }
+.capture-status-pending { color: #d4b8cc; border-color: #9c708c66; }
 .status-disputed, .capture-status-failed { color: var(--oxblood-text); border-color: var(--oxblood-hi); }
 .list-progress, .memory-footer { padding: 18px 0; text-align: center; font-family: var(--face-ui); font-size: 12px; color: var(--bone-dim); }
 .memory-footer { font-size: 10px; }

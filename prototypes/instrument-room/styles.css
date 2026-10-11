@@ -627,15 +627,9 @@ button, input, textarea { font: inherit; color: inherit; }
 /* origin labels */
 .origin {
   display: inline-flex; align-items: center; gap: 7px;
-  font-family: var(--face-ui); font-size: 12px; line-height: 1.3; color: var(--bone-dim); white-space: nowrap;
+  font-family: var(--face-ui); font-size: 12px; font-style: normal; line-height: 1.3; color: var(--bone-dim); white-space: nowrap;
 }
-.origin-mark { flex: none; width: 9px; height: 9px; }
-.origin-user_explicit .origin-mark { background: var(--electrum); transform: rotate(45deg) scale(0.85); }
-.origin-user_confirmed .origin-mark { background: var(--bone); transform: rotate(45deg) scale(0.85); box-shadow: 0 0 0 2px var(--carbon), 0 0 0 3px var(--electrum); }
-.origin-agent_reported .origin-mark { border: 1.5px solid #9aa0a6; }
-.origin-inferred .origin-mark { border: 1.5px dashed var(--electrum); border-radius: 50%; }
-.origin-assistant_proposed .origin-mark { background: transparent; border: 0; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--bone-faint); }
-.origin-assistant_proposed, .origin-inferred { font-style: italic; }
+.origin-mark { flex: none; width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50%; }
 
 /* ---------------------------------------------------------------- overview */
 
@@ -708,12 +702,7 @@ button, input, textarea { font: inherit; color: inherit; }
   display: flex; gap: 2px; height: 12px; padding: 2px; margin-bottom: 14px;
   background: #060707; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(223, 218, 206, 0.06);
 }
-.assay-seg { min-width: 4px; }
-.assay-user_explicit { background: linear-gradient(180deg, #e9dbb2, #bca477 50%, #7d6a48); }
-.assay-user_confirmed { background: linear-gradient(180deg, #f2eee4, #cfc9bb 60%, #9f9a8e); }
-.assay-agent_reported { background: linear-gradient(180deg, #8c9297, #5f6469); }
-.assay-inferred { background: repeating-linear-gradient(135deg, #bca477 0 2px, #3a3227 2px 5px); }
-.assay-assistant_proposed { background: repeating-linear-gradient(45deg, rgba(223, 218, 206, 0.6) 0 2px, #222 2px 5px); }
+.assay-seg { min-width: 4px; background: linear-gradient(180deg, #8c9297, #5f6469); }
 .assay-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .assay-key li { display: flex; justify-content: space-between; gap: 10px; }
 .lately ol { list-style: none; margin: 0; padding: 0; }
@@ -786,8 +775,6 @@ button, input, textarea { font: inherit; color: inherit; }
   margin: 0; max-width: 30em;
   font-family: var(--face-text); font-size: 28px; line-height: 1.38; color: var(--bone);
 }
-.statement.is-proposal::before { border-left-style: dashed; }
-.statement.is-proposal p { font-style: italic; color: var(--bone-dim); }
 
 .particulars { margin: 0 0 26px; display: grid; gap: 0; border-top: 1px solid rgba(223, 218, 206, 0.08); }
 .particulars > div { display: grid; grid-template-columns: 11em 1fr; gap: 18px; padding: 11px 0; border-bottom: 1px solid rgba(223, 218, 206, 0.08); }
